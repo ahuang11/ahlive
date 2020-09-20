@@ -1,0 +1,8 @@
+pygifsicle
+matplotlib
+imageio
+pandas
+xarray
+numpy
+param
+dask
