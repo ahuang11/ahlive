@@ -37,9 +37,15 @@ class Easing(param.Parameterized):
         doc='Timing of when easing is applied')
     frames = param.Number(
         default=30, bounds=(1, None),
-        doc='Number of frames per state')
-    boomerang = param.Boolean(
-        default=True, doc='Whether to return to the initial state')
+        doc='Number of frames per transition to next state')
+    loop = param.ObjectSelector(
+        default='boomerang',
+        objects=['boomerang', 'traceback'] + list(range(0, 999)),
+        doc='Number of times the animation plays; '
+            'select 0, boomerang, or traceback to play indefinitely with '
+            'boomerang finding the shortest path to the initial state and '
+            'traceback backtracks the original path to the initial state.'
+        )
 
     def __init__(self, **kwds):
         super().__init__(**kwds)
@@ -52,13 +58,21 @@ class Easing(param.Parameterized):
         array = np.array(da)
         if array.ndim == 1:
             array = array.reshape(-1, len(array))
-        if self.boomerang:
+        if self.loop == 'boomerang':
             array = np.hstack([array, array[:, :1]])
         len_items, len_states = array.shape
 
         steps = np.linspace(0, 1, self.frames)
         len_steps = len(steps)
-        if np.issubdtype(array.dtype, np.number):
+        if name == 'duration':
+            len_result = (len_states - 1) * len_steps
+            result = np.zeros(len_result) + 1 / 60.
+            indices = np.arange(len_states) * len_steps
+            indices[-1] -= 1
+            result[indices] = array[0]
+            result = result.reshape(1, -1)
+            print(result)
+        elif np.issubdtype(array.dtype, np.number):
             init = np.repeat(array[:, :-1], len_steps).reshape(len_items, -1)
             stop = np.repeat(array[:, 1:], len_steps).reshape(len_items, -1)
             tiled_steps = np.tile(
@@ -66,9 +80,9 @@ class Easing(param.Parameterized):
             ).reshape(len_items, -1)
             weights = getattr(self, f'_{self.method}')(tiled_steps)
             result = stop * weights + init * (1 - weights)
-        elif 'label' in da.name:
+        elif 'label' in name:
             result = np.repeat(array[:, 1:], len_steps).reshape(len_items, -1)
-        elif da.name.startswith('c'):
+        elif name.startswith('c'):
             results = []
             for colors in array:
                 cmap = LinearSegmentedColormap.from_list('eased', colors)
@@ -77,6 +91,10 @@ class Easing(param.Parameterized):
             result = np.array(results)
         else:
             raise NotImplementedError
+
+        if self.loop == 'traceback':
+            result = np.hstack([result, result[:, ::-1]])
+        print(result.shape)
 
         if is_xarray:
             if len(da.dims) > 1:

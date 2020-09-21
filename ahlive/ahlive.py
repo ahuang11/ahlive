@@ -62,6 +62,8 @@ class Ahlive(Easing, Animation):
             y0_limits=None,
             y1_limits=None
         ):
+        if not self.ds:
+            raise ValueError('First use add_arrays method at least once!')
 
         limits = {
             'x0_limit': x0_limits,
@@ -69,9 +71,6 @@ class Ahlive(Easing, Animation):
             'y0_limit': y0_limits,
             'y1_limit': y1_limits
         }
-
-        if not self.ds:
-            raise ValueError('First use add_arrays method at least once!')
 
         paddings = {}
         for key, limit in limits.items():
@@ -103,17 +102,30 @@ class Ahlive(Easing, Animation):
                     limit = np.repeat(limit.values, len(self.ds['state']))
             self.ds[key] = ('state', limit)
 
+    def add_durations(self, durations):
+        self.ds['duration'] = ('state', durations)
+
     def save(self):
         ds_eased = self.ds.reset_coords().apply(self.interp)
+        duration = ds_eased['duration'].values.tolist()
+        ds_eased = ds_eased.drop('duration')
+
         with dask.diagnostics.ProgressBar(minimum=3):
             buf_list = dask.compute([
                 self._draw(ds_eased, state)
                 for state in ds_eased['state'].values
             ], scheduler='processes', num_workers=self.num_workers)[0]
 
+        if isinstance(self.loop, bool):
+            loop = int(not self.loop)
+        elif isinstance(self.loop, str):
+            loop = 0
+        else:
+            loop = self.loop
+
         with imageio.get_writer(
             self.out_fp, format='gif', mode='I',
-            subrectangles=True, fps=60
+            subrectangles=True, duration=duration, loop=loop
         ) as writer:
             for buf in buf_list:
                 image = imageio.imread(buf)
