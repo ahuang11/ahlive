@@ -1,39 +1,57 @@
+from collections.abc import Iterable
+
 import dask
 import param
-import imageio
 import numpy as np
 import xarray as xr
-from pygifsicle import optimize
 
 from .easing import Easing
 from .animation import Animation
 
-LABELS = ['item_label', 'state_label']
-LIMITS = ['xlim0', 'xlim1', 'ylim0', 'ylim1']
+OPTIONS = {
+    'limit': ['min', 'max', 'follow', 'explore']
+}
 
 
 class Ahlive(Easing, Animation):
+
+    state_labels = param.List(default=None, allow_None=True)
+    x0_limits = param.ClassSelector(
+        default='min', class_=(Iterable, int, float)
+    )
+    x1_limits = param.ClassSelector(
+        default='explore', class_=(Iterable, int, float)
+    )
+    y0_limits = param.ClassSelector(
+        default='min', class_=(Iterable, int, float)
+    )
+    y1_limits = param.ClassSelector(
+        default='explore', class_=(Iterable, int, float)
+    )
+    durations = param.ClassSelector(
+        default=1 / 60, class_=(Iterable, int, float)
+    )
+
     def __init__(self, **kwds):
         super().__init__(**kwds)
 
-    def add_arrays(self, x, y, **input_data_vars):
-        num_states = len(x)
+    def add_arrays(self, xs, ys, inline_labels=None, label=None,
+                   **input_data_vars):
+        num_states = len(xs)
+        if inline_labels is None:
+            inline_labels = np.repeat('', num_states)
         data_vars = input_data_vars.copy()
-        data_vars.update({'x': x, 'y': y})
+        data_vars.update({'x': xs, 'y': ys, 'inline_label': inline_labels})
         item_num = len(self.ds['item']) if self.ds else 0
-        coords = {'item': [item_num], 'state': range(num_states)}
+        coords = {'item': [item_num], 'state': range(num_states),
+                  'label': ('item', [label])}
         for var in list(data_vars.keys()):
             val = data_vars.pop(var)
-            if var in LABELS:
-                raise ValueError(f'Use add_labels method to add {var}')
-            elif var in LIMITS:
-                raise ValueError(f'Use add_limits method to add {var}')
-            else:
-                dims = ('item', 'state')
-                if len(np.atleast_1d(val)) == 1:
-                    val = [val] * num_states
-                val = np.reshape(val, (1, -1))
-                data_vars[var] = dims, val
+            dims = ('item', 'state')
+            if len(np.atleast_1d(val)) == 1:
+                val = [val] * num_states
+            val = np.reshape(val, (1, -1))
+            data_vars[var] = dims, val
         ds = xr.Dataset(data_vars=data_vars, coords=coords)
 
         if self.ds is None:
@@ -41,39 +59,25 @@ class Ahlive(Easing, Animation):
         else:
             self.ds = xr.concat([self.ds, ds], 'item')
 
-    def add_labels(self, state_labels=None, item_labels=None):
-        if state_labels is None and item_labels is None:
-            raise ValueError('Provide either state_labels or item_labels!')
-        elif not self.ds:
-            raise ValueError('First use add_arrays method at least once!')
+    def _add_state_labels(self):
+        if self.state_labels:
+            self.ds['state_label'] = ('state', self.state_labels)
 
-        if state_labels:
-            self.ds['state_label'] = ('state', state_labels)
-
-        if item_labels:
-            item_labels = np.reshape(item_labels, (1, -1)).transpose()
-            item_labels = np.tile(item_labels, len(self.ds['state']))
-            self.ds['item_label'] = (('item', 'state'), item_labels)
-
-    def add_limits(
-            self,
-            x0_limits=None,
-            x1_limits=None,
-            y0_limits=None,
-            y1_limits=None
-        ):
-        if not self.ds:
-            raise ValueError('First use add_arrays method at least once!')
-
+    def _add_xy01_limits(self):
         limits = {
-            'x0_limit': x0_limits,
-            'x1_limit': x1_limits,
-            'y0_limit': y0_limits,
-            'y1_limit': y1_limits
+            'x0_limit': self.x0_limits,
+            'x1_limit': self.x1_limits,
+            'y0_limit': self.y0_limits,
+            'y1_limit': self.y1_limits
         }
 
         paddings = {}
         for key, limit in limits.items():
+            if isinstance(limit, str):
+                if limit not in OPTIONS['limit']:
+                    raise ValueError(
+                        f'Select from {OPTIONS["limit"]} if using a string; '
+                        f'got {limit} for {key}!')
             axis = key[0]
             left = int(key[1]) == 0
             if limit is None:
@@ -102,34 +106,18 @@ class Ahlive(Easing, Animation):
                     limit = np.repeat(limit.values, len(self.ds['state']))
             self.ds[key] = ('state', limit)
 
-    def add_durations(self, durations):
+    def _add_durations(self):
+        if isinstance(self.durations, (int, float)):
+            durations = np.repeat(self.durations, len(self.ds['state']))
+        else:
+            durations = self.durations
         self.ds['duration'] = ('state', durations)
 
     def save(self):
-        ds_eased = self.ds.reset_coords().apply(self.interp)
-        duration = ds_eased['duration'].values.tolist()
-        ds_eased = ds_eased.drop('duration')
-
-        with dask.diagnostics.ProgressBar(minimum=3):
-            buf_list = dask.compute([
-                self._draw(ds_eased, state)
-                for state in ds_eased['state'].values
-            ], scheduler='processes', num_workers=self.num_workers)[0]
-
-        if isinstance(self.loop, bool):
-            loop = int(not self.loop)
-        elif isinstance(self.loop, str):
-            loop = 0
-        else:
-            loop = self.loop
-
-        with imageio.get_writer(
-            self.out_fp, format='gif', mode='I',
-            subrectangles=True, duration=duration, loop=loop
-        ) as writer:
-            for buf in buf_list:
-                image = imageio.imread(buf)
-                writer.append_data(image)
-        optimize(self.out_fp)
-        gif = imageio.get_reader(self.out_fp)
-        return gif
+        self._add_state_labels()
+        self._add_xy01_limits()
+        self._add_durations()
+        ds = self.ds.reset_coords()
+        ds = ds.apply(self.interp)
+        print(ds)
+        super().save(ds)

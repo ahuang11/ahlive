@@ -54,6 +54,8 @@ class Easing(param.Parameterized):
     def interp(self, da, name=''):
         is_xarray = isinstance(da, xr.DataArray)
         if is_xarray: name = da.name
+        if name == 'label':
+            return da
 
         array = np.array(da)
         if array.ndim == 1:
@@ -71,7 +73,6 @@ class Easing(param.Parameterized):
             indices[-1] -= 1
             result[indices] = array[0]
             result = result.reshape(1, -1)
-            print(result)
         elif np.issubdtype(array.dtype, np.number):
             init = np.repeat(array[:, :-1], len_steps).reshape(len_items, -1)
             stop = np.repeat(array[:, 1:], len_steps).reshape(len_items, -1)
@@ -94,7 +95,6 @@ class Easing(param.Parameterized):
 
         if self.loop == 'traceback':
             result = np.hstack([result, result[:, ::-1]])
-        print(result.shape)
 
         if is_xarray:
             if len(da.dims) > 1:
