@@ -10,72 +10,124 @@ from pygifsicle import optimize
 from matplotlib import pyplot as plt
 
 
+STATE_VARS = [
+    'duration', 'label', 'x0_limit', 'x1_limit', 'y0_limit', 'y1_limit']
+
+SIZES = {
+    'small': 15,
+    'medium': 18,
+    'large': 20,
+    'super': 28
+}
+
+
 class Animation(param.Parameterized):
 
-    ds = param.ObjectSelector(default=None, allow_None=True)
+    ds = param.ObjectSelector(default=xr.Dataset(), allow_None=True)
     plot = param.ObjectSelector(
         default='scatter', objects=['scatter', 'line'])
     num_workers = param.Integer(default=8, bounds=(1, None))
     out_fp = param.Path(default='untitled.gif')
 
+    minimalist = param.Boolean(default=True)
+    figsize = param.Tuple(default=(10, 8))
+    title = param.String(default=None, allow_None=True)
+    xlabel = param.String(default=None, allow_None=True)
+    ylabel = param.String(default=None, allow_None=True)
+
     def __init__(self, **kwds):
         super().__init__(**kwds)
 
-    @staticmethod
+        plt.rc('font', size=SIZES['small'])
+        plt.rc('axes', labelsize=SIZES['medium'])
+        plt.rc('xtick', labelsize=SIZES['small'])
+        plt.rc('ytick', labelsize=SIZES['small'])
+        plt.rc('legend', fontsize=SIZES['small'])
+        plt.rc('figure', titlesize=SIZES['large'])
+
     @dask.delayed()
-    def _draw(ds_state, plot, vmin=None, vmax=None):
+    def _draw(self, ds_state):
         fig_kwds = ds_state.attrs
-
-        plot_kwds = {
-            var: ds_state[var].values
-            for var in ds_state.data_vars
-            if var != 'state'
-        }
-
-        has_colors = 'c' in plot_kwds
-        if has_colors:
-            plot_kwds['cmap'] = 'RdBu_r'
-            plot_kwds['vmin'] = vmin.values
-            plot_kwds['vmax'] = vmax.values
-
-        x = plot_kwds.pop('x')
-        y = plot_kwds.pop('y')
-        x0_limit = plot_kwds.pop('x0_limit').item()
-        x1_limit = plot_kwds.pop('x1_limit').item()
-        y0_limit = plot_kwds.pop('y0_limit').item()
-        y1_limit = plot_kwds.pop('y1_limit').item()
+        fig_kwds['figsize'] = self.figsize
 
         axes_kwds = {
-            'xlim': (x0_limit, x1_limit),
-            'ylim': (y0_limit, y1_limit)
+            'xlim': (
+                ds_state['x0_limit'].item(),
+                ds_state['x1_limit'].item()
+            ),
+            'ylim': (
+                ds_state['y0_limit'].item(),
+                ds_state['y1_limit'].item()
+            ),
+            'title': self.title,
+            'xlabel': self.xlabel,
+            'ylabel': self.ylabel,
         }
 
-        inline_labels = plot_kwds.pop('inline_label', np.array([])).round(2)
-        state_label = plot_kwds.pop('state_label', np.array(''))
-        if isinstance(state_label.item(), float):
-            state_label = f'{state_label:.0f}'
+        if self.minimalist:
+            axes_kwds['xlabel'] = f'Higher {self.xlabel} ➜'
+            axes_kwds['ylabel'] = f'Higher {self.ylabel} ➜'
+            axes_kwds['xticks'] = [
+                round(float(ds_state['x'].min()), 1),
+                round(float(ds_state['x'].max()), 1),
+            ]
+            axes_kwds['yticks'] = [
+                round(float(ds_state['y'].min()), 1),
+                round(float(ds_state['y'].max()), 1),
+            ]
 
         fig = plt.figure(**fig_kwds)
         ax = plt.axes(**axes_kwds)
 
-        for i, inline_label in enumerate(inline_labels):
-            sub_kwds = {
-                key: val[i:i + 1]
-                if len(np.atleast_1d(val)) > 1 else val
-                for key, val in plot_kwds.items()}
-            label = sub_kwds.pop('label')[0]
-            image = getattr(ax, plot)(
-                x[i:i + 1], y[i:i + 1],
-                label=label, **sub_kwds)
-            ax.annotate(
-                inline_label, xy=(x[i], y[i]),
-                xycoords='data', xytext=(1.5, 1.5),
-                ha='left', va='bottom', textcoords='offset points')
-        if has_colors: plt.colorbar(image)
+        base_kwds = {}
+        has_colors = 'c' in ds_state
+        if has_colors:
+            base_kwds['cmap'] = 'RdBu_r'
+            base_kwds['vmin'] = self.vmin.values
+            base_kwds['vmax'] = self.vmax.values
 
-        ax.text(0.05, 0.95, state_label, transform=ax.transAxes,
-                fontsize=16, fontweight='bold', va='top')
-        ax.legend()
+        for label, ds_overlay in ds_state.groupby('label'):
+            plot_kwds = base_kwds.copy()
+            plot_kwds.update({
+                var: ds_overlay[var].values
+                for var in ds_overlay if var not in STATE_VARS
+            })
+
+            if 'alpha' in plot_kwds:
+                plot_kwds['alpha'] = plot_kwds['alpha'][0]
+
+            x = plot_kwds.pop('x')
+            y = plot_kwds.pop('y')
+
+            if 'state_label' in plot_kwds:
+                state_label = plot_kwds.pop('state_label')
+                if isinstance(state_label.flat[0], float):
+                    state_label = f'{state_label:.0f}'
+                ax.text(0.9, 0.9, state_label, transform=ax.transAxes,
+                        fontsize=SIZES['super'], alpha=0.9)
+
+            if 'inline_label' in plot_kwds:
+                inline_labels = plot_kwds.pop('inline_label')
+                if isinstance(inline_labels.flat[0], float):
+                    inline_labels = np.array(inline_labels).round(2)
+                for i, inline_label in enumerate(inline_labels):
+                    ax.annotate(
+                        inline_label, xy=(x[i], y[i]),
+                        xycoords='data', xytext=(1.5, 1.5),
+                        ha='left', va='bottom', textcoords='offset points')
+
+            image = getattr(ax, self.plot)(x, y, label=label, **plot_kwds)
+
+        if has_colors:
+            plt.colorbar(image)
+
+        if ax.get_legend_handles_labels()[1]:
+            ax.legend()
+
+        plt.box(False)
+        ax.tick_params(
+            axis='both', which='both', length=0, color='gray')
+        ax.grid()
 
         buf = BytesIO()
         plt.savefig(buf, format='png')
@@ -84,14 +136,15 @@ class Animation(param.Parameterized):
         return buf
 
     def save(self, ds):
+        if 'label' not in ds:
+            ds['label'] = ('item', np.repeat('', len(ds['item'])))
+
         if 'duration' in ds:
             duration = ds['duration'].values.tolist()
-            ds = ds.drop('duration')
 
-        draw_kwds = dict(plot=self.plot)
         if 'c' in ds:
-            draw_kwds['vmin'] = ds['c'].min()
-            draw_kwds['vmax'] = ds['c'].max()
+            self.vmin = ds['c'].min()
+            self.vmax = ds['c'].max()
 
         num_states = len(ds['state'])
         if num_states > self.num_workers:
@@ -102,7 +155,7 @@ class Animation(param.Parameterized):
         with dask.diagnostics.ProgressBar(minimum=3):
             buf_list = dask.compute([
                 self._draw(
-                    ds.isel(**{'state': state}).reset_coords(), **draw_kwds
+                    ds.isel(**{'state': state}).reset_coords(),
                 ) for state in ds['state'].values
             ], scheduler='processes', num_workers=num_workers)[0]
 

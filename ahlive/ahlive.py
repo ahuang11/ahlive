@@ -15,7 +15,6 @@ OPTIONS = {
 
 class Ahlive(Easing, Animation):
 
-    state_labels = param.List(default=None, allow_None=True)
     x0_limits = param.ClassSelector(
         default='min', class_=(Iterable, int, float)
     )
@@ -29,24 +28,40 @@ class Ahlive(Easing, Animation):
         default='explore', class_=(Iterable, int, float)
     )
     durations = param.ClassSelector(
-        default=1 / 60, class_=(Iterable, int, float)
+        default=None, class_=(Iterable, int, float),
+        allow_None=True
     )
 
     def __init__(self, **kwds):
         super().__init__(**kwds)
 
-    def add_arrays(self, xs, ys, inline_labels=None, label=None,
-                   **input_data_vars):
+    def add_arrays(self, xs, ys, label=None, state_labels=None,
+                   inline_labels=None, **input_data_vars):
         num_states = len(xs)
-        if inline_labels is None:
-            inline_labels = np.repeat('', num_states)
-        data_vars = input_data_vars.copy()
-        data_vars.update({'x': xs, 'y': ys, 'inline_label': inline_labels})
+
         item_num = len(self.ds['item']) if self.ds else 0
-        coords = {'item': [item_num], 'state': range(num_states),
-                  'label': ('item', [label])}
+        coords = {'item': [item_num], 'state': range(num_states)}
+
+        if label is not None:
+            if not isinstance(label, str):
+                if len(label) > 0:
+                    label = label[0]
+            coords['label'] = ('item', [label])
+            if item_num > 0 and 'label' not in self.ds:
+                self.ds.coords['label'] = ('item', [label])
+        elif 'label' in self.ds:
+            coords['label'] = self.ds['label'].values[0]
+
+        if state_labels is not None:
+            coords['state_label'] = ('state', state_labels)
+
+        data_vars = input_data_vars.copy()
+        data_vars.update({'x': xs, 'y': ys})
+        if inline_labels is not None:
+            data_vars['inline_label'] = inline_labels
+
         for var in list(data_vars.keys()):
-            val = data_vars.pop(var)
+            val = np.array(data_vars.pop(var))
             dims = ('item', 'state')
             if len(np.atleast_1d(val)) == 1:
                 val = [val] * num_states
@@ -54,14 +69,27 @@ class Ahlive(Easing, Animation):
             data_vars[var] = dims, val
         ds = xr.Dataset(data_vars=data_vars, coords=coords)
 
-        if self.ds is None:
+        if not self.ds:
             self.ds = ds
         else:
             self.ds = xr.concat([self.ds, ds], 'item')
 
-    def _add_state_labels(self):
-        if self.state_labels:
-            self.ds['state_label'] = ('state', self.state_labels)
+    def add_dataframe(self, df, xs, ys, label=None, state_labels=None,
+                      inline_labels=None, **input_data_vars):
+        if inline_labels is None:
+            df_iter = zip('', df)
+        else:
+            df_iter = df.groupby(inline_labels)
+        for item, df_item in df_iter:
+            input_kwds = {
+                key: df_item[val] if val in df_item.columns else val
+                for key, val in input_data_vars.items()}
+            self.add_arrays(
+                df_item[xs], df_item[ys], label=label,
+                state_labels=df_item[state_labels],
+                inline_labels=item, **input_kwds)
+        self.xlabel = xs
+        self.ylabel = ys
 
     def _add_xy01_limits(self):
         limits = {
@@ -85,9 +113,11 @@ class Ahlive(Easing, Animation):
 
             if isinstance(limit, str):
                 input_ = limit
+                stat = 'min' if left or limit == 'min' else 'max'
                 if axis not in paddings:
                     paddings[axis] = (
-                        np.abs(self.ds[axis].diff('state')).mean().values)
+                        getattr(self.ds[axis], stat)() / 5
+                    ).values
                 padding = paddings[axis]
 
                 if limit == 'explore':
@@ -98,7 +128,6 @@ class Ahlive(Easing, Animation):
                             self.ds[axis].max('item').values)
                 else:
                     dims = 'item' if limit == 'follow' else None
-                    stat = 'min' if left or limit == 'min' else 'max'
                     limit = getattr(self.ds[axis], stat)(dims)
 
                 limit = limit - padding if left else limit + padding
@@ -107,14 +136,16 @@ class Ahlive(Easing, Animation):
             self.ds[key] = ('state', limit)
 
     def _add_durations(self):
-        if isinstance(self.durations, (int, float)):
-            durations = np.repeat(self.durations, len(self.ds['state']))
+        if self.durations is None:
+            durations = 2.8 if len(self.ds['state']) < 10 else 1 / 30
         else:
             durations = self.durations
+
+        if isinstance(durations, (int, float)):
+            durations = np.repeat(durations, len(self.ds['state']))
         self.ds['duration'] = ('state', durations)
 
     def save(self):
-        self._add_state_labels()
         self._add_xy01_limits()
         self._add_durations()
         ds = self.ds.reset_coords()

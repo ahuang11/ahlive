@@ -35,8 +35,8 @@ class Easing(param.Parameterized):
     timing = param.ObjectSelector(
         default='in_out', objects=TIMINGS,
         doc='Timing of when easing is applied')
-    frames = param.Number(
-        default=30, bounds=(1, None),
+    frames = param.Integer(
+        default=None, bounds=(1, None), allow_None=True,
         doc='Number of frames per transition to next state')
     loop = param.ObjectSelector(
         default='boomerang',
@@ -52,6 +52,7 @@ class Easing(param.Parameterized):
         self.method = ALIASES.get(self.method, self.method)
 
     def interp(self, da, name=''):
+        # TODO: try apply_ufunc
         is_xarray = isinstance(da, xr.DataArray)
         if is_xarray: name = da.name
         if name == 'label':
@@ -62,33 +63,43 @@ class Easing(param.Parameterized):
             array = array.reshape(-1, len(array))
         if self.loop == 'boomerang':
             array = np.hstack([array, array[:, :1]])
-        len_items, len_states = array.shape
+        num_items, num_states = array.shape
+        new_shape = (num_items, -1)
 
-        steps = np.linspace(0, 1, self.frames)
-        len_steps = len(steps)
+        if self.frames is None:
+            num_steps = int(np.ceil(100 / num_states))
+        else:
+            num_steps = self.frames
+        steps = np.linspace(0, 1, num_steps)
+
+        num_result = (num_states - 1) * num_steps
         if name == 'duration':
-            len_result = (len_states - 1) * len_steps
-            result = np.zeros(len_result) + 1 / 60.
-            indices = np.arange(len_states) * len_steps
+            result = np.zeros(num_result) + 1 / 60.
+            indices = np.arange(num_states) * num_steps
             indices[-1] -= 1
             result[indices] = array[0]
             result = result.reshape(1, -1)
         elif np.issubdtype(array.dtype, np.number):
-            init = np.repeat(array[:, :-1], len_steps).reshape(len_items, -1)
-            stop = np.repeat(array[:, 1:], len_steps).reshape(len_items, -1)
+            init = np.repeat(array[:, :-1], num_steps).reshape(*new_shape)
+            stop = np.repeat(array[:, 1:], num_steps).reshape(*new_shape)
             tiled_steps = np.tile(
-                steps, (len_states - 1) * len_items
-            ).reshape(len_items, -1)
+                steps, (num_states - 1) * num_items
+            ).reshape(*new_shape)
             weights = getattr(self, f'_{self.method}')(tiled_steps)
             result = stop * weights + init * (1 - weights)
         elif 'label' in name:
-            result = np.repeat(array[:, 1:], len_steps).reshape(len_items, -1)
+            result = np.repeat(array, num_steps)
+            result = result.reshape(*new_shape)
+            if name == 'state_label':
+                num_roll = -int(np.ceil(num_steps / num_states * 2))
+                result = np.roll(result, num_roll, axis=-1)
+            result = result[:, :num_result]
         elif name.startswith('c'):
             results = []
             for colors in array:
                 cmap = LinearSegmentedColormap.from_list('eased', colors)
                 results.append(
-                    [rgb2hex(rgb) for rgb in cmap(range(len_steps))])
+                    [rgb2hex(rgb) for rgb in cmap(range(num_steps))])
             result = np.array(results)
         else:
             raise NotImplementedError
@@ -97,10 +108,7 @@ class Easing(param.Parameterized):
             result = np.hstack([result, result[:, ::-1]])
 
         if is_xarray:
-            if len(da.dims) > 1:
-                result = result.reshape(len_items, -1)
-            else:
-                result = result.squeeze()
+            result = result.squeeze()
             da_result = xr.DataArray(result, dims=da.dims, name=da.name)
             return da_result
         else:
