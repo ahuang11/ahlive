@@ -4,7 +4,7 @@ import numpy as np
 import xarray as xr
 from matplotlib.colors import LinearSegmentedColormap, rgb2hex
 
-METHODS = [
+INTERPS = [
     'linear',
     'quadratic',
     'cubic',
@@ -24,23 +24,23 @@ ALIASES = {
     'circ': 'circular',
     'expo': 'exponential'
 }
-TIMINGS = ['in', 'out', 'in_out']
+EASES = ['in', 'out', 'in_out']
 
 
 class Easing(param.Parameterized):
 
-    method = param.ObjectSelector(
-        default='cubic', objects=METHODS + list(ALIASES),
-        doc='Interpolation method')
-    timing = param.ObjectSelector(
-        default='in_out', objects=TIMINGS,
-        doc='Timing of when easing is applied')
+    interp = param.ObjectSelector(
+        default=None, objects=INTERPS + list(ALIASES),
+        doc='Interpolation method', allow_None=True)
+    ease = param.ObjectSelector(
+        default='in_out', objects=EASES,
+        doc='Type of easing')
     frames = param.Integer(
         default=None, bounds=(1, None), allow_None=True,
         doc='Number of frames per transition to next state')
     loop = param.ObjectSelector(
-        default='boomerang',
-        objects=['boomerang', 'traceback'] + list(range(0, 999)),
+        default=None,
+        objects=['boomerang', 'traceback', 'rollback'] + list(range(0, 999)),
         doc='Number of times the animation plays; '
             'select 0, boomerang, or traceback to play indefinitely with '
             'boomerang finding the shortest path to the initial state and '
@@ -49,12 +49,11 @@ class Easing(param.Parameterized):
 
     def __init__(self, **kwds):
         super().__init__(**kwds)
-        self.method = ALIASES.get(self.method, self.method)
 
-    def interp(self, da, name=''):
-        # TODO: try apply_ufunc
+    def interpolate(self, da, name=''):
         is_xarray = isinstance(da, xr.DataArray)
-        if is_xarray: name = da.name
+        if is_xarray:
+            name = da.name
         if name == 'label':
             return da
 
@@ -63,14 +62,23 @@ class Easing(param.Parameterized):
             array = array.reshape(-1, len(array))
         if self.loop == 'boomerang':
             array = np.hstack([array, array[:, :1]])
+
         num_items, num_states = array.shape
         new_shape = (num_items, -1)
 
         if self.frames is None:
-            num_steps = int(np.ceil(100 / num_states))
+            if num_states < 10:
+                num_steps = int(np.ceil(80 / num_states))
+            else:
+                num_steps = int(np.ceil(350 / num_states))
         else:
             num_steps = self.frames
         steps = np.linspace(0, 1, num_steps)
+
+        if self.interp is None:
+            interp = 'cubic' if num_states < 10 else 'linear'
+        else:
+            interp = ALIASES.get(self.interp, self.interp)
 
         num_result = (num_states - 1) * num_steps
         if name == 'duration':
@@ -85,15 +93,8 @@ class Easing(param.Parameterized):
             tiled_steps = np.tile(
                 steps, (num_states - 1) * num_items
             ).reshape(*new_shape)
-            weights = getattr(self, f'_{self.method}')(tiled_steps)
+            weights = getattr(self, f'_{interp}')(tiled_steps)
             result = stop * weights + init * (1 - weights)
-        elif 'label' in name:
-            result = np.repeat(array, num_steps)
-            result = result.reshape(*new_shape)
-            if name == 'state_label':
-                num_roll = -int(np.ceil(num_steps / num_states * 2))
-                result = np.roll(result, num_roll, axis=-1)
-            result = result[:, :num_result]
         elif name.startswith('c'):
             results = []
             for colors in array:
@@ -102,13 +103,24 @@ class Easing(param.Parameterized):
                     [rgb2hex(rgb) for rgb in cmap(range(num_steps))])
             result = np.array(results)
         else:
-            raise NotImplementedError
+            result = np.repeat(array, num_steps)
+            result = result.reshape(*new_shape)
+            if name == 'state_label':
+                num_roll = -int(np.ceil(num_steps / num_states * 2))
+                result = np.roll(result, num_roll, axis=-1)
+            result = result[:, :num_result]
 
-        if self.loop == 'traceback':
-            result = np.hstack([result, result[:, ::-1]])
+        if self.loop in ['traceback', 'rollback']:
+            result_back = result[:, ::-2]
+            if name == 'duration' and self.loop == 'rollback':
+                result_back = np.repeat(
+                    1 / 60., result_back.shape[1]
+                ).reshape(1, -1)
+            result = np.hstack([result, result_back])
 
         if is_xarray:
-            result = result.squeeze()
+            if len(da.dims) == 1:
+                result = result.squeeze()
             da_result = xr.DataArray(result, dims=da.dims, name=da.name)
             return da_result
         else:
@@ -118,22 +130,22 @@ class Easing(param.Parameterized):
         return ts
 
     def _quadratic(self, ts):
-        if self.timing == 'in':
+        if self.ease == 'in':
             ts = ts * ts
-        elif self.timing == 'out':
+        elif self.ease == 'out':
             ts = -(ts * (ts - 2))
-        elif self.timing == 'in_out':
+        elif self.ease == 'in_out':
             index = ts < 0.5
             ts[index] = 2 * ts[index] * ts[index]
             ts[~index] = (-2 * ts[~index] * ts[~index]) + (4 * ts[~index]) - 1
         return ts
 
     def _cubic(self, ts):
-        if self.timing == 'in':
+        if self.ease == 'in':
             ts = ts * ts * ts
-        elif self.timing == 'out':
+        elif self.ease == 'out':
             ts = (ts - 1) * (ts - 1) * (ts - 1) + 1
-        elif self.timing == 'in_out':
+        elif self.ease == 'in_out':
             index = ts < 0.5
             ts[index] = 4 * ts[index] * ts[index] * ts[index]
             ts[~index] = 2 * ts[~index] - 2
@@ -142,11 +154,11 @@ class Easing(param.Parameterized):
         return ts
 
     def _quartic(self, ts):
-        if self.timing == 'in':
+        if self.ease == 'in':
             ts = ts * ts * ts * ts
-        elif self.timing == 'out':
+        elif self.ease == 'out':
             ts = (ts - 1) * (ts - 1) * (ts - 1) * (1 - ts) + 1
-        elif self.timing == 'in_out':
+        elif self.ease == 'in_out':
             index = ts < 0.5
             ts[index] = 8 * ts[index] * ts[index] * ts[index] * ts[index]
             ts[~index] = ts[~index] - 1
@@ -155,11 +167,11 @@ class Easing(param.Parameterized):
         return ts
 
     def _quintic(self, ts):
-        if self.timing == 'in':
+        if self.ease == 'in':
             ts = ts * ts * ts * ts * ts
-        elif self.timing == 'out':
+        elif self.ease == 'out':
             ts = (ts - 1) * (ts - 1) * (ts - 1) * (ts - 1) * (ts - 1) + 1
-        elif self.timing == 'in_out':
+        elif self.ease == 'in_out':
             index = ts < 0.5
             ts[index] = (
                 16 * ts[index] * ts[index] *
@@ -171,20 +183,20 @@ class Easing(param.Parameterized):
         return ts
 
     def _sine(self, ts):
-        if self.timing == 'in':
+        if self.ease == 'in':
             ts = np.sin((ts - 1) * np.pi / 2) + 1
-        elif self.timing == 'out':
+        elif self.ease == 'out':
             ts = np.sin(ts * np.pi / 2)
-        elif self.timing == 'in_out':
+        elif self.ease == 'in_out':
             ts = 0.5 * (1 - np.cos(ts * np.pi))
         return ts
 
     def _circular(self, ts):
-        if self.timing == 'in':
+        if self.ease == 'in':
             ts = 1 - np.sqrt(1 - (ts * ts))
-        elif self.timing == 'out':
+        elif self.ease == 'out':
             ts = np.sqrt((2 - ts) * ts)
-        elif self.timing == 'in_out':
+        elif self.ease == 'in_out':
             index = ts < 0.5
             ts[index] = 0.5 * (1 - np.sqrt(1 - 4 * (ts[index] * ts[index])))
             ts[~index] = 0.5 * (
@@ -192,15 +204,15 @@ class Easing(param.Parameterized):
         return ts
 
     def _exponential(self, ts):
-        if self.timing == 'in':
+        if self.ease == 'in':
             index = ts != 0
             ts[~index] = 0
             ts[index] = np.power(2, 10 * (ts[index] - 1))
-        elif self.timing == 'out':
+        elif self.ease == 'out':
             index = ts != 1
             ts[~index] = 1
             ts[index] = 1 - np.power(2, -10 * ts[index])
-        elif self.timing == 'in_out':
+        elif self.ease == 'in_out':
             index0 = (ts != 0) & (ts < 0.5) & (ts != 1)
             index1 = (ts != 0) & (ts >= 0.5) & (ts != 1)
             ts[index0] = 0.5 * np.power(2, (20 * ts[index0]) - 10)
@@ -208,14 +220,14 @@ class Easing(param.Parameterized):
         return ts
 
     def _elastic(self, ts):
-        if self.timing == 'in':
+        if self.ease == 'in':
             ts = (
                 np.sin(13 * np.pi / 2 * ts) * np.power(2, 10 * (ts - 1)))
-        elif self.timing == 'out':
+        elif self.ease == 'out':
             ts = (
                 np.sin(-13 * np.pi / 2 * (ts + 1)) *
                 np.power(2, -10 * ts) + 1)
-        elif self.timing == 'in_out':
+        elif self.ease == 'in_out':
             index = ts < 0.5
             ts[index] = (
                 0.5 * np.sin(13 * np.pi / 2 * (2 * ts[index])) *
@@ -226,12 +238,12 @@ class Easing(param.Parameterized):
         return ts
 
     def _back(self, ts):
-        if self.timing == 'in':
+        if self.ease == 'in':
             ts = ts * ts * ts - ts * np.sin(ts * np.pi)
-        elif self.timing == 'out':
+        elif self.ease == 'out':
             ts = 1 - ts
             ts = 1 - (ts * ts * ts - ts * np.sin(ts * np.pi))
-        elif self.timing == 'in_out':
+        elif self.ease == 'in_out':
             index = ts < 0.5
             ts[index] = 2 * ts[index]
             ts[index] = 0.5 * (
@@ -247,9 +259,9 @@ class Easing(param.Parameterized):
 
     def _bounce(self, ts):
         index = ts < 0.5
-        if self.timing == 'in':
+        if self.ease == 'in':
             ts = 1 - ts
-        elif self.timing == 'in_out':
+        elif self.ease == 'in_out':
             ts[index] = 1 - (ts[index] * 2)
             ts[~index] = ts[~index] * 2 - 1
         index0 = ts < 4 / 11
@@ -268,11 +280,11 @@ class Easing(param.Parameterized):
             (54 / 5.0 * ts[index3] * ts[index3]) -
             (513 / 25.0 * ts[index3]) + 268 / 25.0
         )
-        if self.timing == 'in':
+        if self.ease == 'in':
             ts = 1 - ts
-        elif self.timing == 'out':
+        elif self.ease == 'out':
             pass
-        elif self.timing == 'in_out':
+        elif self.ease == 'in_out':
             ts[index] = 0.5 * (1 - ts[index])
             ts[~index] = 0.5 * ts[~index] + 0.5
         return ts
