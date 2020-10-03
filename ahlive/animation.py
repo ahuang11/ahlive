@@ -78,13 +78,13 @@ class Animation(param.Parameterized):
             return 's'
 
         if is_datetime:
-            num /= 1e9 / 3600  # nanoseconds to seconds
+            num = num / 1e9  # nanoseconds to seconds
             if num < 1:  # 1 second
                 return '%S.%f'
             elif num < 60:  # 1 minute
                 return '%M:%S'
             elif num < 3600:  # 1 hour
-                return '%H:%M'
+                return '%I:%M %p'
             elif num < 86400:  # 1 day
                 return '%b %d %HZ'
             elif num < 604800:  # 7 days
@@ -137,7 +137,7 @@ class Animation(param.Parameterized):
     def _add_inline_labels(self, ax, xs, ys, formatter, inline_labels):
         inline_kwds = dict(
             xycoords='data', xytext=(1.5, 1.5), ha='left', va='bottom',
-            textcoords='offset points')
+            textcoords='offset points', clip_on=False)
         inline_kwds.update(**self.inline_kwds)
         for i, inline_label in enumerate(inline_labels):
             ax.annotate(
@@ -345,4 +345,5 @@ class Animation(param.Parameterized):
                     continue
                 image = imageio.imread(buf)
                 writer.append_data(image)
+                buf.close()
         optimize(self.out_fp)

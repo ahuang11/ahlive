@@ -215,17 +215,17 @@ class Ahlive(Easing, Animation):
         self.xmin = ds['x'].min()
         self.ymin = ds['y'].min()
         try:
-            self.state_label_step = np.abs(np.diff(ds.get(
+            self.state_label_step = np.diff(ds.get(
                 'state_label', np.array([0, 1])
-            )).min())
+            )).min()
         except TypeError:
             self.state_label_step = ds.get(
                 'state_label', np.array([0, 1])
             ).min()
         try:
-            self.inline_label_step = np.abs(np.diff(ds.get(
+            self.inline_label_step = np.diff(ds.get(
                 'inline_label', np.array([0, 1])
-            )).min())
+            )).min()
         except TypeError:
             self.inline_label_step = ds.get(
                 'inline_label', np.array([0, 1])
