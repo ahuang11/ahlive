@@ -31,12 +31,12 @@ class Easing(param.Parameterized):
 
     interp = param.ObjectSelector(
         default=None, objects=INTERPS + list(ALIASES),
-        doc='Interpolation method', allow_None=True)
+        doc='Interpolation method')
     ease = param.ObjectSelector(
         default='in_out', objects=EASES,
         doc='Type of easing')
     frames = param.Integer(
-        default=None, bounds=(1, None), allow_None=True,
+        default=None, bounds=(1, None),
         doc='Number of frames per transition to next state')
     loop = param.ObjectSelector(
         default=None,
@@ -87,6 +87,16 @@ class Easing(param.Parameterized):
             indices[-1] -= 1
             result[indices] = array[0]
             result = result.reshape(1, -1)
+        elif np.issubdtype(array.dtype, np.datetime64):
+            array = array.astype(float)
+            init = np.repeat(array[:, :-1], num_steps).reshape(*new_shape)
+            stop = np.repeat(array[:, 1:], num_steps).reshape(*new_shape)
+            tiled_steps = np.tile(
+                steps, (num_states - 1) * num_items
+            ).reshape(*new_shape)
+            weights = getattr(self, f'_{interp}')(tiled_steps)
+            result = stop * weights + init * (1 - weights)
+            result = result.astype(np.datetime64)
         elif np.issubdtype(array.dtype, np.number):
             init = np.repeat(array[:, :-1], num_steps).reshape(*new_shape)
             stop = np.repeat(array[:, 1:], num_steps).reshape(*new_shape)

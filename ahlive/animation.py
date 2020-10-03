@@ -3,12 +3,15 @@ from io import BytesIO
 import param
 import imageio
 import numpy as np
+import pandas as pd
 import xarray as xr
 import dask.delayed
 import dask.diagnostics
 from pygifsicle import optimize
 from matplotlib import pyplot as plt
 from matplotlib.ticker import FormatStrFormatter
+
+from . import util
 
 
 STATE_VARS = [
@@ -24,24 +27,25 @@ SIZES = {
 
 class Animation(param.Parameterized):
 
-    ds = param.ObjectSelector(default=xr.Dataset(), allow_None=True)
-    plot = param.ObjectSelector(
+    ds = param.ObjectSelector(default=xr.Dataset())
+    ref_ds = param.ObjectSelector(default=xr.Dataset())
+    chart = param.ObjectSelector(
         default=None, objects=['scatter', 'line', 'barh', 'bar'])
     out_fp = param.Path(default='untitled.gif')
     style = param.ObjectSelector(
         default=None, objects=['graph', 'minimal', 'bare'])
     margins = param.ClassSelector(
-        default=None, class_=(tuple, dict, int, float), allow_None=True
+        default=None, class_=(tuple, dict, int, float)
     )
 
     figsize = param.Tuple(default=(10, 8))
-    title = param.String(default=None, allow_None=True)
+    title = param.String(default=None)
     xlabel = param.String(default='x')
     ylabel = param.String(default='y')
 
     fig_kwds = param.Dict(default={})
     axes_kwds = param.Dict(default={})
-    plot_kwds = param.Dict(default={})
+    chart_kwds = param.Dict(default={})
     tick_kwds = param.Dict(default={})
     grid_kwds = param.Dict(default={})
     state_kwds = param.Dict(default={})
@@ -52,7 +56,7 @@ class Animation(param.Parameterized):
     gif_kwds = param.Dict(default={})
 
     num_workers = param.Integer(default=8, bounds=(1, None))
-    hooks = param.List(default=None, allow_None=True)
+    hooks = param.List(default=None)
 
     def __init__(self, **kwds):
         super().__init__(**kwds)
@@ -66,19 +70,37 @@ class Animation(param.Parameterized):
 
     @staticmethod
     def _get_base_format(num):
+        is_datetime = isinstance(num, np.timedelta64)
+
         try:
             num = float(num)
         except ValueError:
             return 's'
 
+        if is_datetime:
+            num /= 1e9 / 3600  # nanoseconds to seconds
+            if num < 1:  # 1 second
+                return '%S.%f'
+            elif num < 60:  # 1 minute
+                return '%M:%S'
+            elif num < 3600:  # 1 hour
+                return '%H:%M'
+            elif num < 86400:  # 1 day
+                return '%b %d %HZ'
+            elif num < 604800:  # 7 days
+                return '%b %d'
+            elif num < 31536000:  # 1 year
+                return '%b \'%y'
+            else:
+                return '%Y'
+
         if num == 0:
-            return f'0.1f'
+            return '0.1f'
 
         order_of_magnitude = int(np.floor(np.log10(abs(num))))
         if order_of_magnitude >= 1:
-            return f'.0f'
+            return '.0f'
         else:
-            order_of_magnitude -= 2
             return f'.{abs(order_of_magnitude)}f'
 
     def _update_style(self, ds_state, axes_kwds):
@@ -89,14 +111,14 @@ class Animation(param.Parameterized):
                 axes_kwds['xlabel'] = f'Higher {xlabel} ➜'
             if ylabel:
                 axes_kwds['ylabel'] = f'Higher {ylabel} ➜'
-            axes_kwds['xticks'] = [
+            axes_kwds['xticks'] = util.try_to_pydatetime(
                 float(ds_state['x'].min()),
                 float(ds_state['x'].max()),
-            ]
-            axes_kwds['yticks'] = [
+            )
+            axes_kwds['yticks'] = util.try_to_pydatetime(
                 float(ds_state['y'].min()),
                 float(ds_state['y'].max()),
-            ]
+            )
         elif self.style == 'bare':
             xlabel = axes_kwds.pop('xlabel')
             ylabel = axes_kwds.pop('ylabel')
@@ -104,8 +126,7 @@ class Animation(param.Parameterized):
             axes_kwds['yticks'] = []
         return axes_kwds
 
-    def _add_state_labels(self, ax, formatter, plot_kwds):
-        state_label = plot_kwds.pop('state_label')[-1][-1]
+    def _add_state_labels(self, ax, formatter, state_label):
         state_kwds = dict(
             ha='right', va='top', transform=ax.transAxes,
             fontsize=SIZES['super'], alpha=0.5)
@@ -113,8 +134,7 @@ class Animation(param.Parameterized):
         ax.text(0.975, 0.925, f'{state_label:{formatter}}', **state_kwds)
         return ax
 
-    def _add_inline_labels(self, ax, xs, ys, formatter, plot_kwds):
-        inline_labels = plot_kwds.pop('inline_label')[:, -1]
+    def _add_inline_labels(self, ax, xs, ys, formatter, inline_labels):
         inline_kwds = dict(
             xycoords='data', xytext=(1.5, 1.5), ha='left', va='bottom',
             textcoords='offset points')
@@ -155,10 +175,11 @@ class Animation(param.Parameterized):
             'ylabel': self.ylabel,
         }
         if 'x0_limit' in limits or 'x1_limit' in limits:
-            axes_kwds['xlim'] = limits.get('x0_limit'), limits.get('x1_limit')
+            axes_kwds['xlim'] = util.try_to_pydatetime(
+                limits.get('x0_limit'), limits.get('x1_limit'))
         if 'y0_limit' in limits or 'y1_limit' in limits:
-            axes_kwds['ylim'] = limits.get('y0_limit'), limits.get('y1_limit')
-
+            axes_kwds['ylim'] = util.try_to_pydatetime(
+                limits.get('y0_limit'), limits.get('y1_limit'))
         axes_kwds = self._update_style(ds_state, axes_kwds)
         axes_kwds.update(self.axes_kwds)
 
@@ -174,58 +195,69 @@ class Animation(param.Parameterized):
             base_kwds['vmax'] = self.vmax.values
 
         for label, ds_overlay in ds_state.groupby('label'):
-            plot_kwds = base_kwds.copy()
-            plot_kwds['label'] = label
-            plot_kwds.update({
+            chart_kwds = base_kwds.copy()
+            chart_kwds['label'] = label
+            chart_kwds.update({
                 var: ds_overlay[var].values
                 for var in ds_overlay if var not in STATE_VARS
             })
 
-            if 'alpha' in plot_kwds:
-                plot_kwds['alpha'] = plot_kwds['alpha'][-1][-1]
-            plot_kwds.update(self.plot_kwds)
+            if 'alpha' in chart_kwds:
+                chart_kwds['alpha'] = chart_kwds['alpha'][-1][-1]
+            chart_kwds.update(self.chart_kwds)
 
-            xs = plot_kwds.pop('x')
-            ys = plot_kwds.pop('y')
+            xs = chart_kwds.pop('x')
+            ys = chart_kwds.pop('y')
 
-            if 'state_label' in plot_kwds:
-                state_formatter = self._get_base_format(self.state_label_min)
-                ax = self._add_state_labels(ax, state_formatter, plot_kwds)
+            if 'state_label' in chart_kwds:
+                state_formatter = self._get_base_format(
+                    self.state_label_step)
+                state_label = util.try_to_pydatetime(
+                    chart_kwds.pop('state_label')[-1])
+                ax = self._add_state_labels(ax, state_formatter, state_label)
 
-            if 'inline_label' in plot_kwds:
-                inline_formatter = self._get_base_format(self.inline_label_min)
-                if self.plot == 'barh':
+            if 'inline_label' in chart_kwds:
+                inline_formatter = self._get_base_format(
+                    self.inline_label_step)
+                inline_labels = chart_kwds.pop('inline_label')[:, -1]
+                if self.chart == 'barh':
                     ax = self._add_inline_labels(
-                        ax, ys, xs, inline_formatter, plot_kwds)
+                        ax, ys, xs, inline_formatter, inline_labels)
                 else:
                     ax = self._add_inline_labels(
-                        ax, xs, ys, inline_formatter, plot_kwds)
+                        ax, xs, ys, inline_formatter, inline_labels)
 
-            if self.plot == 'scatter':
-                image = ax.scatter(xs, ys, **plot_kwds)
-            elif self.plot == 'line':
+            if self.chart == 'scatter':
+                image = ax.scatter(xs, ys, **chart_kwds)
+            elif self.chart == 'line':
                 for x, y in zip(xs, ys): # plot each line separately
-                    image = ax.scatter(x[-1], y[-1], **plot_kwds)
-                    plot_kwds.pop('s', '')
-                    plot_kwds.pop('label', '')
-                    _ = ax.plot(x, y, **plot_kwds)
-            elif self.plot.startswith('bar'):
-                image = getattr(ax, self.plot)(
-                    xs.ravel(), ys.ravel(), **plot_kwds)
+                    image = ax.scatter(x[-1], y[-1], **chart_kwds)
+                    chart_kwds.pop('s', '')
+                    chart_kwds.pop('label', '')
+                    _ = ax.plot(x, y, **chart_kwds)
+            elif self.chart.startswith('bar'):
+                image = getattr(ax, self.chart)(
+                    xs.ravel(), ys.ravel(), **chart_kwds)
 
         plt.box(False)
         tick_kwds = dict(axis='both', which='both', length=0, color='gray')
         tick_kwds.update(self.tick_kwds)
         ax.tick_params(**tick_kwds)
 
-        if not self.plot.startswith('bar'):
-            xformatter = FormatStrFormatter(
-                f'%{self._get_base_format(self.xmin)}')
-            ax.xaxis.set_major_formatter(xformatter)
+        if not self.chart.startswith('bar'):
+            if not self.x_is_datetime:
+                xformatter = FormatStrFormatter(
+                    f'%{self._get_base_format(self.xmin)}')
+                ax.xaxis.set_major_formatter(xformatter)
+            else:
+                fig.autofmt_xdate()
 
-            yformatter = FormatStrFormatter(
-                f'%{self._get_base_format(self.ymin)}')
-            ax.yaxis.set_major_formatter(yformatter)
+            if not self.y_is_datetime:
+                yformatter = FormatStrFormatter(
+                    f'%{self._get_base_format(self.ymin)}')
+                ax.yaxis.set_major_formatter(yformatter)
+            else:
+                fig.autofmt_ydate()
 
         if self.margins is not None:
             ax = self._add_margins(ax, self.margins)
@@ -268,38 +300,28 @@ class Animation(param.Parameterized):
         return buf
 
     def save(self, ds):
-        self.plot = self.plot or 'line'
+        self.chart = self.chart or 'line'
         if self.style is None:
-            self.style = 'minimal' if self.plot == 'scatter' else 'graph'
+            self.style = 'minimal' if self.chart == 'scatter' else 'graph'
 
         if not self.grid_kwds:
-            if self.plot == 'barh':
+            if self.chart == 'barh':
                 self.grid_kwds['axis'] = 'x'
-            elif self.plot == 'bar':
+            elif self.chart == 'bar':
                 self.grid_kwds['axis'] = 'y'
             else:
                 self.grid_kwds['axis'] = 'both'
 
-        self.xmin = ds['x'].min()
-        self.ymin = ds['y'].min()
-        self.state_label_min = ds.get('state_label', np.array(0)).min()
-        self.inline_label_min = ds.get('inline_label', np.array(0)).min()
-
-        if 'c' in ds:
-            self.vmin = ds['c'].min()
-            self.vmax = ds['c'].max()
-
-        num_states = len(ds['state'])
-        if num_states > self.num_workers:
+        if self.num_states > self.num_workers:
             num_workers = self.num_workers
         else:
-            num_workers = num_states
+            num_workers = self.num_states
 
         with dask.diagnostics.ProgressBar(minimum=2):
             buf_list = dask.compute([
                 self._draw_frame(
                     ds.isel(**{'state': [state]})
-                    if self.plot != 'line'
+                    if self.chart != 'line'
                     else ds.isel(**{'state': slice(None, state)})
                 ) for state in ds['state'].values
             ], scheduler='processes', num_workers=num_workers)[0]
