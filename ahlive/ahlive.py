@@ -139,11 +139,11 @@ class Ahlive(Easing, Animation):
             )
 
         if self.chart == 'barh':
-            self.xlabel = ys
-            self.ylabel = xs
-        else:
-            self.xlabel = xs
-            self.ylabel = ys
+            xs, ys = ys, xs  # matplotlib draws x on y axis for barh
+        if self.xlabel is None:
+            self.xlabel = xs.title()
+        if self.ylabel is None:
+            self.ylabel = ys.title()
 
     def _add_xy01_limits(self):
         limits = {
@@ -186,7 +186,7 @@ class Ahlive(Easing, Animation):
 
     def _add_durations(self):
         if self.durations is None:
-            durations = 0.5 if len(self.ds['state']) < 10 else 1 / 30
+            durations = 0.5 if len(self.ds['state']) < 10 else 1 / 10
         else:
             durations = self.durations
 
@@ -203,17 +203,27 @@ class Ahlive(Easing, Animation):
                     'item': [item], 'state': range(len(ds_group['state']))})
                 for item, (group, ds_group) in enumerate(self.ds.groupby('x'))
             ], 'item')
+            self.ds['tick_label'] = self.ds['x']
+            self.ds['x'] = self.ds['y'].rank('item')
         self._add_xy01_limits()
         self._add_durations()
         if 'label' not in self.ds:
             self.ds['label'] = ('item', np.repeat('', len(self.ds['item'])))
-        ds = self.ds.reset_coords()
         if self.loop is None:
             self.loop = 0 if self.chart == 'line' else 'boomerang'
+        ds = self.ds.reset_coords()
 
         # initialize
         self.xmin = ds['x'].min()
         self.ymin = ds['y'].min()
+        try:
+            self.xs_step = np.diff(ds.get(
+                'state_label', np.array([0, 1])
+            )).min()
+        except TypeError:
+            self.xs_step = ds.get(
+                'state_label', np.array([0, 1])
+            ).min()
         try:
             self.state_label_step = np.diff(ds.get(
                 'state_label', np.array([0, 1])
@@ -240,4 +250,4 @@ class Ahlive(Easing, Animation):
 
         ds = ds.apply(self.interpolate)
         print(ds)
-        super().save(ds)
+        super().animate(ds)
