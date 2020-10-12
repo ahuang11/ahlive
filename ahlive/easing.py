@@ -81,8 +81,8 @@ class Easing(param.Parameterized):
             interp = ALIASES.get(self.interp, self.interp)
 
         num_result = (num_states - 1) * num_steps
-        if name == 'duration':
-            result = np.zeros(num_result) + 1 / 60.
+        if name == 'delay':
+            result = np.zeros(num_result)
             indices = np.arange(num_states) * num_steps
             indices[-1] -= 1
             result[indices] = array[0]
@@ -122,9 +122,9 @@ class Easing(param.Parameterized):
 
         if self.loop in ['traceback', 'rollback']:
             result_back = result[:, ::-2]
-            if name == 'duration' and self.loop == 'rollback':
+            if name == 'delay' and self.loop == 'rollback':
                 result_back = np.repeat(
-                    1 / 60., result_back.shape[1]
+                    0, result_back.shape[1]
                 ).reshape(1, -1)
             result = np.hstack([result, result_back])
 

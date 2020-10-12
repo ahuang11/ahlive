@@ -10,27 +10,9 @@ import dask.diagnostics
 from pygifsicle import optimize
 from matplotlib import pyplot as plt
 from matplotlib.ticker import FormatStrFormatter
+from matplotlib.patheffects import withStroke
 
-from . import util
-
-
-EXCLUDED_VARS = [
-    'duration',
-    'tick_label',
-    'state_label',
-    'inline_label',
-    'x0_limit',
-    'x1_limit',
-    'y0_limit',
-    'y1_limit'
-]
-
-SIZES = {
-    'small': 15,
-    'medium': 18,
-    'large': 20,
-    'super': 42
-}
+from . import config, util
 
 
 class Animation(param.Parameterized):
@@ -43,37 +25,37 @@ class Animation(param.Parameterized):
     style = param.ObjectSelector(
         default=None, objects=['graph', 'minimal', 'bare'])
 
-    figsize = param.Tuple(default=(16, 10))
-    title = param.String(default=None)
+    figsize = param.Tuple(default=config.defaults['fig_kwds']['figsize'])
+    title = param.String(default='')
     xlabel = param.String(default=None)
     ylabel = param.String(default=None)
+    watermark = param.String(default='Animated using Ahlive')
 
-    fig_kwds = param.Dict(default={})
-    axes_kwds = param.Dict(default={})
-    chart_kwds = param.Dict(default={})
-    margins_kwds = param.Dict(default={})
-    tick_kwds = param.Dict(default={})
-    grid_kwds = param.Dict(default={})
-    state_kwds = param.Dict(default={})
-    inline_kwds = param.Dict(default={})
-    legend_kwds = param.Dict(default={})
-    colorbar_kwds = param.Dict(default={})
-    frame_kwds = param.Dict(default={})
-    gif_kwds = param.Dict(default={})
+    fig_kwds = param.Dict(default=None)
+    axes_kwds = param.Dict(default=None)
+    chart_kwds = param.Dict(default=None)
+    grid_kwds = param.Dict(default=None)
+    margins_kwds = param.Dict(default=None)
+    xlabel_kwds = param.Dict(default=None)
+    ylabel_kwds = param.Dict(default=None)
+    title_kwds = param.Dict(default=None)
+    xtick_kwds = param.Dict(default=None)
+    ytick_kwds = param.Dict(default=None)
+    state_kwds = param.Dict(default=None)
+    inline_kwds = param.Dict(default=None)
+    legend_kwds = param.Dict(default=None)
+    colorbar_kwds = param.Dict(default=None)
+    watermark_kwds = param.Dict(default=None)
+    frame_kwds = param.Dict(default=None)
+    animate_kwds = param.Dict(default=None)
 
     num_workers = param.Integer(default=8, bounds=(1, None))
     hooks = param.List(default=None)
-    logo = param.Boolean(default=True)
 
     def __init__(self, **kwds):
         super().__init__(**kwds)
-
-        plt.rc('font', size=SIZES['small'])
-        plt.rc('axes', labelsize=SIZES['medium'])
-        plt.rc('xtick', labelsize=SIZES['small'])
-        plt.rc('ytick', labelsize=SIZES['small'])
-        plt.rc('legend', fontsize=SIZES['small'])
-        plt.rc('figure', titlesize=SIZES['large'])
+        self._path_effects = [
+            withStroke(linewidth=3, alpha=0.5, foreground='white')]
 
     @staticmethod
     def _get_base_format(num):
@@ -106,25 +88,59 @@ class Animation(param.Parameterized):
 
         order_of_magnitude = int(np.floor(np.log10(abs(num))))
         if order_of_magnitude >= 1:
-            return '.0f'
+            return '0.0f'
         else:
             return f'.{abs(order_of_magnitude)}f'
 
+    def _update_text(self, kwds, label_key, num=None, apply_format=True):
+        label = kwds[label_key]
+        if isinstance(label, list):
+            labels = []
+            for i, label in enumerate(kwds[label_key]):
+                sub_kwds = kwds.copy()
+                sub_kwds['labels'] = label
+                sub_kwds = self._update_text(sub_kwds, label_key)
+                labels.append(sub_kwds.pop(label_key))
+            kwds[label_key] = labels
+            return kwds
+
+        format_ = kwds.pop('format', 'auto')
+        if num is not None and format_ == 'auto':
+            format_ = self._get_base_format(num)
+
+        if format_ != 'auto':
+            if apply_format:
+                label = f'{label:{format_}}'
+            else:
+                kwds['format'] = format_
+
+        prefix = kwds.pop('prefix', '')
+        suffix = kwds.pop('suffix', '')
+        if 'units' in kwds:
+            units = f" [{kwds.pop('units')}]"
+        else:
+            units = ''
+        label = f'{prefix}{label}{suffix}{units}'
+
+        replacements = kwds.pop('replacements', {})
+        for key, val in replacements.items():
+            label = label.replace(key, val)
+
+        casing = kwds.pop('casing', 'title')
+        label = getattr(label, casing)()
+        kwds[label_key] = label
+        return kwds
+
     def _prep_figure(self):
-        fig_kwds = {}
-        fig_kwds['figsize'] = self.figsize
-        fig_kwds.update(self.fig_kwds)
+        fig_kwds = config._load(
+            'fig_kwds', self.fig_kwds, figsize=self.figsize)
         fig = plt.figure(**fig_kwds)
         return fig
 
     def _update_style(self, ds_state, axes_kwds):
+        xlabel = self.xlabel
+        ylabel = self.ylabel
         if self.style == 'minimal':
-            xlabel = axes_kwds.pop('xlabel')
-            ylabel = axes_kwds.pop('ylabel')
-            if xlabel:
-                axes_kwds['xlabel'] = f'Higher {xlabel} ➜'
-            if ylabel:
-                axes_kwds['ylabel'] = f'Higher {ylabel} ➜'
             axes_kwds['xticks'] = util.try_to_pydatetime(
                 float(ds_state['x'].min()),
                 float(ds_state['x'].max()),
@@ -133,48 +149,65 @@ class Animation(param.Parameterized):
                 float(ds_state['y'].min()),
                 float(ds_state['y'].max()),
             )
+            if xlabel:
+                xlabel = f'Higher {xlabel} ➜'
+            if ylabel:
+                ylabel = f'Higher {ylabel} ➜'
         elif self.style == 'bare':
             axes_kwds['xticks'] = []
             axes_kwds['yticks'] = []
-        return axes_kwds
+        return axes_kwds, xlabel, ylabel
 
     def _prep_axes(self, ds_state):
         limits = {
-            var: ds_state[var].values[-1]
-            for var in ds_state.data_vars
-            if var.endswith('_limit')}
-        axes_kwds = {
-            'title': self.title,
-            'xlabel': self.xlabel,
-            'ylabel': self.ylabel,
-            'frame_on': False
-        }
-        if 'x0_limit' in limits or 'x1_limit' in limits:
+            var: util.pop(ds_state, var)[-1]
+            for var in list(ds_state.data_vars)
+            if var[1:4] == 'lim'}
+
+        axes_kwds = {}
+        if 'xlim0' in limits or 'xlim1' in limits:
             axes_kwds['xlim'] = util.try_to_pydatetime(
-                limits.get('x0_limit'), limits.get('x1_limit'))
-        if 'y0_limit' in limits or 'y1_limit' in limits:
+                limits.get('xlim0'), limits.get('xlim1'))
+        if 'ylim0' in limits or 'ylim1' in limits:
             axes_kwds['ylim'] = util.try_to_pydatetime(
-                limits.get('y0_limit'), limits.get('y1_limit'))
-        axes_kwds = self._update_style(ds_state, axes_kwds)
-        axes_kwds.update(self.axes_kwds)
+                limits.get('ylim0'), limits.get('ylim1'))
+
+        axes_kwds, xlabel, ylabel = self._update_style(ds_state, axes_kwds)
+        axes_kwds = config._load('axes_kwds', self.axes_kwds, **axes_kwds)
+
+        xlabel_kwds = config._load(
+            'xlabel_kwds', self.ylabel_kwds, xlabel=xlabel)
+        xlabel_kwds = self._update_text(xlabel_kwds, 'xlabel')
+
+        ylabel_kwds = config._load(
+            'ylabel_kwds', self.ylabel_kwds, ylabel=ylabel)
+        ylabel_kwds = self._update_text(ylabel_kwds, 'ylabel')
+
+        title_kwds = config._load(
+            'title_kwds', self.title_kwds, label=self.title)
+        title_kwds = self._update_text(title_kwds, 'label')
+
         ax = plt.axes(**axes_kwds)
+        ax.set_xlabel(**xlabel_kwds)
+        ax.set_ylabel(**ylabel_kwds)
+        ax.set_title(**title_kwds)
         return ax
 
     def _update_grid(self, ax):
         grid_kwds = {}
         if self.style == 'bare':
             grid_kwds['b'] = False
-        elif self.chart == 'barh':
+        if self.chart == 'barh':
             grid_kwds['axis'] = 'x'
         elif self.chart == 'bar':
             grid_kwds['axis'] = 'y'
         else:
             grid_kwds['axis'] = 'both'
-        grid_kwds.update(self.grid_kwds)
+        grid_kwds = config._load('grid_kwds', self.grid_kwds, **grid_kwds)
         ax.grid(**grid_kwds)
 
     def _update_margins(self, ax):
-        margins_kwds = self.margins_kwds.copy()
+        margins_kwds = config._load('margins_kwds', self.margins_kwds)
         ax.margins(**margins_kwds)
 
     def _prep_kwds(self, ds_state, has_colors):
@@ -186,29 +219,24 @@ class Animation(param.Parameterized):
             base_kwds['vmax'] = self.vmax.values
         return base_kwds
 
-    def _update_kwds(self, base_kwds, ds_overlay, label):
+    def _update_kwds(self, base_kwds, ds_overlay):
         chart_kwds = base_kwds.copy()
-        chart_kwds['label'] = label
         chart_kwds.update({
             var: ds_overlay[var].values
             for var in ds_overlay
         })
-        chart_kwds.update(self.chart_kwds)
+        chart_kwds['label'] = chart_kwds['label'].item()
+        chart_kwds = config._load('chart_kwds', self.chart_kwds, **chart_kwds)
         return chart_kwds
 
-    def _add_state_labels(self, ax, chart_kwds):
-        state_label = util.try_to_pydatetime(
-            chart_kwds.pop('state_label')[-1])
-        state_formatter = self._get_base_format(self.state_label_step)
-        state_kwds = dict(
-            s=f'{state_label:{state_formatter}}',
-            xy=(0.975, 0.925), ha='right', va='top',
-            alpha=0.5, xycoords='axes fraction',
-            fontsize=SIZES['super'])
-        state_kwds.update(self.state_kwds)
+    def _add_state_labels(self, ax, state_label):
+        state_label = util.try_to_pydatetime(state_label)
+        state_kwds = dict(s=state_label)
+        state_kwds = config._load('state_kwds', self.state_kwds, **state_kwds)
+        state_kwds = self._update_text(state_kwds, 's', num=self.state_step)
         ax.annotate(**state_kwds)
 
-    def _add_inline_labels(self, ax, xs, ys, chart, chart_kwds):
+    def _add_inline_labels(self, ax, xs, ys, chart, inline_labels):
         ha = 'center'
         va = 'center'
         xytext = (0, 1.5)
@@ -222,15 +250,18 @@ class Animation(param.Parameterized):
             va = 'bottom'
 
         color = plt.getp(chart, 'edgecolor')[0]
-        inline_labels = chart_kwds.pop('inline_label')[:, -1]
-        inline_formatter = self._get_base_format(self.inline_label_step)
+        inline_labels = inline_labels[:, -1]
         for i, inline_label in enumerate(inline_labels):
             inline_kwds = dict(
-                s=f'{inline_label:{inline_formatter}}',
+                s=inline_label,
                 xy=(xs[i][-1], ys[i][-1]), ha=ha, va=va,
-                color=color, xytext=xytext, textcoords='offset points',
-                fontsize=SIZES['medium'])
-            inline_kwds.update(**self.inline_kwds)
+                color=color, xytext=xytext,
+                path_effects=self._path_effects
+            )
+            inline_kwds = config._load(
+                'inline_kwds', self.inline_kwds, **inline_kwds)
+            inline_kwds = self._update_text(
+                inline_kwds, 's', num=self.inline_step)
             ax.annotate(**inline_kwds)
         return ax
 
@@ -238,72 +269,82 @@ class Animation(param.Parameterized):
         ncol = int(len(legend_labels) / 5)
         if ncol == 0:
             ncol += 1
-        legend_kwds = dict(
-            loc='upper left', ncol=ncol, framealpha=0,
-            bbox_to_anchor=(0.025, 0.95))
-        legend_kwds.update(self.legend_kwds)
-        legend = ax.legend(**legend_kwds)
+        legend_kwds = dict(labels=legend_labels, ncol=ncol)
+        legend_kwds = config._load(
+            'legend_kwds', self.legend_kwds, **legend_kwds)
+        legend = ax.legend(**{
+            key: val for key, val in legend_kwds.items()
+            if key not in ['replacements', 'casing', 'format']
+        })
+        for legend_label in legend.get_texts():
+            legend_label.set_path_effects(self._path_effects)
         legend.get_frame().set_linewidth(0)
 
     def _plot_chart(self, ax, xs, ys, chart_kwds):
-        plot_kwds = {
-            key: val for key, val in chart_kwds.items()
-            if key not in EXCLUDED_VARS}
-        plot_kwds['label'] = plot_kwds['label'].flat[0]
         if self.chart == 'scatter':
-            chart = ax.scatter(xs, ys, **plot_kwds)
+            chart = ax.scatter(xs, ys, **chart_kwds)
         elif self.chart == 'line':
             for x, y in zip(xs, ys): # plot each line separately
-                chart = ax.scatter(x[-1], y[-1], **plot_kwds)
-                plot_kwds.pop('s', '')
-                plot_kwds.pop('label', '')
-                _ = ax.plot(x, y, **plot_kwds)
+                chart = ax.scatter(x[-1], y[-1], **chart_kwds)
+                chart_kwds.pop('s', '')
+                chart_kwds.pop('label', '')
+                _ = ax.plot(x, y, **chart_kwds)
         elif self.chart.startswith('bar'):
             chart = getattr(ax, self.chart)(
-                xs.ravel(), ys.ravel(), **plot_kwds)
+                xs.ravel(), ys.ravel(), **chart_kwds)
         return chart
 
-    def _update_colorbar(ax, chart):
+    def _update_colorbar(ax, chart):  # TODO: add defaults
         colorbar_kwds = {'ax': ax}
-        colorbar_kwds.update(self.colorbar_kwds)
-        plt.colorbar(chart, colorbar_kwds)
+        colorbar_kwds = config._load(
+            'colorbar_kwds', self.colorbar_kwds, **colorbar_kwds)
+        plt.colorbar(chart, **colorbar_kwds)
 
-    def _update_ticks(self, fig, ax, xs, ys, chart_kwds):
-        tick_kwds = dict(axis='both', which='both', length=0, color='gray')
-        tick_kwds.update(self.tick_kwds)
-        ax.tick_params(**tick_kwds)
+    def _update_ticks(self, fig, ax, xs, ys, tick_labels):
+        xtick_kwds = config._load('xtick_kwds', self.xtick_kwds)
+        xtick_kwds['labels'] = tick_labels
+        xtick_kwds = self._update_text(
+            xtick_kwds, 'labels', num=self.xmin, apply_format=False)
+        xformat = xtick_kwds.pop('format')
+        xtick_labels = xtick_kwds.pop('labels')
+
+        ytick_kwds = config._load('ytick_kwds', self.ytick_kwds)
+        ytick_kwds['labels'] = tick_labels
+        ytick_kwds = self._update_text(
+            ytick_kwds, 'labels', num=self.ymin, apply_format=False)
+        yformat = ytick_kwds.pop('format')
+        ytick_labels = ytick_kwds.pop('labels')
 
         if self.chart.startswith('bar'):
-            tick_labels = chart_kwds.pop('tick_label').ravel()
+            tick_labels = tick_labels.ravel()
             if self.chart == 'bar':
                 ax.set_xticks(xs)
-                ax.set_xticklabels(tick_labels)
+                ax.set_xticklabels(xtick_labels)
             elif self.chart == 'barh':
                 ax.set_yticks(xs)
-                ax.set_yticklabels(tick_labels)
+                ax.set_yticklabels(ytick_labels)
         else:
             if not self.x_is_datetime:
-                xformatter = FormatStrFormatter(
-                    f'%{self._get_base_format(self.xmin)}')
+                xformatter = FormatStrFormatter(f'%{xformat}')
                 ax.xaxis.set_major_formatter(xformatter)
             else:
                 fig.autofmt_xdate()
 
             if not self.y_is_datetime:
-                yformatter = FormatStrFormatter(
-                    f'%{self._get_base_format(self.ymin)}')
+                yformatter = FormatStrFormatter(f'%{yformat}')
                 ax.yaxis.set_major_formatter(yformatter)
             else:
                 fig.autofmt_ydate()
 
-    @staticmethod
-    def _update_logo(ax):
-        ax.text(
-            0.995, -0.1, 'Animated using Ahlive',
-            ha='right', va='bottom', transform=ax.transAxes,
-            fontsize=SIZES['small'], alpha=0.28)
+        ax.tick_params(**xtick_kwds)
+        ax.tick_params(**ytick_kwds)
 
-    def _apply_hooks(self):
+    def _update_watermark(self, ax):
+        watermark_kwds = config._load(
+            'watermark_kwds', self.watermark_kwds, s=self.watermark)
+        ax.annotate(**watermark_kwds)
+
+    def _apply_hooks(self, fig, ax):
         hooks = [self.hooks] if callable(self.hooks) else self.hooks
         for hook in self.hooks:
             if not callable(hook):
@@ -312,8 +353,7 @@ class Animation(param.Parameterized):
 
     def _buffer_frame(self):
         buf = BytesIO()
-        frame_kwds = dict(format='png')
-        frame_kwds.update(**self.frame_kwds)
+        frame_kwds = config._load('frame_kwds', self.frame_kwds)
         plt.savefig(buf, **frame_kwds)
         buf.seek(0)
         plt.close()
@@ -326,24 +366,29 @@ class Animation(param.Parameterized):
         self._update_grid(ax)
         self._update_margins(ax)
 
-        if self.logo:
-            self._update_logo(ax)
+        if self.watermark:
+            self._update_watermark(ax)
 
         has_colors = 'c' in ds_state
         base_kwds = self._prep_kwds(ds_state, has_colors)
-        for label, ds_overlay in ds_state.groupby('label'):
-            chart_kwds = self._update_kwds(base_kwds, ds_overlay, label)
-            xs = chart_kwds.pop('x')
-            ys = chart_kwds.pop('y')
+
+        state_label = util.pop(ds_state, 'state_label')[-1]
+        if state_label is not None:
+            self._add_state_labels(ax, state_label)
+
+        for item in ds_state['item']:
+            ds_overlay = ds_state.sel(item=[item])
+
+            xs = util.pop(ds_overlay, 'x')
+            ys = util.pop(ds_overlay, 'y')
+            inline_labels = util.pop(ds_overlay, 'inline_label')
+            tick_labels = util.pop(ds_overlay, 'tick_label')
+
+            chart_kwds = self._update_kwds(base_kwds, ds_overlay)
             chart = self._plot_chart(ax, xs, ys, chart_kwds)
-
-            if 'state_label' in chart_kwds:
-                self._add_state_labels(ax, chart_kwds)
-
-            if 'inline_label' in chart_kwds:
-                self._add_inline_labels(ax, xs, ys, chart, chart_kwds)
-
-            self._update_ticks(fig, ax, xs, ys, chart_kwds)
+            if inline_labels is not None:
+                self._add_inline_labels(ax, xs, ys, chart, inline_labels)
+            self._update_ticks(fig, ax, xs, ys, tick_labels)
 
         legend_labels = ax.get_legend_handles_labels()[1]
         if legend_labels:
@@ -358,7 +403,10 @@ class Animation(param.Parameterized):
         buf = self._buffer_frame()
         return buf
 
-    def animate(self, ds):
+    def animate(self):
+        ds = self.final_ds.copy()
+        delays = util.pop(ds, 'delay').tolist()
+
         self.chart = self.chart or 'line'
         if self.style is None:
             self.style = 'minimal' if self.chart == 'scatter' else 'graph'
@@ -384,13 +432,10 @@ class Animation(param.Parameterized):
         else:
             loop = self.loop
 
-        duration = ds['duration'].values.tolist()
-        gif_kwds = dict(
-            format='gif', mode='I', loop=loop,
-            duration=duration, subrectangles=True)
-        gif_kwds.update(self.gif_kwds)
-
-        with imageio.get_writer(self.out_fp, **gif_kwds) as writer:
+        animate_kwds = dict(loop=loop, duration=delays)
+        animate_kwds = config._load(
+            'animate_kwds', self.animate_kwds, **animate_kwds)
+        with imageio.get_writer(self.out_fp, **animate_kwds) as writer:
             for buf in buf_list:
                 if buf is None:
                     continue

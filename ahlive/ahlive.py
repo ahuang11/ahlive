@@ -1,3 +1,4 @@
+import warnings
 from collections.abc import Iterable
 
 import dask
@@ -5,29 +6,51 @@ import param
 import numpy as np
 import xarray as xr
 
-from .easing import Easing
-from .animation import Animation
+from . import config, easing, animation, util
+
 
 OPTIONS = {
     'limit': ['fixed', 'follow']
 }
 
 
-class Ahlive(Easing, Animation):
+class Ahlive(easing.Easing, animation.Animation):
 
-    x0_limits = param.ClassSelector(
+    trail = param.Boolean(default=True)
+    xlim0s = param.ClassSelector(
         default=None, class_=(Iterable, int, float))
-    x1_limits = param.ClassSelector(
+    xlim1s = param.ClassSelector(
         default=None, class_=(Iterable, int, float))
-    y0_limits = param.ClassSelector(
+    ylim0s = param.ClassSelector(
         default=None, class_=(Iterable, int, float))
-    y1_limits = param.ClassSelector(
+    ylim1s = param.ClassSelector(
         default=None, class_=(Iterable, int, float))
-    durations = param.ClassSelector(
+    delays = param.ClassSelector(
         default=None, class_=(Iterable, int, float))
+    delays_kwds = param.Dict(
+        default=None)
+    show_out = param.Boolean(default=True)
+    final_ds = param.ObjectSelector(default=xr.Dataset())
 
     def __init__(self, **kwds):
         super().__init__(**kwds)
+        self_attrs = set(dir(self))
+        for key in list(kwds.keys()):
+            key_and_s = key + 's'
+            key_strip = key.rstrip('s')
+            expected_key = None
+            if key_and_s in self_attrs and key_and_s != key:
+                warnings.warn(
+                    f'Unexpected {key}; setting {key} '
+                    f'as the expected {key_and_s}!')
+                expected_key = key_and_s
+            elif key_strip in self_attrs and key_strip != key:
+                warnings.warn(
+                    f'Unexpected {key}; setting {key} '
+                    f'as the expected {key_strip}!')
+                expected_key = key_strip
+            if expected_key:
+                setattr(self, expected_key, kwds.pop(key))
 
     def _add_data(self, label=None, state_labels=None, **input_data_vars):
         if all(key in input_data_vars for key in ['x', 'y']):
@@ -53,7 +76,7 @@ class Ahlive(Easing, Animation):
             saved_ds = self.ref_ds
 
         item_num = len(saved_ds['item']) if saved_ds else 0
-        coords = {'item': [item_num], 'state': range(self.num_states)}
+        coords = {'item': [item_num], 'state': np.arange(self.num_states)}
         if item_type is not None:
             coords['item_type'] = ('item', [item_type])
 
@@ -141,26 +164,32 @@ class Ahlive(Easing, Animation):
         if self.chart == 'barh':
             xs, ys = ys, xs  # matplotlib draws x on y axis for barh
         if self.xlabel is None:
-            self.xlabel = xs.title()
+            self.xlabel = xs
         if self.ylabel is None:
-            self.ylabel = ys.title()
+            self.ylabel = ys
 
-    def _add_xy01_limits(self):
+    def _add_xy01_limits(self, ds):
         limits = {
-            'x0_limit': self.x0_limits,
-            'x1_limit': self.x1_limits,
-            'y0_limit': self.y0_limits,
-            'y1_limit': self.y1_limits
+            'xlim0': self.xlim0s,
+            'xlim1': self.xlim1s,
+            'ylim0': self.ylim0s,
+            'ylim1': self.ylim1s
         }
 
         for key, limit in limits.items():
             axis = key[0]
-            left = int(key[1]) == 0
+            left = int(key[-1]) == 0
 
-            in_axes_kwds = f'{axis}lim' in self.axes_kwds
+            axis_limit_key = f'{axis}lim'
+            if self.axes_kwds is not None:
+                in_axes_kwds = axis_limit_key in self.axes_kwds
+            else:
+                in_axes_kwds = False
+            unset_limit = limit is None and not in_axes_kwds
             is_scatter = self.chart == 'scatter'
+            is_line_y = self.chart == 'line' and axis == 'y'
             is_bar_y = self.chart.startswith('bar') and axis == 'y'
-            if limit is None and not in_axes_kwds and (is_scatter or is_bar_y):
+            if unset_limit and any([is_scatter, is_line_y, is_bar_y]):
                 limit = 'fixed'
             elif isinstance(limit, str) and limit not in OPTIONS['limit']:
                 raise ValueError(
@@ -168,86 +197,124 @@ class Ahlive(Easing, Animation):
                     f"from {OPTIONS['limit']} or numeric values!"
                 )
 
+            input_ = limit
             if isinstance(limit, str):
-                input_ = limit
-                stat = 'min' if left or limit == 'min' else 'max'
+                stat = 'min' if left else 'max'
                 dims = 'item' if limit == 'follow' else None
-                limit = getattr(self.ds[axis], stat)(dims)
-                if len(np.atleast_1d(limit)) == 1:
-                    limit = np.repeat(limit.values, len(self.ds['state']))
+                limit = getattr(ds[axis], stat)(dims)
 
             if limit is not None:
                 if self.chart == 'barh':
                     axis = 'x' if axis == 'y' else 'y'
                     key = axis + key[1:]
-                if len(np.atleast_1d(limit)) == 1:  # TODO: make util
+                if util.is_scalar(limit) == 1:
                     limit = [limit] * self.num_states
-                self.ds[key] = ('state', limit)
+                ds[key] = ('state', limit)
+        return ds
 
-    def _add_durations(self):
-        if self.durations is None:
-            durations = 0.5 if len(self.ds['state']) < 10 else 1 / 10
+    def _add_delays(self, ds):
+        if self.delays is None:
+            delays = 0.5 if len(ds['state']) < 10 else 1 / 60
         else:
-            durations = self.durations
+            delays = self.delays
 
-        if isinstance(durations, (int, float)):
-            durations = np.repeat(durations, len(self.ds['state']))
-        self.ds['duration'] = ('state', durations)
+        if isinstance(delays, (int, float)):
+            transition_frames = delays
+            delays = np.repeat(delays, len(ds['state']))
+        else:
+            transition_frames = (
+                config.defaults['delays_kwds']['transition_frames'])
 
-    def save(self):
+        delays_kwds = config._load(
+            'delays_kwds', self.delays_kwds,
+            transition_frames=transition_frames)
+        delays[delays == 0] = delays_kwds['transition_frames']
+        delays[-1] += delays_kwds['final_frame']
+        ds['delay'] = ('state', delays)
+        return ds, delays_kwds
+
+    def finalize_settings(self):
+        ds = self.ds.copy()
+
         if self.chart is None:
-            self.chart = 'scatter' if len(self.ds['state']) <= 5 else 'line'
+            self.chart = 'scatter' if len(ds['state']) <= 5 else 'line'
         elif self.chart.startswith('bar'):
-            self.ds = xr.concat([
+            ds = xr.concat([
                 ds_group.unstack().assign(**{
-                    'item': [item], 'state': range(len(ds_group['state']))})
-                for item, (group, ds_group) in enumerate(self.ds.groupby('x'))
+                    'item': [item],
+                    'state': np.arange(len(ds_group['state']))})
+                for item, (group, ds_group) in enumerate(ds.groupby('x'))
             ], 'item')
-            self.ds['tick_label'] = self.ds['x']
-            self.ds['x'] = self.ds['y'].rank('item')
-        self._add_xy01_limits()
-        self._add_durations()
-        if 'label' not in self.ds:
-            self.ds['label'] = ('item', np.repeat('', len(self.ds['item'])))
+            ds['tick_label'] = ds['x']
+            ds['x'] = ds['y'].rank('item')
+
+        ds = self._add_xy01_limits(ds)
+        ds, delays_kwds = self._add_delays(ds)
+
+        if 'label' not in ds:
+            ds['label'] = ('item', np.repeat('', len(ds['item'])))
         if self.loop is None:
             self.loop = 0 if self.chart == 'line' else 'boomerang'
-        ds = self.ds.reset_coords()
+
+        # sort legend
+        if self.legend_kwds is not None:
+            legend_sortby = self.legend_kwds.pop('sortby', None)
+        else:
+            legend_sortby = 'y'
+        if legend_sortby and 'label' in ds:
+            items = ds.mean('state').sortby(
+                legend_sortby, ascending=False
+            )['item']
+            ds = ds.sel(**{'item': items})
+            ds['item'] = np.arange(len(ds['item']))
 
         # initialize
         self.xmin = ds['x'].min()
         self.ymin = ds['y'].min()
         try:
-            self.xs_step = np.diff(ds.get(
+            self.state_step = np.diff(ds.get(
                 'state_label', np.array([0, 1])
             )).min()
         except TypeError:
-            self.xs_step = ds.get(
+            self.state_step = ds.get(
                 'state_label', np.array([0, 1])
             ).min()
         try:
-            self.state_label_step = np.diff(ds.get(
-                'state_label', np.array([0, 1])
-            )).min()
-        except TypeError:
-            self.state_label_step = ds.get(
-                'state_label', np.array([0, 1])
-            ).min()
-        try:
-            self.inline_label_step = np.diff(ds.get(
+            self.inline_step = np.diff(ds.get(
                 'inline_label', np.array([0, 1])
             )).min()
         except TypeError:
-            self.inline_label_step = ds.get(
+            self.inline_step = ds.get(
                 'inline_label', np.array([0, 1])
             ).min()
 
-        self.x_is_datetime = np.issubdtype(ds['x'].values.dtype, np.datetime64)
-        self.y_is_datetime = np.issubdtype(ds['y'].values.dtype, np.datetime64)
+        self.x_is_datetime = np.issubdtype(
+            ds['x'].values.dtype, np.datetime64)
+        self.y_is_datetime = np.issubdtype(
+            ds['y'].values.dtype, np.datetime64)
 
         if 'c' in ds:
             self.vmin = ds['c'].min()
             self.vmax = ds['c'].max()
 
-        ds = ds.apply(self.interpolate)
-        print(ds)
-        super().animate(ds)
+        # if self.trail:
+        #     ds['x_trail'] =
+
+        ds = ds.reset_coords().apply(self.interpolate)
+        ds['delay'] = ds['delay'].where(
+            ds['delay'] != 0, delays_kwds['transition_frames'])
+
+        self.final_ds = ds
+
+    def save(self):
+        if len(self.final_ds) == 0:
+            self.finalize_settings()
+        self.animate()
+        if self.show_out:
+            try:
+                from IPython.display import Image
+                with open(self.out_fp, 'rb') as f:
+                    display(Image(data=f.read(), format='png'))
+            except (ImportError):
+                pass
+        return self.out_fp
