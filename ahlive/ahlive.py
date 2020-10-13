@@ -16,7 +16,6 @@ OPTIONS = {
 
 class Ahlive(easing.Easing, animation.Animation):
 
-    trail = param.Boolean(default=True)
     xlim0s = param.ClassSelector(
         default=None, class_=(Iterable, int, float))
     xlim1s = param.ClassSelector(
@@ -30,10 +29,13 @@ class Ahlive(easing.Easing, animation.Animation):
     delays_kwds = param.Dict(
         default=None)
     show_out = param.Boolean(default=True)
-    final_ds = param.ObjectSelector(default=xr.Dataset())
 
     def __init__(self, **kwds):
         super().__init__(**kwds)
+        self.ds = xr.Dataset({'item': [], 'state': []})
+        self.num_states = len(self.ds['state'])
+        self.num_items = len(self.ds['item'])
+        self.final_ds = None
         self_attrs = set(dir(self))
         for key in list(kwds.keys()):
             key_and_s = key + 's'
@@ -75,7 +77,7 @@ class Ahlive(easing.Easing, animation.Animation):
                 self.num_states = len(input_data_vars['x0'])
             saved_ds = self.ref_ds
 
-        item_num = len(saved_ds['item']) if saved_ds else 0
+        item_num = len(saved_ds['item'])
         coords = {'item': [item_num], 'state': np.arange(self.num_states)}
         if item_type is not None:
             coords['item_type'] = ('item', [item_type])
@@ -99,17 +101,17 @@ class Ahlive(easing.Easing, animation.Animation):
         for var in list(data_vars.keys()):
             val = np.array(data_vars.pop(var))
             dims = ('item', 'state')
-            if len(np.atleast_1d(val)) == 1:
+            if util.is_scalar(val):
                 val = [val] * self.num_states
             val = np.reshape(val, (1, -1))
             data_vars[var] = dims, val
         ds = xr.Dataset(data_vars=data_vars, coords=coords)
 
-        if not saved_ds:
+        if len(saved_ds) == 0:
             saved_ds = ds
         else:
             saved_ds = xr.concat([saved_ds, ds], 'item')
-
+        self.num_items = len(saved_ds['item'])
         return saved_ds
 
     def add_arrays(self, xs, ys, label=None, state_labels=None,
@@ -117,6 +119,24 @@ class Ahlive(easing.Easing, animation.Animation):
         self.ds = self._add_data(
             x=xs, y=ys, label=label, state_labels=state_labels,
             inline_label=inline_labels, **input_data_vars)
+
+    def add_annotations(self, condition, labels=None, delays=None):
+        if 'annotation' not in self.ds:
+            self.ds['annotation'] = (
+                ('item', 'state'),
+                np.full((len(self.ds['item']), self.num_states), '')
+            )
+            self.ds['delay'] = (
+                'state', np.repeat(0, len(self.ds['state'])))
+
+        if labels.startswith('$'):
+            labels = self.ds[labels.lstrip('$')]
+        self.ds['annotation'] = xr.where(
+            condition, labels, self.ds['annotation']
+        ).transpose('item', 'state')
+        if delays is not None:
+            self.ds['delay'] = xr.where(
+                condition, delays, self.ds['delay'])
 
     def add_references(self, x0s=None, x1s=None, y0s=None, y1s=None,
                        label=None, state_labels=None, inline_labels=None,
@@ -167,6 +187,8 @@ class Ahlive(easing.Easing, animation.Animation):
             self.xlabel = xs
         if self.ylabel is None:
             self.ylabel = ys
+        if labels == inline_labels and self.legend is None:
+            self.legend = False
 
     def _add_xy01_limits(self, ds):
         limits = {
@@ -230,7 +252,10 @@ class Ahlive(easing.Easing, animation.Animation):
             transition_frames=transition_frames)
         delays[delays == 0] = delays_kwds['transition_frames']
         delays[-1] += delays_kwds['final_frame']
-        ds['delay'] = ('state', delays)
+        if 'delay' in ds:
+            ds['delay'] = ds['delay'] + delays
+        else:
+            ds['delay'] = ('state', delays)
         return ds, delays_kwds
 
     def finalize_settings(self):
@@ -297,17 +322,17 @@ class Ahlive(easing.Easing, animation.Animation):
             self.vmin = ds['c'].min()
             self.vmax = ds['c'].max()
 
-        # if self.trail:
-        #     ds['x_trail'] =
+        if self.trail_chart and not self.chart.startswith('bar'):
+            ds['x_trail'] = ds['x'].copy()
+            ds['y_trail'] = ds['y'].copy()
 
         ds = ds.reset_coords().apply(self.interpolate)
-        ds['delay'] = ds['delay'].where(
-            ds['delay'] != 0, delays_kwds['transition_frames'])
+        ds['delay'] = ds['delay'].fillna(delays_kwds['transition_frames'])
 
         self.final_ds = ds
 
     def save(self):
-        if len(self.final_ds) == 0:
+        if self.final_ds is None:
             self.finalize_settings()
         self.animate()
         if self.show_out:

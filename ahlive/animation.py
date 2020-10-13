@@ -17,10 +17,10 @@ from . import config, util
 
 class Animation(param.Parameterized):
 
-    ds = param.ObjectSelector(default=xr.Dataset())
-    ref_ds = param.ObjectSelector(default=xr.Dataset())
     chart = param.ObjectSelector(
-        default=None, objects=['scatter', 'line', 'barh', 'bar'])
+        default=None, objects=['scatter', 'line', 'barh', 'bar', 'plot'])
+    trail_chart = param.ObjectSelector(
+        default=None, objects=['scatter', 'line', 'plot'])
     out_fp = param.String(default='untitled.gif')
     style = param.ObjectSelector(
         default=None, objects=['graph', 'minimal', 'bare'])
@@ -30,10 +30,14 @@ class Animation(param.Parameterized):
     xlabel = param.String(default=None)
     ylabel = param.String(default=None)
     watermark = param.String(default='Animated using Ahlive')
+    legend = param.Boolean(default=None)
+    colorbar = param.Boolean(default=None)
 
     fig_kwds = param.Dict(default=None)
     axes_kwds = param.Dict(default=None)
     chart_kwds = param.Dict(default=None)
+    trail_kwds = param.Dict(default=None)
+    annotation_kwds = param.Dict(default=None)
     grid_kwds = param.Dict(default=None)
     margins_kwds = param.Dict(default=None)
     xlabel_kwds = param.Dict(default=None)
@@ -59,11 +63,12 @@ class Animation(param.Parameterized):
 
     @staticmethod
     def _get_base_format(num):
+        if isinstance(num, xr.DataArray):
+            num = num.values.item()
         is_datetime = isinstance(num, np.timedelta64)
 
-        try:
-            num = float(num)
-        except ValueError:
+        num = util.to_num(num)
+        if isinstance(num, str):
             return 's'
 
         if is_datetime:
@@ -245,24 +250,22 @@ class Animation(param.Parameterized):
             xytext = xytext[::-1]
         elif self.chart == 'bar':
             va = 'bottom'
-        elif self.chart == 'line':
+        elif self.chart in ['line', 'scatter']:
             ha = 'left'
             va = 'bottom'
 
         color = plt.getp(chart, 'edgecolor')[0]
-        inline_labels = inline_labels[:, -1]
-        for i, inline_label in enumerate(inline_labels):
-            inline_kwds = dict(
-                s=inline_label,
-                xy=(xs[i][-1], ys[i][-1]), ha=ha, va=va,
-                color=color, xytext=xytext,
-                path_effects=self._path_effects
-            )
-            inline_kwds = config._load(
-                'inline_kwds', self.inline_kwds, **inline_kwds)
-            inline_kwds = self._update_text(
-                inline_kwds, 's', num=self.inline_step)
-            ax.annotate(**inline_kwds)
+        inline_kwds = dict(
+            s=inline_labels[-1],
+            xy=(xs[-1], ys[-1]), ha=ha, va=va,
+            color=color, xytext=xytext,
+            path_effects=self._path_effects
+        )
+        inline_kwds = config._load(
+            'inline_kwds', self.inline_kwds, **inline_kwds)
+        inline_kwds = self._update_text(
+            inline_kwds, 's', num=self.inline_step)
+        ax.annotate(**inline_kwds)
         return ax
 
     def _update_legend(self, ax, legend_labels):
@@ -272,26 +275,65 @@ class Animation(param.Parameterized):
         legend_kwds = dict(labels=legend_labels, ncol=ncol)
         legend_kwds = config._load(
             'legend_kwds', self.legend_kwds, **legend_kwds)
-        legend = ax.legend(**{
-            key: val for key, val in legend_kwds.items()
-            if key not in ['replacements', 'casing', 'format']
-        })
-        for legend_label in legend.get_texts():
-            legend_label.set_path_effects(self._path_effects)
-        legend.get_frame().set_linewidth(0)
+        show = legend_kwds.pop('show')
+        if show:
+            legend = ax.legend(**{
+                key: val for key, val in legend_kwds.items()
+                if key not in ['replacements', 'casing', 'format']
+            })
+            for legend_label in legend.get_texts():
+                legend_label.set_path_effects(self._path_effects)
+            legend.get_frame().set_linewidth(0)
 
-    def _plot_chart(self, ax, xs, ys, chart_kwds):
+    def _plot_chart(self, ax, xs, ys, x_trails, y_trails,
+                    annotations, chart_kwds):
+        s = chart_kwds.pop('s', None)
+        trail_kwds = chart_kwds.copy()
+
         if self.chart == 'scatter':
-            chart = ax.scatter(xs, ys, **chart_kwds)
+            # select last state
+            chart = ax.scatter(xs[-1], ys[-1], s=s, **chart_kwds)
         elif self.chart == 'line':
-            for x, y in zip(xs, ys): # plot each line separately
-                chart = ax.scatter(x[-1], y[-1], **chart_kwds)
-                chart_kwds.pop('s', '')
-                chart_kwds.pop('label', '')
-                _ = ax.plot(x, y, **chart_kwds)
+            # select last state
+            chart = ax.scatter(xs[-1], ys[-1], s=s, **chart_kwds)
+            chart_kwds.pop('label', '')
+            # squeeze out item
+            _ = ax.plot(xs, ys, **chart_kwds)
         elif self.chart.startswith('bar'):
             chart = getattr(ax, self.chart)(
-                xs.ravel(), ys.ravel(), **chart_kwds)
+                xs[-1], ys[-1], **chart_kwds)
+
+        color = plt.getp(chart, 'edgecolor')[0]
+        if x_trails is not None and y_trails is not None:
+            trail_kwds['color'] = color
+            trail_kwds = config._load(
+                'trail_kwds', self.trail_kwds, **trail_kwds)
+            trail_kwds['label'] = '_nolegend_'
+            expire = trail_kwds.pop('expire', None)
+            stride = trail_kwds.pop('stride', None)
+            indices = np.where(~np.isnan(x_trails))
+            x_trails = x_trails[indices][:-expire:-stride]
+            y_trails = y_trails[indices][:-expire:-stride]
+            if self.trail_chart in ['line', 'plot']:
+                x_trails = np.concatenate([xs[-1:], x_trails])
+                y_trails = np.concatenate([ys[-1:], y_trails])
+                self.trail_chart = 'plot'
+            getattr(ax, self.trail_chart)(x_trails, y_trails, **trail_kwds)
+
+        for x, y, annotation in zip(xs, ys, annotations):
+            if annotation  == '':
+                continue
+            annotation = util.to_num(annotation)
+            annotation_kwds = dict(
+                s=annotation, xy=(x, y),
+                color=color, path_effects=self._path_effects
+            )
+            annotation_kwds = config._load(
+                'annotation_kwds', self.annotation_kwds, **annotation_kwds)
+            annotation_kwds = self._update_text(
+                annotation_kwds, 's', num=annotation)
+            ax.annotate(**annotation_kwds)
+
         return chart
 
     def _update_colorbar(ax, chart):  # TODO: add defaults
@@ -381,20 +423,27 @@ class Animation(param.Parameterized):
 
             xs = util.pop(ds_overlay, 'x')
             ys = util.pop(ds_overlay, 'y')
+
+            x_trails = util.pop(ds_overlay, 'x_trail')
+            y_trails = util.pop(ds_overlay, 'y_trail')
+
+            annotations = util.pop(ds_overlay, 'annotation', [])
+
             inline_labels = util.pop(ds_overlay, 'inline_label')
             tick_labels = util.pop(ds_overlay, 'tick_label')
 
             chart_kwds = self._update_kwds(base_kwds, ds_overlay)
-            chart = self._plot_chart(ax, xs, ys, chart_kwds)
+            chart = self._plot_chart(
+                ax, xs, ys, x_trails, y_trails, annotations, chart_kwds)
             if inline_labels is not None:
                 self._add_inline_labels(ax, xs, ys, chart, inline_labels)
             self._update_ticks(fig, ax, xs, ys, tick_labels)
 
         legend_labels = ax.get_legend_handles_labels()[1]
-        if legend_labels:
+        if legend_labels and self.legend:
             self._update_legend(ax, legend_labels)
 
-        if has_colors:
+        if has_colors and self.colorbar:
             self._update_colorbar(chart)
 
         if self.hooks:
@@ -408,6 +457,10 @@ class Animation(param.Parameterized):
         delays = util.pop(ds, 'delay').tolist()
 
         self.chart = self.chart or 'line'
+        if self.legend is None:
+            self.legend = True
+        if self.colorbar is None:
+            self.colorbar = True
         if self.style is None:
             self.style = 'minimal' if self.chart == 'scatter' else 'graph'
 
@@ -419,9 +472,7 @@ class Animation(param.Parameterized):
         with dask.diagnostics.ProgressBar(minimum=2):
             buf_list = dask.compute([
                 self._draw_frame(
-                    ds.isel(**{'state': [state]})
-                    if self.chart != 'line'
-                    else ds.isel(**{'state': slice(None, state + 1)})
+                    ds.isel(**{'state': slice(None, state + 1)})
                 ) for state in ds['state'].values
             ], scheduler='processes', num_workers=num_workers)[0]
 

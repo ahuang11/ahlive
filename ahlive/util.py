@@ -11,14 +11,34 @@ def try_to_pydatetime(*values):
         return array
 
 
+def to_num(num):
+    try:
+        return float(num)
+    except ValueError:
+        return num
+
+
 def is_scalar(value):
     return len(np.atleast_1d(value)) == 1
 
 
-def pop(ds, key, dflt=None):
+def pop(ds, key, dflt=None, squeeze=True):
     try:
         array = ds[key].values
         del ds[key]
     except KeyError:
         array = dflt
+    if squeeze:
+        try:
+            array = np.atleast_1d(array.squeeze())
+        except AttributeError:
+            pass
     return array
+
+def ffill(arr):
+    # https://stackoverflow.com/questions/41190852/
+    mask = np.isnan(arr)
+    indices = np.where(~mask, np.arange(mask.shape[1]), 0)
+    np.maximum.accumulate(indices, axis=1, out=indices)
+    out = arr[np.arange(indices.shape[0])[:, None], indices]
+    return out

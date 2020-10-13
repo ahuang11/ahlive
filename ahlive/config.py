@@ -24,12 +24,31 @@ defaults['axes_kwds'] = {
     'frame_on': False
 }
 
+defaults['chart_kwds'] = {
+    's': 80
+}
+
+defaults['trail_kwds'] = {
+    'color': 'gray',
+    'alpha': 0.5,
+    'expire': 12,
+    'stride': 2,
+}
+
 defaults['label_kwds'] = {
     'fontsize': sizes['medium'],
     'replacements': {'_': ' '},
     'casing': 'title',
     'format': 'auto'
 }
+defaults['annotation_kwds'] = defaults['label_kwds'].copy()
+defaults['annotation_kwds'].update({
+    'textcoords': 'offset points',
+    'xytext': (0, 1.5),
+    'ha': 'left',
+    'va': 'top'
+})
+
 defaults['xlabel_kwds'] = defaults['label_kwds'].copy()
 defaults['xlabel_kwds'].update({'fontsize': sizes['large']})
 
@@ -54,6 +73,7 @@ defaults['inline_kwds'].update({'textcoords': 'offset points'})
 
 defaults['legend_kwds'] = defaults['label_kwds'].copy()
 defaults['legend_kwds'].update({
+    'show': True,
     'framealpha': 0,
     'loc': 'upper left',
     'bbox_to_anchor': (0.025, 0.95),

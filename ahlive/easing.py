@@ -82,15 +82,20 @@ class Easing(param.Parameterized):
 
         num_result = (num_states - 1) * num_steps
         if name == 'delay':
-            result = np.zeros(num_result)
+            result = np.full(num_result, np.nan)
             indices = np.arange(num_states) * num_steps
             indices[-1] -= 1
-            result[indices] = array[0]
+            result[indices] = array[0]  # (1, num_states)
             result = result.reshape(1, -1)
+        elif 'trail' in name:
+            indices = np.arange(num_states * num_steps - num_steps)
+            result = pd.DataFrame(
+                array, columns=np.arange(0, num_states * num_steps, num_steps)
+            ).T.reindex(indices).T.values
         elif np.issubdtype(array.dtype, np.datetime64):
             array = array.astype(float)
-            init = np.repeat(array[:, :-1], num_steps).reshape(*new_shape)
-            stop = np.repeat(array[:, 1:], num_steps).reshape(*new_shape)
+            init = np.repeat(array[:, :-1], num_steps, axis=1)
+            stop = np.repeat(array[:, 1:], num_steps, axis=1)
             tiled_steps = np.tile(
                 steps, (num_states - 1) * num_items
             ).reshape(*new_shape)
@@ -98,8 +103,8 @@ class Easing(param.Parameterized):
             result = stop * weights + init * (1 - weights)
             result = result.astype(np.datetime64)
         elif np.issubdtype(array.dtype, np.number):
-            init = np.repeat(array[:, :-1], num_steps).reshape(*new_shape)
-            stop = np.repeat(array[:, 1:], num_steps).reshape(*new_shape)
+            init = np.repeat(array[:, :-1], num_steps, axis=1)
+            stop = np.repeat(array[:, 1:], num_steps, axis=1)
             tiled_steps = np.tile(
                 steps, (num_states - 1) * num_items
             ).reshape(*new_shape)
@@ -110,11 +115,10 @@ class Easing(param.Parameterized):
             for colors in array:
                 cmap = LinearSegmentedColormap.from_list('eased', colors)
                 results.append(
-                    [rgb2hex(rgb) for rgb in cmap(range(num_steps))])
+                    [rgb2hex(rgb) for rgb in cmap(np.arange(num_steps))])
             result = np.array(results)
         else:
-            result = np.repeat(array, num_steps)
-            result = result.reshape(*new_shape)
+            result = np.repeat(array, num_steps, axis=1)
             if name == 'state_label':
                 num_roll = -int(np.ceil(num_steps / num_states * 2))
                 result = np.roll(result, num_roll, axis=-1)
