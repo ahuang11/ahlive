@@ -120,23 +120,50 @@ class Ahlive(easing.Easing, animation.Animation):
             x=xs, y=ys, label=label, state_labels=state_labels,
             inline_label=inline_labels, **input_data_vars)
 
-    def add_annotations(self, condition, labels=None, delays=None):
-        if 'annotation' not in self.ds:
-            self.ds['annotation'] = (
-                ('item', 'state'),
-                np.full((len(self.ds['item']), self.num_states), '')
-            )
-            self.ds['delay'] = (
-                'state', np.repeat(0, len(self.ds['state'])))
+    def add_annotations(self, xs=None, ys=None, state_labels=None,
+                        inline_labels=None, condition=None,
+                        annotations=None, delays=None):
+        args = (xs, ys, state_labels, inline_labels, condition)
+        args_none = sum([1 for arg in args if arg is None])
+        if args_none == len(args):
+            raise ValueError(
+                'Must supply either xs, ys, state_labels, '
+                'inline_labels, or condition!')
+        elif args_none != len(args) - 1:
+            raise ValueError(
+                'Must supply only one of xs, ys, state_labels, '
+                'inline_labels, or condition!')
 
-        if labels.startswith('$'):
-            labels = self.ds[labels.lstrip('$')]
-        self.ds['annotation'] = xr.where(
-            condition, labels, self.ds['annotation']
-        ).transpose('item', 'state')
+        if xs is not None:
+            condition = self.ds['x'].isin(xs)
+        elif ys is not None:
+            condition = self.ds['y'].isin(ys)
+        elif state_labels is not None:
+            condition = self.ds['state_label'].isin(state_labels)
+        elif inline_labels is not None:
+            condition = self.ds['inline_label'].isin(inline_labels)
+
+        if annotations is not None:
+            if 'annotation' not in self.ds:
+                self.ds['annotation'] = (
+                    ('item', 'state'),
+                    np.full((len(self.ds['item']), self.num_states), '')
+                )
+            if annotations.startswith('$'):
+                annotations = self.ds[annotations.lstrip('$')]
+            self.ds['annotation'] = xr.where(
+                condition, annotations, self.ds['annotation']
+            ).transpose('item', 'state')
+
         if delays is not None:
+            if 'delay' not in self.ds:
+                self.ds['delay'] = (
+                    'state', np.repeat(np.nan, len(self.ds['state'])))
             self.ds['delay'] = xr.where(
-                condition, delays, self.ds['delay'])
+                condition, delays, self.ds['delay']
+            )
+            if 'item' in self.ds['delay'].dims:
+                self.ds['delay'] = self.ds['delay'].max('item')
 
     def add_references(self, x0s=None, x1s=None, y0s=None, y1s=None,
                        label=None, state_labels=None, inline_labels=None,
@@ -187,6 +214,8 @@ class Ahlive(easing.Easing, animation.Animation):
             self.xlabel = xs
         if self.ylabel is None:
             self.ylabel = ys
+        if self.clabel is None:
+            self.clabel = input_data_vars.get('c', '')
         if labels == inline_labels and self.legend is None:
             self.legend = False
 
@@ -200,7 +229,7 @@ class Ahlive(easing.Easing, animation.Animation):
 
         for key, limit in limits.items():
             axis = key[0]
-            left = int(key[-1]) == 0
+            is_lower_lim = int(key[-1]) == 0
 
             axis_limit_key = f'{axis}lim'
             if self.axes_kwds is not None:
@@ -211,6 +240,8 @@ class Ahlive(easing.Easing, animation.Animation):
             is_scatter = self.chart == 'scatter'
             is_line_y = self.chart == 'line' and axis == 'y'
             is_bar_y = self.chart.startswith('bar') and axis == 'y'
+            if unset_limit and is_bar_y and is_lower_lim:
+                limit = 0
             if unset_limit and any([is_scatter, is_line_y, is_bar_y]):
                 limit = 'fixed'
             elif isinstance(limit, str) and limit not in OPTIONS['limit']:
@@ -221,7 +252,7 @@ class Ahlive(easing.Easing, animation.Animation):
 
             input_ = limit
             if isinstance(limit, str):
-                stat = 'min' if left else 'max'
+                stat = 'min' if is_lower_lim else 'max'
                 dims = 'item' if limit == 'follow' else None
                 limit = getattr(ds[axis], stat)(dims)
 
@@ -250,7 +281,8 @@ class Ahlive(easing.Easing, animation.Animation):
         delays_kwds = config._load(
             'delays_kwds', self.delays_kwds,
             transition_frames=transition_frames)
-        delays[delays == 0] = delays_kwds['transition_frames']
+        if np.isnan(delays[-1]):
+            delays[-1] = 0
         delays[-1] += delays_kwds['final_frame']
         if 'delay' in ds:
             ds['delay'] = ds['delay'] + delays
@@ -263,15 +295,37 @@ class Ahlive(easing.Easing, animation.Animation):
 
         if self.chart is None:
             self.chart = 'scatter' if len(ds['state']) <= 5 else 'line'
-        elif self.chart.startswith('bar'):
+        chart_kwds = config._load(
+            'chart_kwds', self.chart_kwds, chart=self.chart)
+        if self.chart.startswith('bar'):
+            single_dim_vars = {
+                var for var in ds.data_vars
+                if len(ds[var].dims) == 1}
+
             ds = xr.concat([
                 ds_group.unstack().assign(**{
                     'item': [item],
                     'state': np.arange(len(ds_group['state']))})
                 for item, (group, ds_group) in enumerate(ds.groupby('x'))
             ], 'item')
+
+            for var in single_dim_vars:
+                ds[var] = ds[var].isel(item=0)
+
             ds['tick_label'] = ds['x']
-            ds['x'] = ds['y'].rank('item')
+            bar_kind = chart_kwds.get('kind', 'race')
+            if bar_kind == 'race':
+                ds['x'] = ds['y'].rank('item')
+            else:
+                ds['x'] = ds['x'].rank('item')
+                if bar_kind == 'diff':
+                    ds['x_center'] = ds['x'].mean('item')
+                    ds['y_center'] = ds['y'].mean('item')
+                    ds['y_diff'] = ds['y'].diff('item') / 2
+                    ds['y_diff'] = ds['y_diff'].isel(item=slice(1, None))
+
+            self.num_states = len(ds['state'])
+            self.num_items = len(ds['item'])
 
         ds = self._add_xy01_limits(ds)
         ds, delays_kwds = self._add_delays(ds)
@@ -283,7 +337,7 @@ class Ahlive(easing.Easing, animation.Animation):
 
         # sort legend
         if self.legend_kwds is not None:
-            legend_sortby = self.legend_kwds.pop('sortby', None)
+            legend_sortby = self.legend_kwds.pop('sortby', 'y')
         else:
             legend_sortby = 'y'
         if legend_sortby and 'label' in ds:
@@ -294,8 +348,11 @@ class Ahlive(easing.Easing, animation.Animation):
             ds['item'] = np.arange(len(ds['item']))
 
         # initialize
-        self.xmin = ds['x'].min()
-        self.ymin = ds['y'].min()
+        self.xmin = ds['x'].min().values
+        self.ymin = ds['y'].min().values
+        if 'c' in ds:
+            self.cmin = ds['c'].min().values
+
         try:
             self.state_step = np.diff(ds.get(
                 'state_label', np.array([0, 1])
@@ -319,8 +376,8 @@ class Ahlive(easing.Easing, animation.Animation):
             ds['y'].values.dtype, np.datetime64)
 
         if 'c' in ds:
-            self.vmin = ds['c'].min()
-            self.vmax = ds['c'].max()
+            self.vmin = ds['c'].min().item()
+            self.vmax = ds['c'].max().item()
 
         if self.trail_chart and not self.chart.startswith('bar'):
             ds['x_trail'] = ds['x'].copy()
@@ -334,6 +391,7 @@ class Ahlive(easing.Easing, animation.Animation):
     def save(self):
         if self.final_ds is None:
             self.finalize_settings()
+        print(self.final_ds)
         self.animate()
         if self.show_out:
             try:

@@ -73,6 +73,10 @@ class Easing(param.Parameterized):
                 num_steps = int(np.ceil(350 / num_states))
         else:
             num_steps = self.frames
+
+        if self.frames == 1 and isinstance(self.loop, int):
+            return da
+
         steps = np.linspace(0, 1, num_steps)
 
         if self.interp is None:
@@ -92,6 +96,11 @@ class Easing(param.Parameterized):
             result = pd.DataFrame(
                 array, columns=np.arange(0, num_states * num_steps, num_steps)
             ).T.reindex(indices).T.values
+        elif 'annotation' in name:
+            indices = np.arange(num_states * num_steps - num_steps)
+            result = pd.DataFrame(
+                array, columns=np.arange(0, num_states * num_steps, num_steps)
+            ).T.reindex(indices).T.fillna('').values
         elif np.issubdtype(array.dtype, np.datetime64):
             array = array.astype(float)
             init = np.repeat(array[:, :-1], num_steps, axis=1)
