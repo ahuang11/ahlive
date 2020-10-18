@@ -20,8 +20,6 @@ class Animation(param.Parameterized):
 
     chart = param.ObjectSelector(
         default=None, objects=['scatter', 'line', 'barh', 'bar', 'plot'])
-    trail_chart = param.ObjectSelector(
-        default=None, objects=['scatter', 'line', 'plot'])
     out_fp = param.String(default='untitled.gif')
     style = param.ObjectSelector(
         default=None, objects=['graph', 'minimal', 'bare'])
@@ -39,7 +37,6 @@ class Animation(param.Parameterized):
     axes_kwds = param.Dict(default=None)
     plot_kwds = param.Dict(default=None)
     chart_kwds = param.Dict(default=None)
-    trail_kwds = param.Dict(default=None)
     annotation_kwds = param.Dict(default=None)
     grid_kwds = param.Dict(default=None)
     margins_kwds = param.Dict(default=None)
@@ -154,25 +151,24 @@ class Animation(param.Parameterized):
         return fig
 
     def _update_style(self, ds_state, axes_kwds):
-        xlabel = self.xlabel
-        ylabel = self.ylabel
         if self.style == 'minimal':
-            axes_kwds['xticks'] = util.try_to_pydatetime(
-                float(ds_state['x'].min()),
-                float(ds_state['x'].max()),
-            )
-            axes_kwds['yticks'] = util.try_to_pydatetime(
-                float(ds_state['y'].min()),
-                float(ds_state['y'].max()),
-            )
-            if xlabel:
-                xlabel = f'Higher {xlabel} ➜'
-            if ylabel:
-                ylabel = f'Higher {ylabel} ➜'
+            for axis in ['x', 'y']:
+                axis_min =  float(ds_state[axis].min())
+                axis_max =  float(ds_state[axis].max())
+                axis_lim = axes_kwds.get(f'{axis}lim', None)
+                if axis_lim is not None:
+                    axis_min = max(axis_min, axis_lim[0])
+                    axis_max = min(axis_max, axis_lim[1])
+                axes_kwds[f'{axis}ticks'] = util.try_to_pydatetime(
+                    axis_min, axis_max)
+
+                axis_label = axes_kwds.get(f'{axis}label', None)
+                if axis_label is not None:
+                    axes_kwds[f'{axis}label'] = f'Higher {axis_label} ➜'
         elif self.style == 'bare':
             axes_kwds['xticks'] = []
             axes_kwds['yticks'] = []
-        return axes_kwds, xlabel, ylabel
+        return axes_kwds
 
     def _prep_axes(self, ds_state):
         limits = {
@@ -180,7 +176,11 @@ class Animation(param.Parameterized):
             for var in list(ds_state.data_vars)
             if var[1:4] == 'lim'}
 
-        axes_kwds = {}
+        axes_kwds = dict(
+            xlabel=self.xlabel,
+            ylabel=self.ylabel,
+            title=self.title
+        )
         if 'xlim0' in limits or 'xlim1' in limits:
             axes_kwds['xlim'] = util.try_to_pydatetime(
                 limits.get('xlim0'), limits.get('xlim1'))
@@ -188,19 +188,19 @@ class Animation(param.Parameterized):
             axes_kwds['ylim'] = util.try_to_pydatetime(
                 limits.get('ylim0'), limits.get('ylim1'))
 
-        axes_kwds, xlabel, ylabel = self._update_style(ds_state, axes_kwds)
+        axes_kwds = self._update_style(ds_state, axes_kwds)
         axes_kwds = config._load('axes_kwds', self.axes_kwds, **axes_kwds)
 
         xlabel_kwds = config._load(
-            'xlabel_kwds', self.xlabel_kwds, xlabel=xlabel)
+            'xlabel_kwds', self.xlabel_kwds, xlabel=axes_kwds.pop('xlabel'))
         xlabel_kwds = self._update_text(xlabel_kwds, 'xlabel')
 
         ylabel_kwds = config._load(
-            'ylabel_kwds', self.ylabel_kwds, ylabel=ylabel)
+            'ylabel_kwds', self.ylabel_kwds, ylabel=axes_kwds.pop('ylabel'))
         ylabel_kwds = self._update_text(ylabel_kwds, 'ylabel')
 
         title_kwds = config._load(
-            'title_kwds', self.title_kwds, label=self.title)
+            'title_kwds', self.title_kwds, label=axes_kwds.pop('title'))
         title_kwds = self._update_text(title_kwds, 'label')
 
         ax = plt.axes(**axes_kwds)
@@ -279,7 +279,7 @@ class Animation(param.Parameterized):
             color = chart.get_edgecolor()
         except AttributeError:
             color = chart[0].get_facecolor()
-        return color
+        return tuple(color[0])
 
     def _plot_chart(self, ax, xs, ys, plot_kwds):
         s = plot_kwds.pop('s', None)
@@ -298,22 +298,24 @@ class Animation(param.Parameterized):
                 xs[-1], ys[-1], **plot_kwds)
         return chart
 
-    def _plot_trails(self, ax, x_trails, y_trails, plot_kwds, color):
-        trail_kwds = plot_kwds.copy()
-        trail_kwds['color'] = color
-        trail_kwds = config._load(
-            'trail_kwds', self.trail_kwds, **trail_kwds)
-        trail_kwds['label'] = '_nolegend_'
-        expire = trail_kwds.pop('expire', None)
-        stride = trail_kwds.pop('stride', None)
+    def _plot_trails(self, ax, xs, ys, x_trails, y_trails, plot_kwds, color):
+        chart_kwds = plot_kwds.copy()
+        chart_kwds.update({'color': color, 'chart': self.chart})
+        chart_kwds = config._load(
+            'chart_kwds', self.chart_kwds, **chart_kwds)
+        chart_kwds['label'] = '_nolegend_'
+        chart_kwds.pop('kind')
+        expire = chart_kwds.pop('expire')
+        stride = chart_kwds.pop('stride')
+        chart = chart_kwds.pop('chart')
         indices = np.where(~np.isnan(x_trails))
         x_trails = x_trails[indices][:-expire:-stride]
         y_trails = y_trails[indices][:-expire:-stride]
-        if self.trail_chart in ['line', 'plot']:
+        if chart in ['line', 'plot']:
             x_trails = np.concatenate([xs[-1:], x_trails])
             y_trails = np.concatenate([ys[-1:], y_trails])
-            self.trail_chart = 'plot'
-        getattr(ax, self.trail_chart)(x_trails, y_trails, **trail_kwds)
+            chart = 'plot'
+        getattr(ax, chart)(x_trails, y_trails, **chart_kwds)
 
     def _plot_diff(self, ax, x_centers, y_centers, y_diffs, color):
         chart_kwds = dict(color=color, chart=self.chart)
@@ -322,17 +324,13 @@ class Animation(param.Parameterized):
         chart_kwds.pop('kind')
         ax.errorbar(x_centers, y_centers, y_diffs, **chart_kwds)
 
-        inline_kwds = dict(
-            s=y_diffs[-1] * 2,
-            xy=(x_centers[-1], y_centers[-1] + y_diffs[-1]),
-            ha='center', va='bottom',
-            color=color, xytext=(0, 1.5),
-            path_effects=self._path_effects
+        self._add_inline_labels(
+            ax,
+            x_centers[-1],
+            y_centers[-1] + y_diffs[-1],
+            color,
+            y_diffs[-1] * 2
         )
-        inline_kwds = config._load(
-            'inline_kwds', self.inline_kwds, **inline_kwds)
-        inline_kwds = self._update_text(inline_kwds, 's', num=self.inline_step)
-        ax.annotate(**inline_kwds)
 
     def _add_inline_labels(self, ax, xs, ys, color, inline_labels):
         ha = 'center'
@@ -512,7 +510,8 @@ class Animation(param.Parameterized):
                 color = self._get_color(chart)
 
             if x_trails is not None and y_trails is not None:
-                self._plot_trails(ax, x_trails, y_trails, plot_kwds, color)
+                self._plot_trails(
+                    ax, xs, ys, x_trails, y_trails, plot_kwds, color)
             if x_centers is not None and y_diffs is not None:
                 self._plot_diff(ax, x_centers, y_centers, y_diffs, color)
             if inline_labels is not None:

@@ -229,7 +229,8 @@ class Ahlive(easing.Easing, animation.Animation):
 
         for key, limit in limits.items():
             axis = key[0]
-            is_lower_lim = int(key[-1]) == 0
+            num = int(key[-1])
+            is_lower_limit = num == 0
 
             axis_limit_key = f'{axis}lim'
             if self.axes_kwds is not None:
@@ -237,24 +238,47 @@ class Ahlive(easing.Easing, animation.Animation):
             else:
                 in_axes_kwds = False
             unset_limit = limit is None and not in_axes_kwds
+            has_other_limit = f'{key[:-1]}{1 - num}' is not None
             is_scatter = self.chart == 'scatter'
             is_line_y = self.chart == 'line' and axis == 'y'
             is_bar_y = self.chart.startswith('bar') and axis == 'y'
-            if unset_limit and is_bar_y and is_lower_lim:
+            is_fixed = any([
+                is_scatter,
+                is_line_y,
+                is_bar_y,
+                has_other_limit
+            ])
+            if unset_limit and is_bar_y and is_lower_limit:
                 limit = 0
-            if unset_limit and any([is_scatter, is_line_y, is_bar_y]):
+            elif unset_limit and is_fixed:
                 limit = 'fixed'
-            elif isinstance(limit, str) and limit not in OPTIONS['limit']:
-                raise ValueError(
-                    f"Got {limit} for {key}; must be either "
-                    f"from {OPTIONS['limit']} or numeric values!"
-                )
+            elif isinstance(limit, str):
+                if not any(limit.startswith(op) for op in OPTIONS['limit']):
+                    raise ValueError(
+                        f"Got {limit} for {key}; must be either "
+                        f"from {OPTIONS['limit']} or numeric values!"
+                    )
 
             input_ = limit
             if isinstance(limit, str):
-                stat = 'min' if is_lower_lim else 'max'
-                dims = 'item' if limit == 'follow' else None
-                limit = getattr(ds[axis], stat)(dims)
+                if '_' in limit:
+                    limit, offset = limit.split('_')
+                else:
+                    offset = 0
+
+                stat = 'min' if is_lower_limit else 'max'
+                if limit == 'fixed':
+                    limit = getattr(ds[axis], stat)()
+                elif limit == 'follow':
+                    limit = getattr(ds[axis], stat)('item')
+
+                margins_kwds = config._load('margins_kwds', self.margins_kwds)
+                if is_lower_limit:
+                    limit = limit - float(offset)
+                    limit -= limit * margins_kwds.get(axis, 0)
+                else:
+                    limit = limit + float(offset)
+                    limit += limit * margins_kwds.get(axis, 0)
 
             if limit is not None:
                 if self.chart == 'barh':
@@ -313,19 +337,25 @@ class Ahlive(easing.Easing, animation.Animation):
                 ds[var] = ds[var].isel(item=0)
 
             ds['tick_label'] = ds['x']
-            bar_kind = chart_kwds.get('kind', 'race')
-            if bar_kind == 'race':
+            kind = chart_kwds.get('kind', 'race')
+            if kind == 'race':
                 ds['x'] = ds['y'].rank('item')
             else:
                 ds['x'] = ds['x'].rank('item')
-                if bar_kind == 'diff':
-                    ds['x_center'] = ds['x'].mean('item')
+                if kind == 'diff':
+                    x_diff = ds['x'].diff('item').mean() / 2
+                    ds['x_center'] = ds['x'] - x_diff
                     ds['y_center'] = ds['y'].mean('item')
                     ds['y_diff'] = ds['y'].diff('item') / 2
                     ds['y_diff'] = ds['y_diff'].isel(item=slice(1, None))
 
             self.num_states = len(ds['state'])
             self.num_items = len(ds['item'])
+        elif self.chart.startswith('scatter'):
+            kind = chart_kwds.get('kind', 'trail')
+            if kind == 'trail':
+                ds['x_trail'] = ds['x'].copy()
+                ds['y_trail'] = ds['y'].copy()
 
         ds = self._add_xy01_limits(ds)
         ds, delays_kwds = self._add_delays(ds)
@@ -378,10 +408,6 @@ class Ahlive(easing.Easing, animation.Animation):
         if 'c' in ds:
             self.vmin = ds['c'].min().item()
             self.vmax = ds['c'].max().item()
-
-        if self.trail_chart and not self.chart.startswith('bar'):
-            ds['x_trail'] = ds['x'].copy()
-            ds['y_trail'] = ds['y'].copy()
 
         ds = ds.reset_coords().apply(self.interpolate)
         ds['delay'] = ds['delay'].fillna(delays_kwds['transition_frames'])

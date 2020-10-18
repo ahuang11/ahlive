@@ -40,14 +40,15 @@ defaults['chart_kwds']['bar'] = {
     'kind': 'race',
     'capsize': 5
 }
-defaults['chart_kwds']['barh'] = defaults['chart_kwds']['bar'].copy()
-
-defaults['trail_kwds'] = {
+defaults['chart_kwds']['scatter'] = {
+    'kind': 'basic',
+    'chart': 'plot',
     'color': 'gray',
     'alpha': 0.5,
     'expire': 12,
-    'stride': 2,
+    'stride': 2
 }
+defaults['chart_kwds']['barh'] = defaults['chart_kwds']['bar'].copy()
 
 defaults['annotation_kwds'] = defaults['label_kwds'].copy()
 defaults['annotation_kwds'].update({
@@ -133,7 +134,9 @@ defaults['animate_kwds'] = {
 def _load(default_key, input_kwds, **other_kwds):
     updated_kwds = defaults.get(default_key, {}).copy()
     if default_key == 'chart_kwds':
-        updated_kwds = updated_kwds.get(other_kwds.pop('chart'), updated_kwds)
+        updated_kwds = updated_kwds.get(
+            other_kwds.pop('chart', None), updated_kwds
+        ).copy()
     updated_kwds.update(
         {key: val for key, val in other_kwds.items()
         if val is not None
