@@ -10,6 +10,22 @@ def try_to_pydatetime(*values):
     else:
         return array
 
+def to_list(value):
+    if not isinstance(value, list):
+        value = [value]
+    return value
+
+
+def to_set(iterable):
+    return set(np.array(iterable))
+
+
+def to_str(string):
+    if not isinstance(string, str):
+        if len(string) > 0:
+            string = string[0]
+    return string
+
 
 def to_num(num):
     try:

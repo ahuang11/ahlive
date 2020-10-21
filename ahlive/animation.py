@@ -18,45 +18,12 @@ from . import config, util
 
 class Animation(param.Parameterized):
 
-    chart = param.ObjectSelector(
-        default=None, objects=['scatter', 'line', 'barh', 'bar', 'plot'])
     out_fp = param.String(default='untitled.gif')
-    style = param.ObjectSelector(
-        default=None, objects=['graph', 'minimal', 'bare'])
-
-    figsize = param.Tuple(default=config.defaults['fig_kwds']['figsize'])
-    title = param.String(default='')
-    xlabel = param.String(default=None)
-    ylabel = param.String(default=None)
-    clabel = param.String(default=None)
-    watermark = param.String(default='Animated using Ahlive')
-    legend = param.Boolean(default=None)
-    colorbar = param.Boolean(default=None)
-
-    fig_kwds = param.Dict(default=None)
-    axes_kwds = param.Dict(default=None)
-    plot_kwds = param.Dict(default=None)
-    chart_kwds = param.Dict(default=None)
-    annotation_kwds = param.Dict(default=None)
-    grid_kwds = param.Dict(default=None)
-    margins_kwds = param.Dict(default=None)
-    xlabel_kwds = param.Dict(default=None)
-    ylabel_kwds = param.Dict(default=None)
-    clabel_kwds = param.Dict(default=None)
-    title_kwds = param.Dict(default=None)
-    xtick_kwds = param.Dict(default=None)
-    ytick_kwds = param.Dict(default=None)
-    ctick_kwds = param.Dict(default=None)
-    state_kwds = param.Dict(default=None)
-    inline_kwds = param.Dict(default=None)
-    legend_kwds = param.Dict(default=None)
-    colorbar_kwds = param.Dict(default=None)
-    watermark_kwds = param.Dict(default=None)
-    frame_kwds = param.Dict(default=None)
     animate_kwds = param.Dict(default=None)
-
+    frame_kwds = param.Dict(default=None)
     num_workers = param.Integer(default=8, bounds=(1, None))
-    hooks = param.List(default=None)
+    hooks = param.HookList(default=None)
+    return_out = param.Boolean(default=True)
 
     def __init__(self, **kwds):
         super().__init__(**kwds)
