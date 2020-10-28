@@ -1,4 +1,7 @@
 import numpy as np
+import xarray as xr
+
+from .config import sizes, defaults
 
 
 def try_to_pydatetime(*values):
@@ -51,6 +54,7 @@ def pop(ds, key, dflt=None, squeeze=True):
             pass
     return array
 
+
 def ffill(arr):
     # https://stackoverflow.com/questions/41190852/
     mask = np.isnan(arr)
@@ -58,3 +62,48 @@ def ffill(arr):
     np.maximum.accumulate(indices, axis=1, out=indices)
     out = arr[np.arange(indices.shape[0])[:, None], indices]
     return out
+
+
+def overlay(arrays):
+    array0 = arrays[0]
+    for array in arrays[1:]:
+        array0 *= array
+    return array0
+
+
+def layout(arrays, cols=None):
+    array0 = arrays[0]
+    for array in arrays[1:]:
+        array0 += array
+    if cols is not None:
+        array0 = array0.cols(cols)
+    return array0
+
+
+def scale_sizes(scale, keys=None):
+    if keys is None:
+        keys = sizes.keys()
+
+    for key in keys:
+        sizes[key] = sizes[key] * scale
+
+
+def load_defaults(default_key, input_kwds=None, **other_kwds):
+    updated_kwds = defaults.get(default_key, {}).copy()
+    if default_key == 'chart_kwds':
+        updated_kwds = updated_kwds.get(
+            other_kwds.pop('chart', None), updated_kwds
+        ).copy()
+    if isinstance(input_kwds, xr.Dataset):
+        input_kwds = input_kwds.attrs[default_key]
+    updated_kwds.update(
+        {key: val for key, val in other_kwds.items()
+        if val is not None
+    })
+    if input_kwds is not None:
+        updated_kwds.update(input_kwds)
+    return updated_kwds
+
+
+def update_defaults(default_key, **kwds):
+    defaults[default_key].update(**kwds)

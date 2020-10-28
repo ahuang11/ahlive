@@ -54,7 +54,7 @@ class Easing(param.Parameterized):
         is_xarray = isinstance(da, xr.DataArray)
         if is_xarray:
             name = da.name
-        if name == 'label':
+        if name in ['label', 'chart']:
             return da
 
         array = np.array(da)
@@ -85,7 +85,7 @@ class Easing(param.Parameterized):
             interp = ALIASES.get(self.interp, self.interp)
 
         num_result = (num_states - 1) * num_steps
-        if name == 'delay':
+        if name in ['delay', 'root']:
             result = np.full(num_result, np.nan)
             indices = np.arange(num_states) * num_steps
             indices[-1] -= 1
@@ -119,7 +119,7 @@ class Easing(param.Parameterized):
             ).reshape(*new_shape)
             weights = getattr(self, f'_{interp}')(tiled_steps)
             result = stop * weights + init * (1 - weights)
-        elif name.startswith('c'):
+        elif name in ['c', 'color']:
             results = []
             for colors in array:
                 cmap = LinearSegmentedColormap.from_list('eased', colors)

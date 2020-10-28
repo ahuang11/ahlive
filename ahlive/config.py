@@ -129,30 +129,3 @@ defaults['animate_kwds'] = {
     'mode': 'I',
     'subrectangles': True
 }
-
-
-def _load(default_key, input_kwds, **other_kwds):
-    updated_kwds = defaults.get(default_key, {}).copy()
-    if default_key == 'chart_kwds':
-        updated_kwds = updated_kwds.get(
-            other_kwds.pop('chart', None), updated_kwds
-        ).copy()
-    updated_kwds.update(
-        {key: val for key, val in other_kwds.items()
-        if val is not None
-    })
-    if input_kwds is not None:
-        updated_kwds.update(input_kwds)
-    return updated_kwds
-
-
-def scale_sizes(scale, keys=None):
-    if keys is None:
-        keys = sizes.keys()
-
-    for key in keys:
-        sizes[key] = sizes[key] * scale
-
-
-def update_defaults(default_key, **kwds):
-    defaults[default_key].update(**kwds)
