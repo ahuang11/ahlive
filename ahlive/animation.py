@@ -38,6 +38,7 @@ class Animation(param.Parameterized):
     return_out = param.Boolean(default=True)
     watermark_kwds = param.Dict()
     delays_kwds = param.Dict()
+    debug = param.Boolean(default=True)
 
     _path_effects = [withStroke(linewidth=3, alpha=0.5, foreground='white')]
 
@@ -84,9 +85,9 @@ class Animation(param.Parameterized):
         label = kwds.get(label_key, None)
         if isinstance(label, Iterable) and not isinstance(label, str):
             labels = []
-            for i, label in enumerate(kwds[label_key]):
+            for i, sub_label in enumerate(kwds[label_key]):
                 sub_kwds = kwds.copy()
-                sub_kwds['labels'] = label
+                sub_kwds['labels'] = sub_label
                 sub_kwds = self._update_text(
                     sub_kwds, label_key, ref=ref, apply_format=apply_format)
                 format_ = sub_kwds['format']
@@ -185,7 +186,7 @@ class Animation(param.Parameterized):
         return ax
 
     def _update_grid(self, ax, ds_state):
-        chart = ds_state.isel(item=0)['chart'].values.item()
+        chart = ds_state.attrs['chart_kwds']['chart']
         grid_kwds = util.load_defaults('grid_kwds', ds_state)
         if self.style == 'bare':
             grid_kwds['b'] = False
@@ -198,6 +199,7 @@ class Animation(param.Parameterized):
         grid_kwds = util.load_defaults(
             'grid_kwds', self.grid_kwds, **grid_kwds)
         ax.grid(**grid_kwds)
+        ax.set_axisbelow(True)
 
     def _update_margins(self, ax, ds_state):
         margins_kwds = util.load_defaults('margins_kwds', ds_state)
@@ -235,19 +237,21 @@ class Animation(param.Parameterized):
         legend.get_frame().set_linewidth(0)
 
     @staticmethod
-    def _get_color(chart):
+    def _get_color(plot):
         try:
-            color = chart.get_edgecolor()
+            color = plot.get_edgecolor()
+            return tuple(color[0])
         except AttributeError:
-            color = chart[0].get_facecolor()
-        return tuple(color[0])
+            color = plot[0].get_facecolor()
+            return color
 
     def _plot_chart(self, ax, ds_overlay, xs, ys):
         chart = util.pop(ds_overlay, 'chart')[-1]
-
         plot_kwds = {
             var: util.pop(ds_overlay, var)[-1]
-            for var in list(ds_overlay.data_vars)}
+            for var in list(ds_overlay.data_vars)
+            if var not in ['inline_label', 'state_label']
+        }
         plot_kwds = util.load_defaults('plot_kwds', ds_overlay, **plot_kwds)
         s = plot_kwds.pop('s', None)
         if chart == 'scatter':
@@ -265,6 +269,7 @@ class Animation(param.Parameterized):
         return plot
 
     def _plot_trails(self, ax, xs, ys, x_trails, y_trails, plot_kwds, color):
+        chart = ds_state.attrs['chart_kwds']['chart']
         chart_kwds = plot_kwds.copy()
         chart_kwds.update({'color': color, 'chart': chart})
         chart_kwds = util.load_defaults(
@@ -284,6 +289,7 @@ class Animation(param.Parameterized):
         getattr(ax, chart)(x_trails, y_trails, **chart_kwds)
 
     def _plot_diff(self, ax, x_centers, y_centers, y_diffs, color):
+        chart = ds_state.attrs['chart_kwds']['chart']
         chart_kwds = dict(color=color, chart=chart)
         chart_kwds = util.load_defaults(
             'chart_kwds', chart_kwds, **chart_kwds)
@@ -298,12 +304,15 @@ class Animation(param.Parameterized):
             y_diffs[-1] * 2
         )
 
-    def _add_inline_labels(self, ax, ds_state, xs, ys, color):
+    def _add_inline_labels(self, ax, ds_overlay, xs, ys, color):
+        ds_overlay = ds_overlay.isel(state=-1)
+        chart = ds_overlay.attrs['chart_kwds']['chart']
         inline_labels = util.try_to_pydatetime(
-            util.pop(ds_state, 'inline_label'))
+            util.pop(ds_overlay, 'inline_label'
+        ))
         if inline_labels is None:
             return
-        inline_ref = ds_state.attrs['ref_kwds']['state']
+        inline_ref = ds_overlay.attrs['ref_kwds']['state']
 
         ha = 'center'
         va = 'center'
@@ -318,10 +327,10 @@ class Animation(param.Parameterized):
             va = 'bottom'
 
         inline_kwds = dict(
-            s=inline_labels[-1], xy=(xs[-1], ys[-1]), ha=ha, va=va,
+            s=inline_labels, xy=(xs[-1], ys[-1]), ha=ha, va=va,
             color=color, xytext=xytext, path_effects=self._path_effects)
         inline_kwds = util.load_defaults(
-            'inline_kwds', ds_state, **inline_kwds)
+            'inline_kwds', ds_overlay, **inline_kwds)
         inline_kwds = self._update_text(inline_kwds, 's', ref=inline_ref)
         ax.annotate(**inline_kwds)
         return ax
@@ -345,8 +354,12 @@ class Animation(param.Parameterized):
             ax.annotate(**annotation_kwds)
             ax.scatter(x, y, color=color)
 
-    def _update_ticks(self, ax, ds_state, tick_labels):
-        chart = util.pop(ds_state, 'chart')[-1]
+    def _update_ticks(self, ax, ds_state):
+        chart = ds_state.attrs['chart_kwds']['chart']
+        if chart.startswith('bar'):
+            ds_state = ds_state.isel(state=-1)
+        tick_labels = util.pop(ds_state, 'tick_label')
+
         xtick_ref = ds_state.attrs['ref_kwds']['xtick']
         xtick_kwds = util.load_defaults(
             'xtick_kwds', ds_state, labels=tick_labels)
@@ -459,7 +472,6 @@ class Animation(param.Parameterized):
         self._update_margins(ax, ds_state)
         self._add_state_labels(ax, ds_state)
 
-        tick_labels = util.pop(ds_state, 'tick_label')
         for item in np.atleast_1d(ds_state['item']):
             ds_overlay = ds_state.sel(item=item)
             xs = util.pop(ds_overlay, 'x')
@@ -475,16 +487,15 @@ class Animation(param.Parameterized):
             # annotations = util.pop(ds_overlay, 'annotation')
 
             plot = self._plot_chart(ax, ds_overlay, xs, ys)
-
             color = self._get_color(plot)
             # if x_trails is not None and y_trails is not None:
             #     self._plot_trails(
             #         ax, xs, ys, x_trails, y_trails, plot_kwds, color)
             # if x_centers is not None and y_diffs is not None:
             #     self._plot_diff(ax, x_centers, y_centers, y_diffs, color)
-            self._add_inline_labels(ax, ds_state, xs, ys, color)
-            self._add_annotations(ax, ds_state, xs, ys, color)
-        self._update_ticks(ax, ds_state, tick_labels)
+            self._add_inline_labels(ax, ds_overlay, xs, ys, color)
+            self._add_annotations(ax, ds_overlay, xs, ys, color)
+        self._update_ticks(ax, ds_state)
         self._update_legend(ax, ds_state)
         self._update_colorbar(ax, ds_state, plot)
 
@@ -506,7 +517,33 @@ class Animation(param.Parameterized):
         buf = self._buffer_frame()
         return buf
 
-    def _add_xy01_limits(self, ds):
+    @staticmethod
+    def _config_chart(ds, chart):
+        if chart == 'bar':
+            kind = ds.attrs['chart_kwds'].get('kind', 'race')
+            ds.coords['tick_label'] = ds['x']
+            if kind == 'race':
+                ds['x'] = ds['y'].rank('item')
+            else:
+                ds['x'] = ds['x'].rank('item')
+                if kind == 'diff':
+                    x_diff = ds['x'].diff('item').mean() / 2
+                    ds['x_center'] = ds['x'] - x_diff
+                    ds['y_center'] = ds['y'].mean('item')
+                    ds['y_diff'] = ds['y'].diff('item') / 2
+                    ds['y_diff'] = ds['y_diff'].isel(item=slice(1, None))
+
+        legend_sortby = ds.attrs['legend_kwds'].get('sortby', 'y')
+        if legend_sortby and 'label' in ds:
+            items = ds.mean('state').sortby(
+                legend_sortby, ascending=False
+            )['item']
+            ds = ds.sel(item=items)
+            ds['item'] = np.arange(len(ds['item']))
+        return ds
+
+    @staticmethod
+    def _add_xy01_limits(ds, chart):
         limits = {
             'xlim0': ds.attrs.pop('xlim0s'),
             'xlim1': ds.attrs.pop('xlim1s'),
@@ -514,7 +551,6 @@ class Animation(param.Parameterized):
             'ylim1': ds.attrs.pop('ylim1s')
         }
 
-        chart = ds.isel(item=0)['chart'].values.item()
         axes_kwds = ds.attrs['axes_kwds']
         margins_kwds = ds.attrs['margins_kwds']
 
@@ -532,6 +568,7 @@ class Animation(param.Parameterized):
             has_other_limit = f'{key[:-1]}{1 - num}' is not None
             is_scatter = chart == 'scatter'
             is_line_y = chart == 'line' and axis == 'y'
+            is_bar_x = chart.startswith('bar') and axis == 'x'
             is_bar_y = chart.startswith('bar') and axis == 'y'
             is_fixed = any([
                 is_scatter,
@@ -541,6 +578,8 @@ class Animation(param.Parameterized):
             ])
             if unset_limit and is_bar_y and is_lower_limit:
                 limit = 0
+            elif unset_limit and is_bar_x:
+                continue
             elif unset_limit and is_fixed:
                 limit = 'fixed'
             elif isinstance(limit, str):
@@ -563,20 +602,67 @@ class Animation(param.Parameterized):
                 elif limit == 'follow':
                     limit = getattr(ds[axis], stat)('item').values
 
-                if is_lower_limit:
-                    limit = limit - float(offset)
-                    limit -= limit * margins_kwds.get(axis, 0)
-                else:
-                    limit = limit + float(offset)
-                    limit += limit * margins_kwds.get(axis, 0)
+                if not chart.startswith('bar'):
+                    if is_lower_limit:
+                        limit = limit - float(offset)
+                        limit -= limit * margins_kwds.get(axis, 0)
+                    else:
+                        limit = limit + float(offset)
+                        limit += limit * margins_kwds.get(axis, 0)
 
             if limit is not None:
                 if chart == 'barh':
                     axis = 'x' if axis == 'y' else 'y'
                     key = axis + key[1:]
                 if util.is_scalar(limit) == 1:
-                    limit = [limit] * self._num_states
+                    limit = [limit] * len(ds['state'])
                 ds[key] = ('state', limit)
+        return ds
+
+    @staticmethod
+    def _add_color_kwds(ds):
+        # add colors
+        color = 'darkgray' if len(np.unique(ds['label'])) == 1 else None
+        ds.attrs['plot_kwds']['color'] = ds.attrs['plot_kwds'].get(
+            'color', color)
+        # add colormap and colorbar
+        if 'c' in ds:
+            ds.attrs['plot_kwds']['cmap'] = ds.attrs['plot_kwds'].get(
+                'cmap', 'RdBu_r')
+            ds.attrs['vmin'] = ds.attrs['plot_kwds'].get(
+                'vmin', float(ds['c'].values.min()))
+            ds.attrs['vmax'] = ds.attrs['plot_kwds'].get(
+                'vmax', float(ds['c'].values.max()))
+            ds.attrs['colorbar_kwds']['show'] = ds.attrs['plot_kwds'].get(
+                'show', True)
+        else:
+            ds.attrs['colorbar_kwds']['show'] = False
+        return ds
+
+    @staticmethod
+    def _add_ref_kwds(ds):
+        ref_kwds = {}
+        for xyc in ['x', 'y', 'c']:
+            if xyc in ds:
+                ref_kwds[f'{xyc}tick'] = ds[xyc].min().values
+                if xyc == 'c':
+                    continue
+                ds.attrs[f'{xyc}tick_kwds']['is_datetime'] = np.issubdtype(
+                    ds[xyc].values.dtype, np.datetime64)
+
+        for key in ['inline', 'state']:
+            key_label = f'{key}_label'
+            if key_label in ds:
+                ref_kwds[key] = np.diff(ds[key_label]).min()
+
+        ds.attrs['ref_kwds'] = ref_kwds
+        return ds
+
+    def _interp_dataset(self, ds):
+        ds = ds.reset_coords()
+        ds = ds.map(self.interpolate, keep_attrs=True)
+        ds = ds.set_coords('root')
+        self._num_states = len(ds['state'])
         return ds
 
     def finalize(self, data):
@@ -584,49 +670,12 @@ class Animation(param.Parameterized):
             return data
 
         for rowcol, ds in data.items():
-            ds  = self._add_xy01_limits(ds)
-
-            # add colors
-            color = 'darkgray' if len(np.unique(ds['label'])) == 1 else None
-            ds.attrs['plot_kwds']['color'] = ds.attrs['plot_kwds'].get(
-                'color', color)
-
-            # add colormap and colorbar
-            if 'c' in ds:
-                ds.attrs['plot_kwds']['cmap'] = ds.attrs['plot_kwds'].get(
-                    'cmap', 'RdBu_r')
-                ds.attrs['vmin'] = ds.attrs['plot_kwds'].get(
-                    'vmin', float(ds['c'].values.min()))
-                ds.attrs['vmax'] = ds.attrs['plot_kwds'].get(
-                    'vmax', float(ds['c'].values.max()))
-                ds.attrs['colorbar_kwds']['show'] = ds.attrs['plot_kwds'].get(
-                    'show', True)
-            else:
-                ds.attrs['colorbar_kwds']['show'] = False
-
-            # sort legend
-            legend_sortby = ds.attrs['legend_kwds'].get('sortby', 'y')
-            if legend_sortby and 'label' in ds:
-                items = ds.mean('state').sortby(
-                    legend_sortby, ascending=False
-                )['item']
-                ds = ds.sel(**{'item': items})
-                ds['item'] = np.arange(len(ds['item']))
-
-            ref_kwds = {}
-            for xyc in ['x', 'y', 'c']:
-                if xyc in ds:
-                    ref_kwds[f'{xyc}tick'] = ds[xyc].min().values
-                    if xyc == 'c':
-                        continue
-                    ds.attrs[f'{xyc}tick_kwds']['is_datetime'] = np.issubdtype(
-                        ds[xyc].values.dtype, np.datetime64)
-
-            for key in ['inline', 'state']:
-                key_label = f'{key}_label'
-                if key_label in ds:
-                    ref_kwds[key] = np.diff(ds[key_label]).min()
-            ds.attrs['ref_kwds'] = ref_kwds
+            chart = ds.attrs['chart_kwds']['chart']
+            ds = self._config_chart(ds, chart)
+            ds = self._add_xy01_limits(ds, chart)
+            ds = self._add_color_kwds(ds)
+            ds = self._add_ref_kwds(ds)
+            ds = self._interp_dataset(ds)
             ds.attrs['finalized'] = True
             data[rowcol] = ds
 
@@ -646,9 +695,11 @@ class Animation(param.Parameterized):
         else:
             num_workers = self._num_states
 
+        scheduler = 'single-threaded' if self.debug else 'processes'
         with dask.diagnostics.ProgressBar(minimum=2):
             buf_list = dask.compute(
-                jobs, num_workers=num_workers, scheduler='single-threaded')[0]
+                jobs, num_workers=num_workers,
+                scheduler=scheduler)[0]
 
         if isinstance(self.loop, bool):
             loop = int(not self.loop)

@@ -175,10 +175,10 @@ class Data(easing.Easing, animation.Animation):
                     other_ds['item'] = other_ds['item'].copy()
                     other_ds['item'] = (
                         other_ds['item'] + self_ds['item'].max())
-                self_copy.data[rowcol] = xr.combine_by_coords([
-                    self_ds, other_ds])
-                self_copy.data[rowcol]['state_label'] = (
-                    self_copy.data[rowcol]['state_label'].isel(item=0))
+                joined_ds = xr.combine_by_coords([self_ds, other_ds])
+                joined_ds['state_label'] = (
+                    joined_ds['state_label'].isel(item=0))
+                self_copy.data[rowcol] = joined_ds
             elif self_ds is not None:
                 self_copy.data[rowcol] = self_ds
             elif other_ds is not None:
@@ -224,14 +224,6 @@ class Data(easing.Easing, animation.Animation):
             self_copy.data[(row, col)] = self_copy.data.pop(rowcol)
         return self_copy
 
-    def interpolate(self):
-        self_copy = deepcopy(self)
-        for rowcol, ds in self_copy.data.items():
-            ds = ds.reset_coords().map(super().interpolate, keep_attrs=True)
-            self_copy.data[rowcol] = ds.set_coords('root')
-        self_copy._num_states = len(ds['root'])
-        return self_copy
-
 
 class Array(Data):
 
@@ -254,7 +246,7 @@ class Array(Data):
             ds['state_label'] = ('state', self.state_labels)
 
         if self.inline_labels is not None:
-            ds['inline_label'] = (('item', 'state'), self.inline_labels)
+            ds['inline_label'] = ('state', self.inline_labels)
 
         ds.attrs.update({
             'state_kwds': self.state_kwds or {},
@@ -280,7 +272,7 @@ class DataFrame(Array):
         for label, df_item in df.groupby(label):
             kwds_updated = kwds.copy()
             kwds_updated.update({
-                key: df_item[val] if val in df_item else val
+                key: df_item[val].values if val in df_item else val
                 for key, val in kwds.items()})
             if 'xlabel' not in kwds_updated:
                 kwds_updated['xlabel'] = xs
