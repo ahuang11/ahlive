@@ -74,7 +74,7 @@ class Easing(param.Parameterized):
         else:
             num_steps = self.frames
 
-        if self.frames == 1 and isinstance(self.loop, int):
+        if num_steps == 1 and isinstance(self.loop, int):
             return da
 
         steps = np.linspace(0, 1, num_steps)
@@ -86,7 +86,7 @@ class Easing(param.Parameterized):
 
         num_result = (num_states - 1) * num_steps
         if name in ['delay', 'root']:
-            result = np.full(num_result, np.nan)
+            result = np.full(num_result, 0.)
             indices = np.arange(num_states) * num_steps
             indices[-1] -= 1
             result[indices] = array[0]  # (1, num_states)
@@ -144,7 +144,8 @@ class Easing(param.Parameterized):
         if is_xarray:
             if len(da.dims) == 1:
                 result = result.squeeze()
-            da_result = xr.DataArray(result, dims=da.dims, name=da.name)
+            da_result = xr.DataArray(
+                result, dims=da.dims, name=da.name, attrs=da.attrs)
             return da_result
         else:
             return result

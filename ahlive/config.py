@@ -12,8 +12,9 @@ sizes = {
 defaults = {}
 
 defaults['delays_kwds'] = {
+    'aggregate': 'sum',
     'transition_frames': 1 / 60,
-    'final_frame': 1
+    'final_frame': 1,
 }
 
 defaults['fig_kwds'] = {
@@ -37,15 +38,13 @@ defaults['label_kwds'] = {
 
 defaults['chart_kwds'] = {}
 defaults['chart_kwds']['bar'] = {
-    'kind': 'race',
-    'capsize': 5
+    'bar_label': True,
+    'capsize': 6
 }
 defaults['chart_kwds']['scatter'] = {
-    'kind': 'basic',
-    'chart': 'plot',
     'color': 'gray',
     'alpha': 0.5,
-    'expire': 12,
+    'expire': 6,
     'stride': 2
 }
 defaults['chart_kwds']['barh'] = defaults['chart_kwds']['bar'].copy()

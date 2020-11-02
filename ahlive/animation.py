@@ -40,6 +40,7 @@ class Animation(param.Parameterized):
     delays_kwds = param.Dict()
     debug = param.Boolean(default=True)
 
+    _num_states = 0
     _path_effects = [withStroke(linewidth=3, alpha=0.5, foreground='white')]
 
     def __init__(self, **kwds):
@@ -170,7 +171,7 @@ class Animation(param.Parameterized):
         ax = plt.subplot(rows, cols, irowcol, **axes_kwds)
         return ax
 
-    def _update_labels(self, ax, ds_state):
+    def _update_labels(self, ds_state, ax):
         xlabel_kwds = util.load_defaults('xlabel_kwds', ds_state)
         xlabel_kwds = self._update_text(xlabel_kwds, 'xlabel')
 
@@ -185,38 +186,27 @@ class Animation(param.Parameterized):
         ax.set_title(**title_kwds)
         return ax
 
-    def _update_grid(self, ax, ds_state):
-        chart = ds_state.attrs['chart_kwds']['chart']
+    def _update_grid(self, ds_state, ax):
         grid_kwds = util.load_defaults('grid_kwds', ds_state)
-        if self.style == 'bare':
-            grid_kwds['b'] = False
-        if chart == 'barh':
-            grid_kwds['axis'] = 'x'
-        elif chart == 'bar':
-            grid_kwds['axis'] = 'y'
-        else:
-            grid_kwds['axis'] = 'both'
-        grid_kwds = util.load_defaults(
-            'grid_kwds', self.grid_kwds, **grid_kwds)
         ax.grid(**grid_kwds)
         ax.set_axisbelow(True)
 
-    def _update_margins(self, ax, ds_state):
+    def _update_margins(self, ds_state, ax):
         margins_kwds = util.load_defaults('margins_kwds', ds_state)
         ax.margins(**margins_kwds)
 
-    def _add_state_labels(self, ax, ds_state):
-        state_label = util.try_to_pydatetime(
-            util.pop(ds_state, 'state_label')[-1])
+    def _add_state_labels(self, ds_state, ax):
+        state_label = util.pop(ds_state, 'state_label')
         if state_label is None:
             return
+        state_label = util.try_to_pydatetime(state_label[-1])
         state_ref = ds_state.attrs['ref_kwds']['state']
 
         state_kwds = util.load_defaults('state_kwds', ds_state, s=state_label)
         state_kwds = self._update_text(state_kwds, 's', ref=state_ref)
         ax.annotate(**state_kwds)
 
-    def _update_legend(self, ax, ds_state):
+    def _update_legend(self, ds_state, ax):
         legend_labels = ax.get_legend_handles_labels()[1]
         ncol = int(len(legend_labels) / 5)
         if ncol == 0:
@@ -245,89 +235,103 @@ class Animation(param.Parameterized):
             color = plot[0].get_facecolor()
             return color
 
-    def _plot_chart(self, ax, ds_overlay, xs, ys):
-        chart = util.pop(ds_overlay, 'chart')[-1]
+    def _plot_chart(self, ds_overlay, ax, chart, xs, ys):
         plot_kwds = {
             var: util.pop(ds_overlay, var)[-1]
             for var in list(ds_overlay.data_vars)
-            if var not in ['inline_label', 'state_label']
         }
         plot_kwds = util.load_defaults('plot_kwds', ds_overlay, **plot_kwds)
         s = plot_kwds.pop('s', None)
         if chart == 'scatter':
             # select last state
             plot = ax.scatter(xs[-1], ys[-1], s=s, **plot_kwds)
+            color = self._get_color(plot)
         elif chart == 'line':
             # select last state
             plot = ax.scatter(xs[-1], ys[-1], s=s, **plot_kwds)
             plot_kwds.pop('label', '')
             # squeeze out item
+            color = self._get_color(plot)
+            plot_kwds['color'] = color
             _ = ax.plot(xs, ys, **plot_kwds)
         elif chart.startswith('bar'):
             plot = getattr(ax, chart)(
                 xs[-1], ys[-1], **plot_kwds)
-        return plot
+            color = self._get_color(plot)
+        return plot, color
 
-    def _plot_trails(self, ax, xs, ys, x_trails, y_trails, plot_kwds, color):
-        chart = ds_state.attrs['chart_kwds']['chart']
-        chart_kwds = plot_kwds.copy()
-        chart_kwds.update({'color': color, 'chart': chart})
+    def _plot_trails(self, ds_overlay, ax, chart,
+                     xs, ys, x_trails, y_trails, color):
+        if x_trails is None or y_trails is None:
+            return
+        plot_kwds = {
+            var: util.pop(ds_overlay, var)[-1]
+            for var in list(ds_overlay.data_vars)
+        }
+        plot_kwds = util.load_defaults(
+            'plot_kwds', ds_overlay, **plot_kwds)
+        plot_kwds['alpha'] = 0.5
         chart_kwds = util.load_defaults(
-            'chart_kwds', chart_kwds, **chart_kwds)
+            'chart_kwds', ds_overlay, base_chart=chart, **plot_kwds)
         chart_kwds['label'] = '_nolegend_'
-        chart_kwds.pop('kind')
+        chart = chart_kwds.pop('chart', 'scatter')
         expire = chart_kwds.pop('expire')
         stride = chart_kwds.pop('stride')
-        chart = chart_kwds.pop('chart')
         indices = np.where(~np.isnan(x_trails))
-        x_trails = x_trails[indices][:-expire:-stride]
-        y_trails = y_trails[indices][:-expire:-stride]
-        if chart in ['line', 'plot']:
-            x_trails = np.concatenate([xs[-1:], x_trails])
-            y_trails = np.concatenate([ys[-1:], y_trails])
+        x_trails = x_trails[indices][-expire - 1::stride]
+        y_trails = y_trails[indices][-expire - 1::stride]
+        if chart == 'line':
+            x_trails = np.concatenate([x_trails, xs[-1:]])
+            y_trails = np.concatenate([y_trails, ys[-1:]])
+            chart_kwds.pop('s')
             chart = 'plot'
-        getattr(ax, chart)(x_trails, y_trails, **chart_kwds)
+        plot = getattr(ax, chart)(x_trails, y_trails, **chart_kwds)
 
-    def _plot_diff(self, ax, x_centers, y_centers, y_diffs, color):
-        chart = ds_state.attrs['chart_kwds']['chart']
-        chart_kwds = dict(color=color, chart=chart)
+    def _plot_deltas(self, ds_overlay, ax, chart,
+                     x_centers, y_centers,
+                     deltas, delta_labels, color):
+        if deltas is None:
+            return
         chart_kwds = util.load_defaults(
-            'chart_kwds', chart_kwds, **chart_kwds)
-        chart_kwds.pop('kind')
-        ax.errorbar(x_centers, y_centers, y_diffs, **chart_kwds)
+            'chart_kwds', ds_overlay, base_chart=chart)
+        if chart == 'bar':
+            chart_kwds['yerr'] = deltas[-1]
+            x_inlines = x_centers
+            y_inlines = y_centers + np.abs(deltas)
+        else:
+            y_centers, x_centers = x_centers, y_centers
+            x_inlines = x_centers + np.abs(deltas)
+            y_inlines = y_centers
+            chart_kwds['xerr'] = deltas[-1]
 
+        ax.errorbar(x_centers[-1], y_centers[-1], **chart_kwds)
         self._add_inline_labels(
-            ax,
-            x_centers[-1],
-            y_centers[-1] + y_diffs[-1],
-            color,
-            y_diffs[-1] * 2
-        )
+            ds_overlay, ax, chart, x_inlines, y_inlines,
+            delta_labels, color, ref_key='delta')
 
-    def _add_inline_labels(self, ax, ds_overlay, xs, ys, color):
-        ds_overlay = ds_overlay.isel(state=-1)
-        chart = ds_overlay.attrs['chart_kwds']['chart']
-        inline_labels = util.try_to_pydatetime(
-            util.pop(ds_overlay, 'inline_label'
-        ))
+    def _add_inline_labels(self, ds_overlay, ax, chart,
+                           xs, ys, inline_labels, color,
+                           ref_key='inline'):
         if inline_labels is None:
             return
-        inline_ref = ds_overlay.attrs['ref_kwds']['state']
+        inline_ref = ds_overlay.attrs['ref_kwds'][ref_key]
 
         ha = 'center'
         va = 'center'
-        xytext = (0, 1.5)
+        xytext = (0, 5)
         if chart == 'barh':
-            ha = 'left'
+            ha = 'left' if ref_key != 'bar' else 'right'
             xytext = xytext[::-1]
+            if ref_key != 'delta':
+                xs, ys = ys, xs
         elif chart == 'bar':
-            va = 'bottom'
+            va = 'bottom' if ref_key != 'bar' else 'top'
         elif chart in ['line', 'scatter']:
             ha = 'left'
             va = 'bottom'
 
         inline_kwds = dict(
-            s=inline_labels, xy=(xs[-1], ys[-1]), ha=ha, va=va,
+            s=inline_labels[-1], xy=(xs[-1], ys[-1]), ha=ha, va=va,
             color=color, xytext=xytext, path_effects=self._path_effects)
         inline_kwds = util.load_defaults(
             'inline_kwds', ds_overlay, **inline_kwds)
@@ -335,8 +339,8 @@ class Animation(param.Parameterized):
         ax.annotate(**inline_kwds)
         return ax
 
-    def _add_annotations(self, ax, ds_state, xs, ys, color):
-        annotations = util.pop(ds_state, 'annotation')
+    def _add_annotations(self, ds_state, ax, chart,
+                         xs, ys, annotations, color):
         if annotations is None:
             return
         for x, y, annotation in zip(xs, ys, annotations):
@@ -354,8 +358,7 @@ class Animation(param.Parameterized):
             ax.annotate(**annotation_kwds)
             ax.scatter(x, y, color=color)
 
-    def _update_ticks(self, ax, ds_state):
-        chart = ds_state.attrs['chart_kwds']['chart']
+    def _update_ticks(self, ds_state, ax, chart):
         if chart.startswith('bar'):
             ds_state = ds_state.isel(state=-1)
         tick_labels = util.pop(ds_state, 'tick_label')
@@ -408,7 +411,7 @@ class Animation(param.Parameterized):
         ax.tick_params(**xtick_kwds)
         ax.tick_params(**ytick_kwds)
 
-    def _update_colorbar(self, ax, ds_state, plot):
+    def _update_colorbar(self, ds_state, ax, plot):
         colorbar_kwds = util.load_defaults(
             'colorbar_kwds', ds_state, ax=ax)
 
@@ -466,38 +469,44 @@ class Animation(param.Parameterized):
         plt.close()
         return buf
 
-    def _draw_subplot(self, ax, ds_state):
-        self._update_labels(ax, ds_state)
-        self._update_grid(ax, ds_state)
-        self._update_margins(ax, ds_state)
-        self._add_state_labels(ax, ds_state)
+    def _draw_subplot(self, ds_state, ax):
+        self._update_labels(ds_state, ax)
+        self._update_grid(ds_state, ax)
+        self._update_margins(ds_state, ax)
+        self._add_state_labels(ds_state, ax)
 
         for item in np.atleast_1d(ds_state['item']):
             ds_overlay = ds_state.sel(item=item)
+            chart = util.pop(ds_overlay, 'chart').item()
+
             xs = util.pop(ds_overlay, 'x')
             ys = util.pop(ds_overlay, 'y')
+            x_trails = util.pop(ds_overlay, 'x_trail')
+            y_trails = util.pop(ds_overlay, 'y_trail')
+            x_centers = util.pop(ds_overlay, 'x_center')
+            y_centers = util.pop(ds_overlay, 'y_center')
+            deltas = util.pop(ds_overlay, 'delta')
+            delta_labels = util.pop(ds_overlay, 'delta_label')
+            bar_labels = util.pop(ds_overlay, 'bar_label')
+            inline_labels = util.pop(ds_overlay, 'inline_label')
+            annotations = util.pop(ds_overlay, 'annotation')
 
-            # x_trails = util.pop(ds_overlay, 'x_trail')
-            # y_trails = util.pop(ds_overlay, 'y_trail')
-
-            # x_centers = util.pop(ds_overlay, 'x_center')
-            # y_centers = util.pop(ds_overlay, 'y_center')
-            # y_diffs = util.pop(ds_overlay, 'y_diff')
-
-            # annotations = util.pop(ds_overlay, 'annotation')
-
-            plot = self._plot_chart(ax, ds_overlay, xs, ys)
-            color = self._get_color(plot)
-            # if x_trails is not None and y_trails is not None:
-            #     self._plot_trails(
-            #         ax, xs, ys, x_trails, y_trails, plot_kwds, color)
-            # if x_centers is not None and y_diffs is not None:
-            #     self._plot_diff(ax, x_centers, y_centers, y_diffs, color)
-            self._add_inline_labels(ax, ds_overlay, xs, ys, color)
-            self._add_annotations(ax, ds_overlay, xs, ys, color)
-        self._update_ticks(ax, ds_state)
-        self._update_legend(ax, ds_state)
-        self._update_colorbar(ax, ds_state, plot)
+            plot, color = self._plot_chart(ds_overlay, ax, chart, xs, ys)
+            self._plot_trails(
+                ds_overlay, ax, chart, xs, ys, x_trails, y_trails, color)
+            self._plot_deltas(
+                ds_overlay, ax, chart, x_centers, y_centers,
+                deltas, delta_labels, color)
+            self._add_inline_labels(
+                ds_overlay, ax, chart, xs, ys, bar_labels, 'black',
+                ref_key='bar')
+            self._add_inline_labels(
+                ds_overlay, ax, chart, xs, ys, inline_labels, color)
+            self._add_annotations(
+                ds_overlay, ax, chart, xs, ys, annotations, color)
+        self._update_ticks(ds_state, ax, chart)
+        self._update_legend(ds_state, ax)
+        self._update_colorbar(ds_state, ax, plot)
 
     @dask.delayed()
     def _draw_frame(self, data, state, rows, cols):
@@ -509,7 +518,7 @@ class Animation(param.Parameterized):
         for irowcol, ds in enumerate(data.values(), 1):
             ds_state = ds.isel(state=slice(None, state))
             ax = self._prep_axes(ds_state, rows, cols, irowcol)
-            self._draw_subplot(ax, ds_state)
+            self._draw_subplot(ds_state, ax)
 
         if self.watermark:
             self._update_watermark(fig)
@@ -517,33 +526,54 @@ class Animation(param.Parameterized):
         buf = self._buffer_frame()
         return buf
 
-    @staticmethod
-    def _config_chart(ds, chart):
-        if chart == 'bar':
-            kind = ds.attrs['chart_kwds'].get('kind', 'race')
+    def _config_chart(self, ds, chart):
+        if chart.startswith('bar'):
+            kind = ds.attrs['chart_kwds'].pop('kind', 'race')
+            bar_label = ds.attrs['chart_kwds'].pop('bar_label', True)
             ds.coords['tick_label'] = ds['x']
+            if bar_label:
+                ds['bar_label'] = ds['x']
             if kind == 'race':
                 ds['x'] = ds['y'].rank('item')
             else:
                 ds['x'] = ds['x'].rank('item')
-                if kind == 'diff':
-                    x_diff = ds['x'].diff('item').mean() / 2
-                    ds['x_center'] = ds['x'] - x_diff
-                    ds['y_center'] = ds['y'].mean('item')
-                    ds['y_diff'] = ds['y'].diff('item') / 2
-                    ds['y_diff'] = ds['y_diff'].isel(item=slice(1, None))
+                if kind == 'delta':
+                    x_delta = ds['x'].diff('item').mean() / 2
+                    ds['x_center'] = ds['x'] - x_delta
+                    ds['delta_label'] = ds['y'].diff('item')
+                    ds['y_center'] = (
+                        ds['y'].shift(item=1) + ds['delta_label'] / 2)
+                    ds['delta_label'] = ds['delta_label'].isel(
+                        item=slice(1, None))
+                    ds['delta'] = ds['delta_label'] / 2
+        elif chart == 'scatter':
+            kind = ds.attrs['chart_kwds'].pop('kind', 'basic')
+            if kind == 'trail':
+                ds['x_trail'] = ds['x'].copy()
+                ds['y_trail'] = ds['y'].copy()
 
-        legend_sortby = ds.attrs['legend_kwds'].get('sortby', 'y')
+        legend_sortby = ds.attrs['legend_kwds'].pop('sortby', 'y')
         if legend_sortby and 'label' in ds:
             items = ds.mean('state').sortby(
-                legend_sortby, ascending=False
-            )['item']
+                legend_sortby, ascending=False)['item']
             ds = ds.sel(item=items)
             ds['item'] = np.arange(len(ds['item']))
+
+        if self.style == 'bare':
+            ds.attrs['grid_kwds']['b'] = False
+        elif chart == 'barh':
+            ds.attrs['grid_kwds']['axis'] = (
+                ds.attrs['grid_kwds'].get('axis', 'x'))
+        elif chart == 'bar':
+            ds.attrs['grid_kwds']['axis'] = (
+                ds.attrs['grid_kwds'].get('axis', 'y'))
+        else:
+            ds.attrs['grid_kwds']['axis'] = (
+                ds.attrs['grid_kwds'].get('axis', 'both'))
+
         return ds
 
-    @staticmethod
-    def _add_xy01_limits(ds, chart):
+    def _add_xy01_limits(self, ds, chart):
         limits = {
             'xlim0': ds.attrs.pop('xlim0s'),
             'xlim1': ds.attrs.pop('xlim1s'),
@@ -615,17 +645,58 @@ class Animation(param.Parameterized):
                     axis = 'x' if axis == 'y' else 'y'
                     key = axis + key[1:]
                 if util.is_scalar(limit) == 1:
-                    limit = [limit] * len(ds['state'])
+                    limit = [limit] * self._num_states
                 ds[key] = ('state', limit)
         return ds
 
+    def _add_delays(self, ds):
+        if self.delays is None:
+            delays = 0.5 if self._num_states < 10 else 1 / 60
+        else:
+            delays = self.delays
+
+        if isinstance(delays, (int, float)):
+            transition_frames = delays
+            delays = np.repeat(delays, self._num_states)
+        else:
+            transition_frames = (
+                config.defaults['delays_kwds']['transition_frames'])
+
+        delays_kwds = util.load_defaults(
+            'delays_kwds', self.delays_kwds,
+            transition_frames=transition_frames)
+        aggregate = delays_kwds.pop('aggregate')
+
+        if np.isnan(delays[-1]):
+            delays[-1] = 0
+        delays[-2:] += delays_kwds['final_frame']
+        if 'delay' in ds:
+            ds['delay'] = ds['delay'] + delays
+        else:
+            ds['delay'] = ('state', delays)
+        ds['delay'].attrs['transition_frames'] = transition_frames
+        ds['delay'].attrs['aggregate'] = aggregate
+        return ds
+
     @staticmethod
-    def _add_color_kwds(ds):
-        # add colors
-        color = 'darkgray' if len(np.unique(ds['label'])) == 1 else None
+    def _fill_null(ds):
+        for var in ds.data_vars:
+            if ds[var].dtype == 'O':
+                ds[var] = ds[var].where(~pd.isnull(ds[var]), '')
+        return ds
+
+    @staticmethod
+    def _add_color_kwds(ds, chart):
+        if chart.startswith('bar'):
+            color = None
+            if set(np.unique(ds['label'])) == set(np.unique(ds['x'])):
+                ds.attrs['legend_kwds']['show'] = False
+        else:
+            color = 'darkgray' if len(np.unique(ds['label'])) == 1 else None
+
         ds.attrs['plot_kwds']['color'] = ds.attrs['plot_kwds'].get(
             'color', color)
-        # add colormap and colorbar
+
         if 'c' in ds:
             ds.attrs['plot_kwds']['cmap'] = ds.attrs['plot_kwds'].get(
                 'cmap', 'RdBu_r')
@@ -650,10 +721,13 @@ class Animation(param.Parameterized):
                 ds.attrs[f'{xyc}tick_kwds']['is_datetime'] = np.issubdtype(
                     ds[xyc].values.dtype, np.datetime64)
 
-        for key in ['inline', 'state']:
+        for key in ['inline', 'state', 'delta', 'bar']:
             key_label = f'{key}_label'
             if key_label in ds:
-                ref_kwds[key] = np.diff(ds[key_label]).min()
+                try:
+                    ref_kwds[key] = np.nanmin(np.diff(ds[key_label]))
+                except TypeError:
+                    ref_kwds[key] = ''
 
         ds.attrs['ref_kwds'] = ref_kwds
         return ds
@@ -662,19 +736,25 @@ class Animation(param.Parameterized):
         ds = ds.reset_coords()
         ds = ds.map(self.interpolate, keep_attrs=True)
         ds = ds.set_coords('root')
+        interp_indices = ds['root'] > 0
+        ds['root'] = np.cumsum(ds['root'])
+        ds['root'] = ds['root'].where(interp_indices)
         self._num_states = len(ds['state'])
         return ds
 
-    def finalize(self, data):
+    def finalize(self):
+        data = deepcopy(self.data)
         if all(ds.attrs.get('finalized') for ds in data.values()):
             return data
 
         for rowcol, ds in data.items():
-            chart = ds.attrs['chart_kwds']['chart']
+            chart = ds['chart'].values.flat[0]
+            ds = self._fill_null(ds)
+            ds = self._add_color_kwds(ds, chart)
             ds = self._config_chart(ds, chart)
             ds = self._add_xy01_limits(ds, chart)
-            ds = self._add_color_kwds(ds)
             ds = self._add_ref_kwds(ds)
+            ds = self._add_delays(ds)
             ds = self._interp_dataset(ds)
             ds.attrs['finalized'] = True
             data[rowcol] = ds
@@ -682,8 +762,16 @@ class Animation(param.Parameterized):
         return data
 
     def animate(self):
-        data = self.finalize(deepcopy(self.data))
+        data = self.finalize()
+        print(data)
         rows, cols = [max(rowcol) for rowcol in zip(*data.keys())]
+
+        delays = xr.concat((
+            util.pop(ds, 'delay', to_numpy=False) for ds in data.values()
+        ), 'item')
+        delays = getattr(
+            delays, delays.attrs['aggregate'])('item', keep_attrs=True)
+        delays = delays.where(delays != 0, delays.attrs['transition_frames'])
 
         jobs = []
         for state in range(self._num_states):
@@ -696,7 +784,7 @@ class Animation(param.Parameterized):
             num_workers = self._num_states
 
         scheduler = 'single-threaded' if self.debug else 'processes'
-        with dask.diagnostics.ProgressBar(minimum=2):
+        with dask.diagnostics.ProgressBar(minimum=0.5):
             buf_list = dask.compute(
                 jobs, num_workers=num_workers,
                 scheduler=scheduler)[0]
@@ -708,7 +796,7 @@ class Animation(param.Parameterized):
         else:
             loop = self.loop
 
-        animate_kwds = dict(loop=loop)# duration=delays)
+        animate_kwds = dict(loop=loop, duration=list(delays))
         animate_kwds = util.load_defaults(
             'animate_kwds', self.animate_kwds, **animate_kwds)
         with imageio.get_writer(self.out_fp, **animate_kwds) as writer:

@@ -14,9 +14,6 @@ from . import easing, animation, util
 
 class Data(easing.Easing, animation.Animation):
 
-    xs = param.ClassSelector(class_=(Iterable,))
-    ys = param.ClassSelector(class_=(Iterable,))
-
     chart = param.ObjectSelector(
         objects=['scatter', 'line', 'barh', 'bar', 'plot'])
     style = param.ObjectSelector(objects=['graph', 'minimal', 'bare'])
@@ -47,19 +44,19 @@ class Data(easing.Easing, animation.Animation):
     annotation_kwds = param.Dict()
     rowcol = param.NumericTuple(default=(1, 1), length=2)
 
-    _inputs = []
-    _num_states = 0
+    _parameters = []
     data = {}
 
     def __init__(self, xs, ys, **kwds):
-        self._inputs = [key for key in dir(self) if not key.startswith('_')]
+        self._parameters = [key for key in dir(self)
+                            if not key.startswith('_')]
         self._num_states = len(xs)
 
         input_vars = {
             key: kwds.pop(key) for key in list(kwds)
-            if key not in self._inputs}
+            if key not in self._parameters}
         super().__init__(**kwds)
-        input_vars = self._amend_input_vars(input_vars, )
+        input_vars = self._amend_input_vars(input_vars)
         data_vars = self._load_data_vars(xs, ys, input_vars)
         coords = self._load_coords()
         attrs = self._load_attrs()
@@ -71,12 +68,12 @@ class Data(easing.Easing, animation.Animation):
             key_and_s = key + 's'
             key_strip = key.rstrip('s')
             expected_key = None
-            if key_and_s in self._inputs and key_and_s != key:
+            if key_and_s in self._parameters and key_and_s != key:
                 warnings.warn(
                     f'Unexpected {key}; setting {key} '
                     f'as the expected {key_and_s}!')
                 expected_key = key_and_s
-            elif key_strip in self._inputs and key_strip != key:
+            elif key_strip in self._parameters and key_strip != key:
                 warnings.warn(
                     f'Unexpected {key}; setting {key} '
                     f'as the expected {key_strip}!')
@@ -111,21 +108,21 @@ class Data(easing.Easing, animation.Animation):
     def _load_coords(self):
         coords = {
             'item': [1],
-            'state': np.arange(self._num_states),
+            'state': np.arange(1, self._num_states + 1),
             'root': ('state', [1] * self._num_states)
         }
         return coords
 
     def _load_attrs(self):
-        kwds_inputs = {
-            param: getattr(self, param) for param in self._inputs
+        kwds_parameters = {
+            param: getattr(self, param) for param in self._parameters
             if param.endswith('kwds')}
 
         attrs = {}
-        for key, val in kwds_inputs.items():
+        for key, val in kwds_parameters.items():
             attrs[key] = getattr(self, key) or {}
             if key == 'chart_kwds':
-                attrs[key]['chart'] = self.chart
+                attrs[key]['base_chart'] = self.chart
             elif key == 'axes_kwds':
                 attrs[key]['style'] = self.style
             elif key == 'title_kwds':
@@ -176,6 +173,7 @@ class Data(easing.Easing, animation.Animation):
                     other_ds['item'] = (
                         other_ds['item'] + self_ds['item'].max())
                 joined_ds = xr.combine_by_coords([self_ds, other_ds])
+                print(joined_ds)
                 joined_ds['state_label'] = (
                     joined_ds['state_label'].isel(item=0))
                 self_copy.data[rowcol] = joined_ds
@@ -214,7 +212,46 @@ class Data(easing.Easing, animation.Animation):
         return self_copy
 
     def __radd__(self, other):
-        return other + self
+        return self + other
+
+    def __sub__(self, other):
+        self_copy = deepcopy(self)
+        rowcols = set(self.data) | set(other.data)
+        for rowcol in rowcols:
+            self_ds = self.data.get(rowcol)
+            other_ds = other.data.get(rowcol)
+
+            if self_ds is not None and other_ds is not None:
+                has_same_items = len(
+                    set(self_ds['item'].values) |
+                    set(other_ds['item'].values)
+                ) > 0
+                if has_same_items:
+                    other_ds['item'] = other_ds['item'].copy()
+                    other_ds['item'] = (
+                        other_ds['item'] + self_ds['item'].max())
+                    other_ds['state'] = (
+                        other_ds['state'] + self_ds['state'].max())
+                joined_ds = xr.concat(
+                    [self_ds, other_ds], 'state'
+                ).map(util.transpose, keep_attrs=True)
+                joined_ds['label'] = joined_ds['label'].max('state')
+                joined_ds['chart'] = joined_ds['chart'].max('state')
+                self_copy._num_states = len(joined_ds['state'])
+                self_copy.data[rowcol] = joined_ds
+                for param in self._parameters:
+                    self_param = getattr(self, param)
+                    other_param = getattr(other, param)
+                    if self_param is None and other_param is not None:
+                        setattr(self_copy, param, other_param)
+            elif self_ds is not None:
+                self_copy.data[rowcol] = self_ds
+            elif other_ds is not None:
+                self_copy.data[rowcol] = other_ds
+        return self_copy
+
+    def __rsub__(self, other):
+        return self - other
 
     def cols(self, ncols):
         self_copy = deepcopy(self)
@@ -226,6 +263,9 @@ class Data(easing.Easing, animation.Animation):
 
 
 class Array(Data):
+
+    xs = param.ClassSelector(class_=(Iterable,))
+    ys = param.ClassSelector(class_=(Iterable,))
 
     state_labels = param.ClassSelector(class_=(Iterable,))
     inline_labels = param.ClassSelector(class_=(Iterable,))
@@ -240,7 +280,6 @@ class Array(Data):
 
     def __init__(self, xs, ys, **kwds):
         super().__init__(xs, ys, **kwds)
-
         ds = self.data[self.rowcol]
         if self.state_labels is not None:
             ds['state_label'] = ('state', self.state_labels)
@@ -256,6 +295,65 @@ class Array(Data):
             'ctick_kwds': self.ctick_kwds or {}
         })
 
+    def add_annotations(self, xs=None, ys=None, state_labels=None,
+                        inline_labels=None, condition=None,
+                        annotations=None, delays=None, rowcols=None):
+        if rowcols is None:
+            rowcols = self.data.keys()
+
+        self_copy = deepcopy(self)
+        for rowcol, ds in self_copy.data.items():
+            if rowcol not in rowcols:
+                continue
+
+            args = (xs, ys, state_labels, inline_labels, condition)
+            args_none = sum([1 for arg in args if arg is None])
+            if args_none == len(args):
+                raise ValueError(
+                    'Must supply either xs, ys, state_labels, '
+                    'inline_labels, or condition!')
+            elif args_none != len(args) - 1:
+                raise ValueError(
+                    'Must supply only one of xs, ys, state_labels, '
+                    'inline_labels, or condition!')
+
+            if delays is None and annotations is None:
+                raise ValueError(
+                    'Must supply at least annotations or delays!')
+
+            if xs is not None:
+                condition = ds['x'].isin(xs)
+            elif ys is not None:
+                condition = ds['y'].isin(ys)
+            elif state_labels is not None:
+                condition = ds['state_label'].isin(state_labels)
+            elif inline_labels is not None:
+                condition = ds['inline_label'].isin(inline_labels)
+
+            if annotations is not None:
+                if 'annotation' not in ds:
+                    ds['annotation'] = (
+                        ('item', 'state'),
+                        np.full((len(ds['item']), self._num_states), '')
+                    )
+                if annotations.startswith('$'):
+                    annotations = ds[annotations.lstrip('$')]
+                ds['annotation'] = xr.where(
+                    condition, annotations, ds['annotation']
+                ).transpose('item', 'state')
+
+            if delays is not None:
+                if 'delay' not in ds:
+                    ds['delay'] = (
+                        'state', np.repeat(0, len(ds['state'])))
+                ds['delay'] = xr.where(
+                    condition, delays, ds['delay']
+                )
+                if 'item' in ds['delay'].dims:
+                    ds['delay'] = ds['delay'].max('item')
+            self_copy.data[rowcol] = ds
+        return self_copy
+
 
 class DataFrame(Array):
 
@@ -268,11 +366,12 @@ class DataFrame(Array):
         join = kwds.pop('join', 'overlay')
 
         arrays = []
-        self._inputs = [key for key in dir(self) if not key.startswith('_')]
         for label, df_item in df.groupby(label):
             kwds_updated = kwds.copy()
+
             kwds_updated.update({
-                key: df_item[val].values if val in df_item else val
+                key: df_item[val].values
+                if not isinstance(val, dict) and val in df_item else val
                 for key, val in kwds.items()})
             if 'xlabel' not in kwds_updated:
                 kwds_updated['xlabel'] = xs
@@ -280,7 +379,8 @@ class DataFrame(Array):
                 kwds_updated['ylabel'] = ys
             if 'title' not in kwds_updated and join == 'layout':
                 kwds_updated['title'] = label
-            arrays.append(
-                Array(df_item[xs], df_item[ys], label=label, **kwds_updated))
-        self._num_states = arrays[0]._num_states
+            super().__init__(
+                df_item[xs], df_item[ys], label=label, **kwds_updated)
+            arrays.append(deepcopy(self))
+        print(arrays)
         self.data = getattr(util, join)(arrays).data
