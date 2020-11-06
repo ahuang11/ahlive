@@ -54,8 +54,8 @@ class Easing(param.Parameterized):
         is_xarray = isinstance(da, xr.DataArray)
         if is_xarray:
             name = da.name
-        if name in ['label', 'chart']:
-            return da
+            if 'state' not in da.dims:
+                return da
 
         array = np.array(da)
         if array.ndim == 1:

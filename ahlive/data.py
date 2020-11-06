@@ -11,6 +11,11 @@ import xarray as xr
 from . import easing, animation, util
 
 
+DIMS = {
+    'vars': ('item', 'state'),
+    'refs': ('ref_item', 'state')
+}
+
 
 class Data(easing.Easing, animation.Animation):
 
@@ -41,7 +46,10 @@ class Data(easing.Easing, animation.Animation):
     legend_kwds = param.Dict()
     xtick_kwds = param.Dict()
     ytick_kwds = param.Dict()
+
     annotation_kwds = param.Dict()
+    ref_plot_kwds = param.Dict()
+    ref_inline_kwds = param.Dict()
     rowcol = param.NumericTuple(default=(1, 1), length=2)
 
     _parameters = []
@@ -87,7 +95,7 @@ class Data(easing.Easing, animation.Animation):
             chart = 'scatter' if self._num_states <= 5 else 'line'
         else:
             chart = self.chart
-        label = '' if self.label is None else self.label
+        label = self.label or ''
 
         data_vars = {'x': xs, 'y': ys}
         data_vars.update({
@@ -96,11 +104,10 @@ class Data(easing.Easing, animation.Animation):
         })
         for var in list(data_vars.keys()):
             val = np.array(data_vars.pop(var))
-            dims = ('item', 'state')
             if util.is_scalar(val):
                 val = [val] * self._num_states
             val = np.reshape(val, (1, -1))
-            data_vars[var] = dims, val
+            data_vars[var] = DIMS['vars'], val
         data_vars['label'] = 'item', [label]
         data_vars['chart'] = 'item', [chart]
         return data_vars
@@ -173,7 +180,6 @@ class Data(easing.Easing, animation.Animation):
                     other_ds['item'] = (
                         other_ds['item'] + self_ds['item'].max())
                 joined_ds = xr.combine_by_coords([self_ds, other_ds])
-                print(joined_ds)
                 joined_ds['state_label'] = (
                     joined_ds['state_label'].isel(item=0))
                 self_copy.data[rowcol] = joined_ds
@@ -298,6 +304,21 @@ class Array(Data):
     def add_annotations(self, xs=None, ys=None, state_labels=None,
                         inline_labels=None, condition=None,
                         annotations=None, delays=None, rowcols=None):
+        args = (xs, ys, state_labels, inline_labels, condition)
+        args_none = sum([1 for arg in args if arg is None])
+        if args_none == len(args):
+            raise ValueError(
+                'Must supply either xs, ys, state_labels, '
+                'inline_labels, or condition!')
+        elif args_none != len(args) - 1:
+            raise ValueError(
+                'Must supply only one of xs, ys, state_labels, '
+                'inline_labels, or condition!')
+
+        if delays is None and annotations is None:
+            raise ValueError(
+                'Must supply at least annotations or delays!')
+
         if rowcols is None:
             rowcols = self.data.keys()
 
@@ -305,21 +326,6 @@ class Array(Data):
         for rowcol, ds in self_copy.data.items():
             if rowcol not in rowcols:
                 continue
-
-            args = (xs, ys, state_labels, inline_labels, condition)
-            args_none = sum([1 for arg in args if arg is None])
-            if args_none == len(args):
-                raise ValueError(
-                    'Must supply either xs, ys, state_labels, '
-                    'inline_labels, or condition!')
-            elif args_none != len(args) - 1:
-                raise ValueError(
-                    'Must supply only one of xs, ys, state_labels, '
-                    'inline_labels, or condition!')
-
-            if delays is None and annotations is None:
-                raise ValueError(
-                    'Must supply at least annotations or delays!')
 
             if xs is not None:
                 condition = ds['x'].isin(xs)
@@ -333,14 +339,15 @@ class Array(Data):
             if annotations is not None:
                 if 'annotation' not in ds:
                     ds['annotation'] = (
-                        ('item', 'state'),
+                        DIMS['vars'],
                         np.full((len(ds['item']), self._num_states), '')
                     )
-                if annotations.startswith('$'):
-                    annotations = ds[annotations.lstrip('$')]
+                if isinstance(annotations, str):
+                    if annotations in ds.data_vars:
+                        annotations = ds[annotations]
                 ds['annotation'] = xr.where(
                     condition, annotations, ds['annotation']
-                ).transpose('item', 'state')
+                ).transpose(DIMS['vars'])
 
             if delays is not None:
                 if 'delay' not in ds:
@@ -351,6 +358,111 @@ class Array(Data):
                 )
                 if 'item' in ds['delay'].dims:
                     ds['delay'] = ds['delay'].max('item')
+            self_copy.data[rowcol] = ds
+        return self_copy
+
+
+    def add_references(self, x0s=None, x1s=None, y0s=None, y1s=None,
+                       label=None, inline_labels=None, inline_loc=None,
+                       rowcols=None):
+        args = {'ref_x0': x0s, 'ref_x1': x1s, 'ref_y0': y0s, 'ref_y1': y1s}
+        has_args = {key: val is not None for key, val in args.items()}
+        if not any(has_args.values()):
+            raise ValueError('Must provide either x0s, x1s, y0s, y1s!')
+
+        has_x0 = has_args['ref_x0']
+        has_x1 = has_args['ref_x1']
+        has_y0 = has_args['ref_y0']
+        has_y1 = has_args['ref_y1']
+        if has_x0 and has_x1 and has_y0 and has_y1:
+            chart = 'rectangle'
+            loc_axis = 'x'
+        elif has_x0 and has_x1:
+            chart = 'axvspan'
+            loc_axis = 'y'
+        elif has_y0 and has_y1:
+            chart = 'axhspan'
+            loc_axis = 'x'
+        elif has_x0:
+            chart = 'axvline'
+            loc_axis = 'y'
+        elif has_y0:
+            chart = 'axhline'
+            loc_axis = 'x'
+        else:
+            raise NotImplementedError()
+
+        label = label or ''
+
+        if rowcols is None:
+            rowcols = self.data.keys()
+
+        self_copy = deepcopy(self)
+        for rowcol, ds in self_copy.data.items():
+            if rowcol not in rowcols:
+                continue
+
+            ref_vars = [
+                var for var in ds.data_vars if 'ref_item' in ds[var].dims]
+            base_ds = ds.drop_vars(ref_vars, errors='ignore')
+            if len(ref_vars) > 0:
+                past_ds = ds[ref_vars]
+            else:
+                past_ds = None
+
+            for key, arg in args.items():
+                if isinstance(arg, str):
+                    axis = key[4]
+                    arg = getattr(ds[axis], arg)('item')
+                if util.is_scalar(arg):
+                    arg = [arg] * self._num_states
+                ds[key] = (DIMS['refs'], np.array(arg).reshape(1, -1))
+
+            ds['ref_label'] = 'ref_item', [label]
+            ds['ref_chart'] = 'ref_item', [chart]
+            if inline_labels is None and inline_labels != False:
+                if chart == 'axvspan':
+                    inline_labels = ds['ref_x0'].isel(ref_item=[0])
+                if chart == 'axhspan':
+                    inline_labels = ds['ref_y0'].isel(ref_item=[0])
+                if chart == 'axvline':
+                    inline_labels = ds['ref_x0'].isel(ref_item=[0])
+                elif chart == 'axhline':
+                    inline_labels = ds['ref_y0'].isel(ref_item=[0])
+
+            if inline_labels is not None:
+                if isinstance(inline_labels, str):
+                    if inline_labels in ds.data_vars:
+                        inline_labels = ds[inline_labels].isel(item=[0])
+                ds['ref_inline_label'] = DIMS['refs'], inline_labels
+
+                if inline_loc is None:
+                    if chart in ['rectangle', 'axvspan', 'axhspan']:
+                        inline_loc = 'center'
+                    elif chart == 'axvline':
+                        inline_loc = 'bottom'
+                    elif chart == 'axhline':
+                        inline_loc = 'left'
+
+                if isinstance(inline_loc, str):
+                    if inline_loc == 'left':
+                        inline_loc = [base_ds['x'].values.min()]
+                    elif inline_loc == 'right':
+                        inline_loc = [base_ds['x'].values.max()]
+                    elif inline_loc == 'bottom':
+                        inline_loc = [base_ds['y'].values.min()]
+                    elif inline_loc == 'top':
+                        inline_loc = [base_ds['y'].values.max()]
+                    elif inline_loc == 'center':
+                        inline_loc = [base_ds[loc_axis].values.mean()]
+
+                ds['ref_inline_loc'] = 'ref_item', inline_loc
+
+            if past_ds is not None:
+                ds = xr.concat([past_ds, ds[ref_vars]], 'ref_item')
+            else:
+                ds = ds.drop_vars(base_ds.data_vars)
+            ds = xr.merge([base_ds, ds], combine_attrs='override')
             self_copy.data[rowcol] = ds
         return self_copy
 
@@ -382,5 +494,4 @@ class DataFrame(Array):
             super().__init__(
                 df_item[xs], df_item[ys], label=label, **kwds_updated)
             arrays.append(deepcopy(self))
-        print(arrays)
         self.data = getattr(util, join)(arrays).data

@@ -96,7 +96,7 @@ def scale_sizes(scale, keys=None):
 
 def load_defaults(default_key, input_kwds=None, **other_kwds):
     updated_kwds = defaults.get(default_key, {}).copy()
-    if default_key == 'chart_kwds':
+    if default_key in ['chart_kwds', 'ref_plot_kwds']:
         updated_kwds = updated_kwds.get(
             other_kwds.pop('base_chart', None), updated_kwds
         ).copy()

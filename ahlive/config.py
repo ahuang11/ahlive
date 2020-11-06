@@ -49,6 +49,27 @@ defaults['chart_kwds']['scatter'] = {
 }
 defaults['chart_kwds']['barh'] = defaults['chart_kwds']['bar'].copy()
 
+defaults['ref_plot_kwds'] = {}
+defaults['ref_plot_kwds']['axvline'] = {
+    'color': 'darkgray',
+    'linestyle': '--'
+}
+defaults['ref_plot_kwds']['axhline'] = {
+    'color': 'darkgray',
+    'linestyle': '--'
+}
+defaults['ref_plot_kwds']['axvspan'] = {
+    'color': 'darkgray',
+    'alpha': 0.5
+}
+defaults['ref_plot_kwds']['axhspan'] = {
+    'color': 'darkgray',
+    'alpha': 0.5
+}
+
+defaults['ref_inline_kwds'] = defaults['label_kwds'].copy()
+defaults['ref_inline_kwds'].update({'textcoords': 'offset points'})
+
 defaults['annotation_kwds'] = defaults['label_kwds'].copy()
 defaults['annotation_kwds'].update({
     'fontsize': sizes['small'],
