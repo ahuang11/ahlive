@@ -8,7 +8,9 @@ import param
 import numpy as np
 import xarray as xr
 
-from . import easing, animation, util
+from .easing import Easing
+from .animation import Animation
+from .util import is_scalar, transpose, layout, cascade, overlay
 
 
 DIMS = {
@@ -17,7 +19,7 @@ DIMS = {
 }
 
 
-class Data(easing.Easing, animation.Animation):
+class Data(Easing, Animation):
 
     chart = param.ObjectSelector(
         objects=['scatter', 'line', 'barh', 'bar', 'plot'])
@@ -33,7 +35,19 @@ class Data(easing.Easing, animation.Animation):
     xlabel = param.String()
     ylabel = param.String()
     legend = param.Boolean(default=True)
-    hooks = param.HookList(default=None)
+    grid = param.Boolean(default=True)
+    hooks = param.HookList()
+
+    crs = param.String()
+    projection = param.String()
+    borders = param.Boolean()
+    coastline = param.Boolean(default=True)
+    land = param.Boolean()
+    lakes = param.Boolean()
+    ocean = param.Boolean()
+    rivers = param.Boolean()
+    states = param.Boolean()
+    worldwide = param.Boolean(default=True)
 
     axes_kwds = param.Dict()
     plot_kwds = param.Dict()
@@ -47,6 +61,16 @@ class Data(easing.Easing, animation.Animation):
     xtick_kwds = param.Dict()
     ytick_kwds = param.Dict()
 
+    crs_kwds = param.Dict()
+    projection_kwds = param.Dict()
+    borders_kwds = param.Dict()
+    coastline_kwds = param.Dict()
+    land_kwds = param.Dict()
+    lakes_kwds = param.Dict()
+    ocean_kwds = param.Dict()
+    rivers_kwds = param.Dict()
+    states_kwds = param.Dict()
+
     annotation_kwds = param.Dict()
     ref_plot_kwds = param.Dict()
     ref_inline_kwds = param.Dict()
@@ -56,10 +80,9 @@ class Data(easing.Easing, animation.Animation):
     data = {}
 
     def __init__(self, xs, ys, **kwds):
-        self._parameters = [key for key in dir(self)
-                            if not key.startswith('_')]
+        self._parameters = [
+            key for key in dir(self) if not key.startswith('_')]
         self._num_states = len(xs)
-
         input_vars = {
             key: kwds.pop(key) for key in list(kwds)
             if key not in self._parameters}
@@ -70,6 +93,13 @@ class Data(easing.Easing, animation.Animation):
         attrs = self._load_attrs()
         ds = xr.Dataset(coords=coords, data_vars=data_vars, attrs=attrs)
         self.data = {self.rowcol: ds}
+
+    def _adapt_input(self, val):
+        val = np.array(val)
+        if is_scalar(val):
+            val = np.repeat(val, self._num_states)
+        val = val.reshape(1, -1)
+        return val
 
     def _amend_input_vars(self, input_vars):
         for key in list(input_vars.keys()):
@@ -103,11 +133,10 @@ class Data(easing.Easing, animation.Animation):
             if val is not None
         })
         for var in list(data_vars.keys()):
-            val = np.array(data_vars.pop(var))
-            if util.is_scalar(val):
-                val = [val] * self._num_states
-            val = np.reshape(val, (1, -1))
-            data_vars[var] = DIMS['vars'], val
+            val = data_vars.pop(var)
+            val = self._adapt_input(val)
+            dims = DIMS['refs'] if var.startswith('ref') else DIMS['vars']
+            data_vars[var] = dims, val
         data_vars['label'] = 'item', [label]
         data_vars['chart'] = 'item', [chart]
         return data_vars
@@ -127,9 +156,11 @@ class Data(easing.Easing, animation.Animation):
 
         attrs = {}
         for key, val in kwds_parameters.items():
-            attrs[key] = getattr(self, key) or {}
+            attrs[key] = val or {}
             if key == 'chart_kwds':
                 attrs[key]['base_chart'] = self.chart
+            elif key == 'grid_kwds':
+                attrs[key]['grid'] = self.grid
             elif key == 'axes_kwds':
                 attrs[key]['style'] = self.style
             elif key == 'title_kwds':
@@ -140,11 +171,31 @@ class Data(easing.Easing, animation.Animation):
                 attrs[key]['ylabel'] = self.ylabel
             elif key == 'legend_kwds':
                 attrs[key]['show'] = self.legend
+            elif key == 'crs_kwds':
+                attrs[key]['crs'] = self.crs
+            elif key == 'projection_kwds':
+                attrs[key]['projection'] = self.projection
+            elif key == 'borders_kwds':
+                attrs[key]['borders'] = self.borders
+            elif key == 'coastline_kwds':
+                attrs[key]['coastline'] = self.coastline
+            elif key == 'land_kwds':
+                attrs[key]['land'] = self.land
+            elif key == 'lakes_kwds':
+                attrs[key]['lakes'] = self.lakes
+            elif key == 'ocean_kwds':
+                attrs[key]['ocean'] = self.ocean
+            elif key == 'rivers_kwds':
+                attrs[key]['rivers'] = self.rivers
+            elif key == 'states_kwds':
+                attrs[key]['states'] = self.states
+
         attrs.update({
             'xlim0s': self.xlim0s,
             'xlim1s': self.xlim1s,
             'ylim0s': self.ylim0s,
-            'ylim1s': self.ylim1s
+            'ylim1s': self.ylim1s,
+            'worldwide': self.worldwide
         })
         return attrs
 
@@ -240,7 +291,7 @@ class Data(easing.Easing, animation.Animation):
                         other_ds['state'] + self_ds['state'].max())
                 joined_ds = xr.concat(
                     [self_ds, other_ds], 'state'
-                ).map(util.transpose, keep_attrs=True)
+                ).map(transpose, keep_attrs=True)
                 joined_ds['label'] = joined_ds['label'].max('state')
                 joined_ds['chart'] = joined_ds['chart'].max('state')
                 self_copy._num_states = len(joined_ds['state'])
@@ -288,10 +339,12 @@ class Array(Data):
         super().__init__(xs, ys, **kwds)
         ds = self.data[self.rowcol]
         if self.state_labels is not None:
-            ds['state_label'] = ('state', self.state_labels)
+            state_labels = self._adapt_input(self.state_labels).squeeze()
+            ds['state_label'] = ('state', state_labels)
 
         if self.inline_labels is not None:
-            ds['inline_label'] = ('state', self.inline_labels)
+            inline_labels = self._adapt_input(self.inline_labels).squeeze()
+            ds['inline_label'] = ('state', inline_labels)
 
         ds.attrs.update({
             'state_kwds': self.state_kwds or {},
@@ -351,8 +404,7 @@ class Array(Data):
 
             if delays is not None:
                 if 'delay' not in ds:
-                    ds['delay'] = (
-                        'state', np.repeat(0, len(ds['state'])))
+                    ds['delay'] = 'state', _adapt_input(ds['state'])
                 ds['delay'] = xr.where(
                     condition, delays, ds['delay']
                 )
@@ -369,15 +421,14 @@ class Array(Data):
         has_args = {key: val is not None for key, val in args.items()}
         if not any(has_args.values()):
             raise ValueError('Must provide either x0s, x1s, y0s, y1s!')
+        elif sum(has_args.values()) > 2:
+            raise ValueError('At most two values can be provided!')
 
         has_x0 = has_args['ref_x0']
         has_x1 = has_args['ref_x1']
         has_y0 = has_args['ref_y0']
         has_y1 = has_args['ref_y1']
-        if has_x0 and has_x1 and has_y0 and has_y1:
-            chart = 'rectangle'
-            loc_axis = 'x'
-        elif has_x0 and has_x1:
+        if has_x0 and has_x1:
             chart = 'axvspan'
             loc_axis = 'y'
         elif has_y0 and has_y1:
@@ -414,49 +465,45 @@ class Array(Data):
                 if isinstance(arg, str):
                     axis = key[4]
                     arg = getattr(ds[axis], arg)('item')
-                if util.is_scalar(arg):
-                    arg = [arg] * self._num_states
+                arg = self._adapt_input(arg)
                 ds[key] = (DIMS['refs'], np.array(arg).reshape(1, -1))
 
             ds['ref_label'] = 'ref_item', [label]
             ds['ref_chart'] = 'ref_item', [chart]
             if inline_labels is None and inline_labels != False:
-                if chart == 'axvspan':
-                    inline_labels = ds['ref_x0'].isel(ref_item=[0])
-                if chart == 'axhspan':
-                    inline_labels = ds['ref_y0'].isel(ref_item=[0])
+                if chart == ['axvspan', 'axhspan']:
+                    inline_labels = None
                 if chart == 'axvline':
                     inline_labels = ds['ref_x0'].isel(ref_item=[0])
                 elif chart == 'axhline':
                     inline_labels = ds['ref_y0'].isel(ref_item=[0])
 
-            if inline_labels is not None:
-                if isinstance(inline_labels, str):
-                    if inline_labels in ds.data_vars:
-                        inline_labels = ds[inline_labels].isel(item=[0])
-                ds['ref_inline_label'] = DIMS['refs'], inline_labels
+            if isinstance(inline_labels, str):
+                if inline_labels in ds.data_vars:
+                    inline_labels = ds[inline_labels].isel(item=[0])
+            inline_labels = self._adapt_input(inline_labels)
+            ds['ref_inline_label'] = DIMS['refs'], inline_labels
 
-                if inline_loc is None:
-                    if chart in ['rectangle', 'axvspan', 'axhspan']:
-                        inline_loc = 'center'
-                    elif chart == 'axvline':
-                        inline_loc = 'bottom'
-                    elif chart == 'axhline':
-                        inline_loc = 'left'
+            if inline_loc is None:
+                if chart in ['axvspan', 'axhspan']:
+                    inline_loc = 'center'
+                elif chart == 'axvline':
+                    inline_loc = 'bottom'
+                elif chart == 'axhline':
+                    inline_loc = 'left'
 
-                if isinstance(inline_loc, str):
-                    if inline_loc == 'left':
-                        inline_loc = [base_ds['x'].values.min()]
-                    elif inline_loc == 'right':
-                        inline_loc = [base_ds['x'].values.max()]
-                    elif inline_loc == 'bottom':
-                        inline_loc = [base_ds['y'].values.min()]
-                    elif inline_loc == 'top':
-                        inline_loc = [base_ds['y'].values.max()]
-                    elif inline_loc == 'center':
-                        inline_loc = [base_ds[loc_axis].values.mean()]
-
-                ds['ref_inline_loc'] = 'ref_item', inline_loc
+            if isinstance(inline_loc, str):
+                if inline_loc == 'left':
+                    inline_loc = base_ds['x'].values.min()
+                elif inline_loc == 'right':
+                    inline_loc = base_ds['x'].values.max()
+                elif inline_loc == 'bottom':
+                    inline_loc = base_ds['y'].values.min()
+                elif inline_loc == 'top':
+                    inline_loc = base_ds['y'].values.max()
+                elif inline_loc == 'center':
+                    inline_loc = base_ds[loc_axis].values.mean()
+            ds['ref_inline_loc'] = 'ref_item', [inline_loc]
 
             if past_ds is not None:
                 ds = xr.concat([past_ds, ds[ref_vars]], 'ref_item')
@@ -472,13 +519,19 @@ class DataFrame(Array):
     df = param.DataFrame()
 
     join = param.ObjectSelector(
-        default='overlay', objects=['overlay', 'layout'])
+        default='overlay', objects=['overlay', 'layout', 'cascade'])
 
-    def __init__(self, df, xs, ys, label, **kwds):
+    def __init__(self, df, xs, ys, **kwds):
         join = kwds.pop('join', 'overlay')
 
+        label = kwds.pop('label', None)
+        if label is not None:
+            df_iter = df.groupby(label)
+        else:
+            df_iter = zip([''], [df])
+
         arrays = []
-        for label, df_item in df.groupby(label):
+        for label, df_item in df_iter:
             kwds_updated = kwds.copy()
 
             kwds_updated.update({
@@ -494,4 +547,10 @@ class DataFrame(Array):
             super().__init__(
                 df_item[xs], df_item[ys], label=label, **kwds_updated)
             arrays.append(deepcopy(self))
-        self.data = getattr(util, join)(arrays).data
+
+        if join == 'overlay':
+            self.data = overlay(arrays).data
+        elif join == 'layout':
+            self.data = layout(arrays).data
+        elif join == 'cascade':
+            self.data = cascade(arrays).data

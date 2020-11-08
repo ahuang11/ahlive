@@ -4,7 +4,7 @@ import xarray as xr
 from .config import sizes, defaults
 
 
-def try_to_pydatetime(*values):
+def to_pydt(*values):
     if values is None:
         return
     array = np.array(values)
@@ -40,10 +40,10 @@ def to_num(num):
 
 
 def is_scalar(value):
-    return len(np.atleast_1d(value)) == 1
+    return len(np.atleast_1d(value).flat) == 1
 
 
-def pop(ds, key, dflt=None, squeeze=True, to_numpy=True):
+def pop(ds, key, dflt=None, squeeze=False, to_numpy=True):
     try:
         array = ds[key]
         if to_numpy:
@@ -51,6 +51,14 @@ def pop(ds, key, dflt=None, squeeze=True, to_numpy=True):
         del ds[key]
     except KeyError:
         array = dflt
+
+    if array is None:
+        return array
+
+    if squeeze:
+        array = array.squeeze()
+        if is_scalar(array):
+            array = array.item()
     return array
 
 

@@ -107,7 +107,7 @@ class Easing(param.Parameterized):
             stop = np.repeat(array[:, 1:], num_steps, axis=1)
             tiled_steps = np.tile(
                 steps, (num_states - 1) * num_items
-            ).reshape(*new_shape)  # TODO: use broadcast to
+            ).reshape(*new_shape)
             weights = getattr(self, f'_{interp}')(tiled_steps)
             result = stop * weights + init * (1 - weights)
             result = result.astype(np.datetime64)

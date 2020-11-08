@@ -42,7 +42,7 @@ defaults['chart_kwds']['bar'] = {
     'capsize': 6
 }
 defaults['chart_kwds']['scatter'] = {
-    'color': 'gray',
+    'c': 'gray',
     'alpha': 0.5,
     'expire': 6,
     'stride': 2
@@ -60,15 +60,18 @@ defaults['ref_plot_kwds']['axhline'] = {
 }
 defaults['ref_plot_kwds']['axvspan'] = {
     'color': 'darkgray',
-    'alpha': 0.5
+    'alpha': 0.3
 }
 defaults['ref_plot_kwds']['axhspan'] = {
     'color': 'darkgray',
-    'alpha': 0.5
+    'alpha': 0.3
 }
 
 defaults['ref_inline_kwds'] = defaults['label_kwds'].copy()
-defaults['ref_inline_kwds'].update({'textcoords': 'offset points'})
+defaults['ref_inline_kwds'].update({
+    'textcoords': 'offset points',
+    'color': 'darkgray'
+})
 
 defaults['annotation_kwds'] = defaults['label_kwds'].copy()
 defaults['annotation_kwds'].update({
@@ -137,7 +140,7 @@ defaults['watermark_kwds'] = {
     'alpha': 0.28,
     'ha': 'right',
     'va': 'bottom',
-    'fontsize': sizes['xx-small']
+    'fontsize': sizes['x-small']
 }
 
 defaults['frame_kwds'] = {
