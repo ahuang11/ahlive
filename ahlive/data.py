@@ -10,7 +10,7 @@ import xarray as xr
 
 from .easing import Easing
 from .animation import Animation
-from .util import is_scalar, transpose, srange
+from .util import is_scalar, srange
 from .join import _get_rowcols, layout, cascade, overlay
 
 
@@ -163,8 +163,8 @@ class Data(Easing, Animation):
 
         if self.inline_labels is not None:
             inline_labels = self._adapt_input(
-                self.inline_labels, reshape=False)
-            data_vars['inline_label'] = ('state', inline_labels)
+                self.inline_labels)
+            data_vars['inline_label'] = DIMS['vars'], inline_labels
 
         data_vars['chart'] = 'item', [chart]
         data_vars['label'] = 'item', [label]
@@ -353,9 +353,8 @@ class Data(Easing, Animation):
                 self_copy.data[rowcol] = self_ds
             else:
                 other_ds = self._shift_items(self_ds, other_ds)
-                joined_ds = xr.concat(
-                    [self_ds, other_ds], 'state'
-                ).map(transpose, keep_attrs=True)
+                joined_ds = xr.combine_by_coords(
+                    [self_ds, other_ds], combine_attrs='override')
                 joined_ds = self._drop_state(joined_ds)
                 self_copy.data[rowcol] = joined_ds
                 self_copy._num_states = len(joined_ds['state'])
@@ -445,8 +444,7 @@ class Array(Data):
                     if annotations in ds.data_vars:
                         annotations = ds[annotations].values.astype(str)
                 ds['annotation'] = xr.where(
-                    condition, annotations, ds['annotation']
-                ).transpose(*DIMS['vars'])
+                    condition, annotations, ds['annotation'])
 
             if delays is not None:
                 if 'delay' not in ds:
@@ -521,7 +519,7 @@ class Reference(Data):
     x1s = param.ClassSelector(class_=(Iterable,))
     y0s = param.ClassSelector(class_=(Iterable,))
     y1s = param.ClassSelector(class_=(Iterable,))
-    inline_loc = param.ClassSelector(class_=(Iterable,))
+    inline_loc = param.ClassSelector(class_=(Iterable, int, float))
 
     def __init__(self, x0s=None, x1s=None, y0s=None, y1s=None, **kwds):
         args = {
@@ -590,6 +588,7 @@ class Reference(Data):
                 raise ValueError(
                     'Must provide an inline location '
                     'if inline_labels is not None!')
+            else:
                 ds['REF_inline_loc'] = 'REF_item', [inline_loc]
 
         self.data[self.rowcol] = ds

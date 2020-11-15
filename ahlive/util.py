@@ -43,6 +43,11 @@ def is_scalar(value):
     return len(np.atleast_1d(value).flat) == 1
 
 
+def to_scalar(value, get=-1):
+    value = np.atleast_1d(value).flat[get]
+    return value
+
+
 def pop(ds, key, dflt=None, get=None, squeeze=False, to_numpy=True):
     try:
         array = ds[key]
@@ -56,7 +61,7 @@ def pop(ds, key, dflt=None, get=None, squeeze=False, to_numpy=True):
         return array
 
     if get is not None:
-        array = np.atleast_1d(array)[get]
+        array = to_scalar(array, get=get)
 
     if squeeze:
         array = array.squeeze()
@@ -66,19 +71,29 @@ def pop(ds, key, dflt=None, get=None, squeeze=False, to_numpy=True):
 
 
 def srange(length, start=1):
+    if isinstance(length, xr.DataArray):
+        length = len(length)
     return np.arange(start, length + start)
-
-
-def ffill(arr):
-    # https://stackoverflow.com/questions/41190852/
-    mask = np.isnan(arr)
-    indices = np.where(~mask, np.arange(mask.shape[1]), 0)
-    np.maximum.accumulate(indices, axis=1, out=indices)
-    out = arr[np.arange(indices.shape[0])[:, None], indices]
-    return out
 
 
 def transpose(da, dims=None):
     if dims is None:
-        dims = ('item', 'state')
+        item = 'item' if 'item' in da.dims else 'REF_item'
+        dims = (item, 'state')
     return da.transpose(*dims)
+
+
+def ffill(da):
+    if 'state' not in da.dims:
+        return da
+    try:
+        da = da.ffill('state')
+    except TypeError:
+        if 'item' not in da.dims:
+            da = da.to_series().ffill().to_xarray()
+        else:
+            da = xr.concat((
+                da.sel(item=item).to_series().ffill().to_xarray()
+                for item in da['item']
+            ), 'item')
+    return da

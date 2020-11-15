@@ -74,7 +74,7 @@ class Easing(param.Parameterized):
         else:
             num_steps = self.frames
 
-        if num_steps == 1 and isinstance(self.loop, int):
+        if num_steps == 1 and isinstance(self.loop, int) or self.loop is None:
             return da
 
         steps = np.linspace(0, 1, num_steps)

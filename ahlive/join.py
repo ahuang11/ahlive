@@ -1,12 +1,9 @@
 import xarray as xr
 
-from .util import srange
+from .util import srange, ffill
 
 
 QUICK_CONCAT_KWDS = dict(
-    join='override',
-    coords='minimal',
-    compat='override',
     combine_attrs='override'
 )
 
@@ -27,11 +24,11 @@ def cascade(objs, quick=False):
         rowcols = _get_rowcols(objs)
         obj.data = {
             rowcol: xr.concat((
-                array.data[rowcol].assign(
-                    state=array.data[rowcol]['state'] * i, item=[i])
-                for i, array in enumerate(objs)
-                if rowcol in array.data), 'state', **QUICK_CONCAT_KWDS
-            )
+                array.data[rowcol].assign_coords(item=[i])
+                for i, array in enumerate(objs)), 'state', **QUICK_CONCAT_KWDS
+            ).pipe(
+                lambda ds: ds.assign(state=srange(ds['state']))
+            ).map(ffill, keep_attrs=True)
             for rowcol in rowcols
         }
     else:
@@ -51,7 +48,7 @@ def overlay(objs, quick=False):
             rowcol: xr.concat((
                 array.data[rowcol] for array in objs
                 if rowcol in array.data), 'item', **QUICK_CONCAT_KWDS
-            ).pipe(lambda ds: ds.assign(item=srange(len(ds['item']))))
+            ).pipe(lambda ds: ds.assign(item=srange(ds['item'])))
             for rowcol in rowcols
         }
     else:

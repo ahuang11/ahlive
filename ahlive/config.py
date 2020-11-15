@@ -48,26 +48,26 @@ defaults['chart_kwds']['scatter'] = {
 }
 defaults['chart_kwds']['barh'] = defaults['chart_kwds']['bar'].copy()
 
-defaults['ref_plot_kwds'] = {}
-defaults['ref_plot_kwds']['axvline'] = {
+defaults['REF_plot_kwds'] = {}
+defaults['REF_plot_kwds']['axvline'] = {
     'color': 'darkgray',
     'linestyle': '--'
 }
-defaults['ref_plot_kwds']['axhline'] = {
+defaults['REF_plot_kwds']['axhline'] = {
     'color': 'darkgray',
     'linestyle': '--'
 }
-defaults['ref_plot_kwds']['axvspan'] = {
+defaults['REF_plot_kwds']['axvspan'] = {
     'color': 'darkgray',
     'alpha': 0.3
 }
-defaults['ref_plot_kwds']['axhspan'] = {
+defaults['REF_plot_kwds']['axhspan'] = {
     'color': 'darkgray',
     'alpha': 0.3
 }
 
-defaults['ref_inline_kwds'] = defaults['label_kwds'].copy()
-defaults['ref_inline_kwds'].update({
+defaults['REF_inline_kwds'] = defaults['label_kwds'].copy()
+defaults['REF_inline_kwds'].update({
     'textcoords': 'offset points',
     'color': 'darkgray'
 })
@@ -174,7 +174,7 @@ def scale_sizes(scale, keys=None):
 
 def load_defaults(default_key, input_kwds=None, **other_kwds):
     updated_kwds = defaults.get(default_key, {}).copy()
-    if default_key in ['chart_kwds', 'ref_plot_kwds']:
+    if default_key in ['chart_kwds', 'REF_plot_kwds']:
         updated_kwds = updated_kwds.get(
             other_kwds.pop('base_chart', None), updated_kwds
         ).copy()
