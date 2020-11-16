@@ -3,16 +3,25 @@ import xarray as xr
 from .util import srange, ffill
 
 
-QUICK_CONCAT_KWDS = dict(
-    combine_attrs='override'
-)
-
-
 def _get_rowcols(objs):
     rowcols = set([])
     for array in objs:
         rowcols |= set(array.data)
     return rowcols
+
+
+def _combine(objs, method='concat', concat_dim='state', **kwds):
+    combined_attrs = {}
+    for obj in objs:
+        for key, val in obj.attrs.items():
+            if key not in combined_attrs:
+                combined_attrs[key] = val
+    if method == 'concat':
+        kwds['dim'] = concat_dim
+    elif method == 'combine_nested':
+        kwds['concat_dim'] = concat_dim
+    kwds['combine_attrs'] = 'drop'
+    return getattr(xr, method)(objs, **kwds).assign_attrs(**combined_attrs)
 
 
 def cascade(objs, quick=False):
@@ -23,9 +32,9 @@ def cascade(objs, quick=False):
     if quick:
         rowcols = _get_rowcols(objs)
         obj.data = {
-            rowcol: xr.concat((
+            rowcol: _combine([
                 array.data[rowcol].assign_coords(item=[i])
-                for i, array in enumerate(objs)), 'state', **QUICK_CONCAT_KWDS
+                for i, array in enumerate(objs)],
             ).pipe(
                 lambda ds: ds.assign(state=srange(ds['state']))
             ).map(ffill, keep_attrs=True)
@@ -45,9 +54,9 @@ def overlay(objs, quick=False):
     if quick:
         rowcols = _get_rowcols(objs)
         obj.data = {
-            rowcol: xr.concat((
+            rowcol: _combine([
                 array.data[rowcol] for array in objs
-                if rowcol in array.data), 'item', **QUICK_CONCAT_KWDS
+                if rowcol in array.data], concat_dim='item'
             ).pipe(lambda ds: ds.assign(item=srange(ds['item'])))
             for rowcol in rowcols
         }

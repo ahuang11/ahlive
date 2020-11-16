@@ -10,7 +10,7 @@ def to_pydt(*values):
     array = np.array(values)
     if np.issubdtype(array.dtype, np.datetime64):
         array = array.astype('M8[ms]').astype('O')
-    if len(array.flat) == 1:
+    if np.size(array) == 1:
         return array.flat[0]
     else:
         return array
@@ -40,7 +40,7 @@ def to_num(num):
 
 
 def is_scalar(value):
-    return len(np.atleast_1d(value).flat) == 1
+    return np.size(value) == 1
 
 
 def to_scalar(value, get=-1):
@@ -72,7 +72,7 @@ def pop(ds, key, dflt=None, get=None, squeeze=False, to_numpy=True):
 
 def srange(length, start=1):
     if isinstance(length, xr.DataArray):
-        length = len(length)
+        length = np.size(length)
     return np.arange(start, length + start)
 
 

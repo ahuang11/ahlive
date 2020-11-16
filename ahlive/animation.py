@@ -255,7 +255,7 @@ class Animation(param.Parameterized):
             var: pop(overlay_ds, var, get=0)
             for var in list(overlay_ds.data_vars)}
         plot_kwds = load_defaults(
-            'plot_kwds', overlay_ds,
+            'REF_plot_kwds', overlay_ds,
             base_chart=chart, label=label, **plot_kwds)
 
         if chart == 'axvline':
@@ -765,10 +765,6 @@ class Animation(param.Parameterized):
                 ds['y_trail'] = ds['y'].copy()
 
         legend_sortby = ds.attrs['legend_kwds'].pop('sortby', None)
-        # empty string indicates dataset was joined by cascading
-        if legend_sortby is None and '' not in ds['chart'].values:
-            legend_sortby = 'y'
-
         if legend_sortby and 'label' in ds:
             items = ds.mean('state').sortby(
                 legend_sortby, ascending=False)['item']
@@ -949,10 +945,6 @@ class Animation(param.Parameterized):
             color = None
             if set(np.unique(ds['label'])) == set(np.unique(ds['x'])):
                 ds.attrs['legend_kwds']['show'] = False
-        elif 'c' not in ds and 'color' not in ds:
-            color = 'black' if len(np.unique(ds['label'])) == 1 else None
-            ds.attrs['plot_kwds']['c'] = ds.attrs['plot_kwds'].get(
-                'c', color)
 
         num_colors = ds.attrs['colorbar_kwds'].pop(
             'num_colors', defaults['colorbar_kwds']['num_colors'])
@@ -1006,7 +998,7 @@ class Animation(param.Parameterized):
             ds = ds.expand_dims('item')
             ds['item'] = srange(ds['item'])
 
-        if 'ref_chart' in ds.data_vars and 'REF_item' not in ds.dims:
+        if 'REF_chart' in ds.data_vars and 'REF_item' not in ds.dims:
             ds = ds.expand_dims('REF_item')
             ds['REF_item'] = srange(ds['REF_item'])
         ds['state'] = srange(self._num_states)
@@ -1048,9 +1040,11 @@ class Animation(param.Parameterized):
             data[rowcol] = ds
         return data
 
-    def animate(self):
+    def animate(self, debug=None):
+        if debug is not None:
+            self.debug = debug
+
         data = self.finalize()
-        print(data)
         rows, cols = [max(rowcol) for rowcol in zip(*data.keys())]
 
         delays = xr.concat((
