@@ -4,7 +4,7 @@ import xarray as xr
 sizes = {
     'xx-small': 10,
     'x-small': 16,
-    'small': 20,
+    'small': 22,
     'medium': 24,
     'large': 30,
     'x-large': 36,
@@ -41,9 +41,8 @@ defaults['chart_kwds']['bar'] = {
     'capsize': 6
 }
 defaults['chart_kwds']['scatter'] = {
-    'c': 'gray',
     'alpha': 0.5,
-    'expire': 6,
+    'expire': 1000,
     'stride': 2
 }
 defaults['chart_kwds']['barh'] = defaults['chart_kwds']['bar'].copy()
@@ -72,8 +71,8 @@ defaults['REF_inline_kwds'].update({
     'color': 'darkgray'
 })
 
-defaults['annotation_kwds'] = defaults['label_kwds'].copy()
-defaults['annotation_kwds'].update({
+defaults['remark_inline_kwds'] = defaults['label_kwds'].copy()
+defaults['remark_inline_kwds'].update({
     'fontsize': sizes['small'],
     'textcoords': 'offset points',
     'xytext': (0, 1.5),
@@ -116,7 +115,6 @@ defaults['legend_kwds'].update({
     'show': True,
     'framealpha': 0,
     'loc': 'upper left',
-    'bbox_to_anchor': (0.025, 0.95),
 })
 
 defaults['colorbar_kwds'] = {
@@ -144,7 +142,17 @@ defaults['land_kwds'] = {
     'facecolor': 'whitesmoke'
 }
 
+defaults['caption_kwds'] = {
+    'x': .085,
+    'y': .005,
+    'ha': 'left',
+    'va': 'bottom',
+    'fontsize': sizes['small']
+}
+
 defaults['watermark_kwds'] = {
+    'x': .995,
+    'y': .005,
     'alpha': 0.28,
     'ha': 'right',
     'va': 'bottom',

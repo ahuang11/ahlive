@@ -15,12 +15,15 @@ from .join import _get_rowcols, _combine, layout, cascade, overlay
 
 
 CHARTS = {
-    'vars': ['scatter', 'line', 'barh', 'bar', 'plot',
-             'axvspan', 'axhspan', 'axvline', 'axhline'],
-    'refs': ['axvspan', 'axhspan', 'axvline', 'axhline']
+    'plot': [
+        'scatter', 'line', 'barh', 'bar',
+        'axvspan', 'axhspan', 'axvline', 'axhline'],
+    'base': ['scatter', 'line', 'barh', 'bar'],
+    'refs': ['axvspan', 'axhspan', 'axvline', 'axhline'],
+    'type': ['race', 'delta', 'trail'],
 }
 DIMS = {
-    'vars': ('item', 'state'),
+    'base': ('item', 'state'),
     'refs': ('REF_item', 'state')
 }
 VARS = {
@@ -32,7 +35,8 @@ NULL_VALS = [(), {}, [], None, '']
 
 class Data(Easing, Animation):
 
-    chart = param.ObjectSelector(objects=CHARTS['vars'])
+    chart = param.ObjectSelector(objects=CHARTS['base'])
+    chart_type = param.ObjectSelector(objects=CHARTS['type'])
     style = param.ObjectSelector(objects=['graph', 'minimal', 'bare'])
     label = param.String()
     group = param.String()
@@ -90,7 +94,6 @@ class Data(Easing, Animation):
     rivers_kwds = param.Dict()
     states_kwds = param.Dict()
 
-    annotation_kwds = param.Dict()
     REF_plot_kwds = param.Dict()
     REF_inline_kwds = param.Dict()
     rowcol = param.NumericTuple(default=(1, 1), length=2)
@@ -142,7 +145,10 @@ class Data(Easing, Animation):
 
     def _load_data_vars(self, input_vars):
         if self.chart is None:
-            chart = 'scatter' if self._num_states <= 5 else 'line'
+            if self._num_states <= 5 or 's' in input_vars:
+                chart = 'scatter'
+            else:
+                chart = 'line'
         else:
             chart = self.chart
         label = self.label or ''
@@ -155,7 +161,7 @@ class Data(Easing, Animation):
         for var in list(data_vars.keys()):
             val = data_vars.pop(var)
             val = self._adapt_input(val)
-            dims = DIMS['refs'] if var.startswith('ref') else DIMS['vars']
+            dims = DIMS['refs'] if var.startswith('ref') else DIMS['base']
             data_vars[var] = dims, val
 
         if self.state_labels is not None:
@@ -166,7 +172,7 @@ class Data(Easing, Animation):
         if self.inline_labels is not None:
             inline_labels = self._adapt_input(
                 self.inline_labels)
-            data_vars['inline_label'] = DIMS['vars'], inline_labels
+            data_vars['inline_label'] = DIMS['base'], inline_labels
 
         data_vars['chart'] = 'item', [chart]
         data_vars['label'] = 'item', [label]
@@ -190,7 +196,7 @@ class Data(Easing, Animation):
         for key, val in kwds_parameters.items():
             attrs[key] = val or {}
             if key == 'chart_kwds':
-                attrs[key]['base_chart'] = self.chart
+                attrs[key]['chart_type'] = self.chart_type
             elif key == 'grid_kwds':
                 attrs[key]['grid'] = self.grid
             elif key == 'axes_kwds':
@@ -394,17 +400,18 @@ class Array(Data):
         num_states = len(xs)
         super().__init__(num_states, **kwds)
         ds = self.data[self.rowcol]
-        ds['x'] = DIMS['vars'], self._adapt_input(xs)
-        ds['y'] = DIMS['vars'], self._adapt_input(ys)
+        ds['x'] = DIMS['base'], self._adapt_input(xs)
+        ds['y'] = DIMS['base'], self._adapt_input(ys)
         ds.attrs.update({
             'colorbar_kwds': self.colorbar_kwds or {},
             'clabel_kwds': self.clabel_kwds or {},
             'ctick_kwds': self.ctick_kwds or {}
         })
 
-    def add_annotations(self, annotations=None, delays=None, condition=None,
+    def add_remarks(self, remarks=None, delays=None, condition=None,
                         xs=None, ys=None, state_labels=None,
-                        inline_labels=None, rowcols=None):
+                        inline_labels=None, rowcols=None,
+                        remark_inline_kwds=None, remark_kwds=None):
         args = (xs, ys, state_labels, inline_labels, condition)
         args_none = sum([1 for arg in args if arg is None])
         if args_none == len(args):
@@ -416,9 +423,9 @@ class Array(Data):
                 'Must supply only one of xs, ys, state_labels, '
                 'inline_labels, or condition!')
 
-        if delays is None and annotations is None:
+        if delays is None and remarks is None:
             raise ValueError(
-                'Must supply at least annotations or delays!')
+                'Must supply at least remarks or delays!')
 
         if rowcols is None:
             rowcols = self.data.keys()
@@ -439,17 +446,17 @@ class Array(Data):
             else:
                 condition = np.array(condition)
 
-            if annotations is not None:
-                if 'annotation' not in ds:
-                    ds['annotation'] = (
-                        DIMS['vars'],
+            if remarks is not None:
+                if 'remark' not in ds:
+                    ds['remark'] = (
+                        DIMS['base'],
                         np.full((len(ds['item']), self_copy._num_states), '')
                     )
-                if isinstance(annotations, str):
-                    if annotations in ds.data_vars:
-                        annotations = ds[annotations].values.astype(str)
-                ds['annotation'] = xr.where(
-                    condition, annotations, ds['annotation'])
+                if isinstance(remarks, str):
+                    if remarks in ds.data_vars:
+                        remarks = ds[remarks].values.astype(str)
+                ds['remark'] = xr.where(
+                    condition, remarks, ds['remark'])
 
             if delays is not None:
                 if 'delay' not in ds:
@@ -460,6 +467,9 @@ class Array(Data):
                 )
                 if 'item' in ds['delay'].dims:
                     ds['delay'] = ds['delay'].max('item')
+
+            ds.attrs['remark_inline_kwds'] = remark_inline_kwds or {}
+            ds.attrs['remark_kwds'] = remark_kwds or {}
 
             self_copy.data[rowcol] = ds
         return self_copy
@@ -481,20 +491,19 @@ class Array(Data):
                 'inline_labels': inline_labels, 'inline_loc': inline_loc})
             has_kwds = {key: val is not None for key, val in kwds.items()}
             if has_kwds['x0s'] and has_kwds['x1s']:
-                loc_axis = 'y'
+                loc_axis = 'x'
             elif has_kwds['y0s'] and has_kwds['y1s']:
-                loc_axis = 'x'
-            elif has_kwds['x0s']:
                 loc_axis = 'y'
-            elif has_kwds['y0s']:
+            elif has_kwds['x0s']:
                 loc_axis = 'x'
+            elif has_kwds['y0s']:
+                loc_axis = 'y'
 
             for key in list(kwds):
                 val = kwds[key]
                 if isinstance(val, str):
-                    if val in ds.data_vars:
-                        kwds[key] = ds[val].values[0]
-                    elif hasattr(ds, val):
+                    if hasattr(ds, val):
+                        print(loc_axis)
                         kwds[key] = getattr(ds[loc_axis], val)('item')
 
             self_copy *= Reference(**kwds)
@@ -589,10 +598,12 @@ class Reference(Data):
             ref_kwds['REF_chart'] = ['axhspan']
         elif has_kwds['REF_x0']:
             ref_kwds['REF_chart'] = ['axvline']
-        elif has_kwds['REF_x1']:
+        elif has_kwds['REF_y0']:
             ref_kwds['REF_chart'] = ['axhline']
         else:
-            raise NotImplementedError()
+            raise NotImplementedError(
+                'One of the following combinations must be provided: '
+                'x0+x1, y0+y1, x0, y0')
 
         super().__init__(num_states, **kwds)
         ds = self.data[self.rowcol]

@@ -26,6 +26,8 @@ single unique
     - geographic
     - customizing
     - hooks
+    - annotations
+    - labels
 - examples
     - tutorial
     - scripts

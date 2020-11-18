@@ -91,12 +91,7 @@ class Easing(param.Parameterized):
             indices[-1] -= 1
             result[indices] = array[0]  # (1, num_states)
             result = result.reshape(1, -1)
-        elif 'trail' in name:
-            indices = np.arange(num_states * num_steps - num_steps)
-            result = pd.DataFrame(
-                array, columns=np.arange(0, num_states * num_steps, num_steps)
-            ).T.reindex(indices).T.values
-        elif 'annotation' in name:
+        elif 'remark' in name:
             indices = np.arange(num_states * num_steps - num_steps)
             result = pd.DataFrame(
                 array, columns=np.arange(0, num_states * num_steps, num_steps)
