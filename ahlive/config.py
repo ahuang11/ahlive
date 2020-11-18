@@ -41,9 +41,8 @@ defaults['chart_kwds']['bar'] = {
     'capsize': 6
 }
 defaults['chart_kwds']['scatter'] = {
-    'alpha': 0.5,
     'expire': 1000,
-    'stride': 2
+    'stride': 1
 }
 defaults['chart_kwds']['barh'] = defaults['chart_kwds']['bar'].copy()
 
@@ -119,7 +118,7 @@ defaults['legend_kwds'].update({
 
 defaults['colorbar_kwds'] = {
     'orientation': 'vertical',
-    'num_colors': 7
+    'num_colors': 5
 }
 
 defaults['tick_kwds'] = defaults['label_kwds'].copy()

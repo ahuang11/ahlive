@@ -245,16 +245,20 @@ class Animation(param.Parameterized):
         ax.annotate(**state_kwds)
 
     @staticmethod
-    def _get_color(plot):
+    def _get_color(overlay_ds, plot):
         if isinstance(plot, list):
             plot = plot[0]
-        try:
-            color = plot.get_color()
-        except AttributeError as e:
-            color = plot.get_facecolor()
 
-        if isinstance(color, np.ndarray):
-            color = color[0]
+        if 'cmap' in overlay_ds.attrs['plot_kwds']:
+            color = 'black'
+        else:
+            try:
+                color = plot.get_color()
+            except AttributeError as e:
+                color = plot.get_facecolor()
+
+            if isinstance(color, np.ndarray):
+                color = color[0]
         return color
 
     def _plot_chart(self, overlay_ds, ax, chart, xs, ys, plot_kwds):
@@ -265,33 +269,40 @@ class Animation(param.Parameterized):
             plot = ax.plot(xs, ys, **plot_kwds)
         elif chart.startswith('bar'):
             plot = getattr(ax, chart)(xs, ys, **plot_kwds)
-        color = self._get_color(plot)
+        color = self._get_color(overlay_ds, plot)
         return plot, color
 
-    def _plot_trails(self, overlay_ds, ax, chart,
-                     xs, ys, x_trails, y_trails, color, plot_kwds):
-        if x_trails is None or y_trails is None:
+    def _plot_trails(self, overlay_ds, ax, chart, color, xs, ys,
+                     x_trails, y_trails, x_discrete_trails, y_discrete_trails,
+                     trail_plot_kwds):
+        all_none = (
+            x_trails is None and y_trails is None and
+            x_discrete_trails is None and y_discrete_trails is None)
+        if all_none:
             return
-        chart_kwds = load_defaults('chart_kwds', overlay_ds, base_chart=chart)
+        chart_kwds = load_defaults(
+            'chart_kwds', overlay_ds, base_chart=chart)
         chart_kwds['label'] = '_nolegend_'
         chart = chart_kwds.pop('chart', 'both')
         expire = chart_kwds.pop('expire')
         stride = chart_kwds.pop('stride')
 
-        x_trails = x_trails[-expire - 1:]
-        y_trails = y_trails[-expire - 1:]
         if chart in ['line', 'both']:
-            plot = ax.plot(x_trails, y_trails, **chart_kwds)
+            x_trails = x_trails[-expire - 1:]
+            y_trails = y_trails[-expire - 1:]
+            plot = ax.plot(x_trails, y_trails, color=color, **chart_kwds)
 
         if chart in ['scatter', 'both']:
-            chart_kwds.update(**plot_kwds)
+            x_discrete_trails = x_discrete_trails[-expire - 1::stride]
+            y_discrete_trails = y_discrete_trails[-expire - 1::stride]
+            chart_kwds.update(**trail_plot_kwds)
             chart_kwds = {
                 key: val[-expire -1::stride]
                 if isinstance(val, np.ndarray) else val
                 for key, val in chart_kwds.items()}
             chart_kwds['label'] = '_nolegend_'
             plot = ax.scatter(
-                x_trails[::stride], y_trails[::stride], **chart_kwds)
+                x_discrete_trails, y_discrete_trails, **chart_kwds)
 
     def _plot_deltas(self, overlay_ds, ax, chart,
                      x_centers, y_centers,
@@ -315,48 +326,8 @@ class Animation(param.Parameterized):
             overlay_ds, ax, chart, x_inlines, y_inlines,
             delta_labels, color, base_key='delta')
 
-    def _add_inline_labels(self, overlay_ds, ax, chart,
-                           xs, ys, inline_labels, color,
-                           base_key='inline', inline_key='inline_kwds'):
-        if inline_labels is None:
-            return
-        inline_base = overlay_ds.attrs['base_kwds'].get(base_key)
-
-        ha = 'center'
-        va = 'center'
-        xytext = (0, 5)
-        if chart == 'barh':
-            ha = 'left' if base_key != 'bar' else 'right'
-            xytext = xytext[::-1]
-            if base_key != 'delta':
-                xs, ys = ys, xs
-        elif chart == 'bar':
-            va = 'bottom' if base_key != 'bar' else 'top'
-        elif chart in ['line', 'scatter']:
-            ha = 'left'
-            va = 'bottom'
-        elif chart in ['axhline', 'axvline']:
-            ha = 'left'
-            va = 'bottom'
-
-        inline_labels = to_scalar(inline_labels)
-        xs = to_scalar(xs)
-        ys = to_scalar(ys)
-        if str(inline_labels) == 'nan':
-            inline_labels = '?'
-        elif str(inline_labels) == '':
-            return
-        inline_kwds = dict(
-            text=inline_labels, xy=(xs, ys), ha=ha, va=va,
-            color=color, xytext=xytext, path_effects=self._path_effects)
-        inline_kwds = load_defaults(
-            inline_key, overlay_ds, **inline_kwds)
-        inline_kwds = self._update_text(
-            inline_kwds, 'text', base=inline_base)
-        ax.annotate(**inline_kwds)
-
     def _add_remarks(self, state_ds, ax, chart,
-                         xs, ys, remarks, color):
+                     xs, ys, remarks, color):
         if remarks is None:
             return
 
@@ -415,11 +386,51 @@ class Animation(param.Parameterized):
             inline_y = inline_loc
 
         if inline_labels is not None:
-            color = self._get_color(plot)
+            color = self._get_color(overlay_ds, plot)
             self._add_inline_labels(
                 overlay_ds, ax, chart, inline_x, inline_y,
                 inline_labels, color, base_key='REF_inline',
                 inline_key='REF_inline_kwds')
+
+    def _add_inline_labels(self, overlay_ds, ax, chart,
+                           xs, ys, inline_labels, color,
+                           base_key='inline', inline_key='inline_kwds'):
+        if inline_labels is None:
+            return
+        inline_base = overlay_ds.attrs['base_kwds'].get(base_key)
+
+        ha = 'center'
+        va = 'center'
+        xytext = (0, 5)
+        if chart == 'barh':
+            ha = 'left' if base_key != 'bar' else 'right'
+            xytext = xytext[::-1]
+            if base_key != 'delta':
+                xs, ys = ys, xs
+        elif chart == 'bar':
+            va = 'bottom' if base_key != 'bar' else 'top'
+        elif chart in ['line', 'scatter']:
+            ha = 'left'
+            va = 'bottom'
+        elif chart in ['axhline', 'axvline']:
+            ha = 'left'
+            va = 'bottom'
+
+        inline_labels = to_scalar(inline_labels)
+        xs = to_scalar(xs)
+        ys = to_scalar(ys)
+        if str(inline_labels) == 'nan':
+            inline_labels = '?'
+        elif str(inline_labels) == '':
+            return
+        inline_kwds = dict(
+            text=inline_labels, xy=(xs, ys), ha=ha, va=va,
+            color=color, xytext=xytext, path_effects=self._path_effects)
+        inline_kwds = load_defaults(
+            inline_key, overlay_ds, **inline_kwds)
+        inline_kwds = self._update_text(
+            inline_kwds, 'text', base=inline_base)
+        ax.annotate(**inline_kwds)
 
     def _update_grid(self, state_ds, ax):
         grid_kwds = load_defaults('grid_kwds', state_ds)
@@ -635,17 +646,17 @@ class Animation(param.Parameterized):
             return
 
     @staticmethod
-    def _reshape_batch(array, chart):
+    def _reshape_batch(array, chart, get=-1):
         if array is None:
             return array
 
-        if chart != 'line':
-            try:
-                return array[:, -1].T
-            except IndexError:
-                return array.T
-        else:
-            return array.T
+        if get is not None and chart != 'line':
+            if array.ndim == 2:
+                array = array[:, get]
+            else:
+                array = array[[get]]
+
+        return array.T
 
     @staticmethod
     def _groupby_key(data, key):
@@ -694,9 +705,13 @@ class Animation(param.Parameterized):
             ys = self._reshape_batch(
                 pop(overlay_ds, 'y'), chart)
             x_trails = self._reshape_batch(
-                pop(overlay_ds, 'x_trail'), chart)
+                pop(overlay_ds, 'x_trail'), chart, get=None)
             y_trails = self._reshape_batch(
-                pop(overlay_ds, 'y_trail'), chart)
+                pop(overlay_ds, 'y_trail'), chart, get=None)
+            x_discrete_trails = self._reshape_batch(
+                pop(overlay_ds, 'x_discrete_trail'), chart, get=None)
+            y_discrete_trails = self._reshape_batch(
+                pop(overlay_ds, 'y_discrete_trail'), chart, get=None)
             x_centers = self._reshape_batch(
                 pop(overlay_ds, 'x_center'), chart)
             y_centers = self._reshape_batch(
@@ -711,18 +726,21 @@ class Animation(param.Parameterized):
                 pop(overlay_ds, 'inline_label'), chart)
             remarks = self._reshape_batch(
                 pop(overlay_ds, 'remark'), chart)
-            plot_kwds = {
-                var: self._reshape_batch(pop(overlay_ds, var), chart)
+            trail_plot_kwds = {
+                var: self._reshape_batch(pop(overlay_ds, var), chart, get=None)
                 for var in list(overlay_ds.data_vars)
             }
-            plot_kwds = load_defaults('plot_kwds', overlay_ds, **plot_kwds)
+            trail_plot_kwds = load_defaults(
+                'plot_kwds', overlay_ds, **trail_plot_kwds)
+            plot_kwds = {
+                key: to_scalar(val) for key, val in trail_plot_kwds.items()}
             if 'label' in plot_kwds:
                 plot_kwds['label'] = to_scalar(plot_kwds['label'])
             plot, color = self._plot_chart(
                 overlay_ds, ax, chart, xs, ys, plot_kwds)
             self._plot_trails(
-                overlay_ds, ax, chart, xs, ys, x_trails, y_trails, color,
-                plot_kwds)
+                overlay_ds, ax, chart, color, xs, ys, x_trails, y_trails,
+                x_discrete_trails, y_discrete_trails, trail_plot_kwds)
             self._plot_deltas(
                 overlay_ds, ax, chart, x_centers, y_centers,
                 deltas, delta_labels, color)
@@ -789,8 +807,14 @@ class Animation(param.Parameterized):
         elif chart == 'scatter':
             chart_type = ds.attrs['chart_kwds'].pop('chart_type', 'basic')
             if chart_type == 'trail':
-                ds['x_trail'] = ds['x'].copy()
-                ds['y_trail'] = ds['y'].copy()
+                trail_chart = ds.attrs['chart_kwds']['chart']
+                if trail_chart in ['line', 'both']:
+                    ds['x_trail'] = ds['x'].copy()
+                    ds['y_trail'] = ds['y'].copy()
+
+                if trail_chart in ['scatter', 'both']:
+                    ds['x_discrete_trail'] = ds['x'].copy()
+                    ds['y_discrete_trail'] = ds['y'].copy()
 
         legend_sortby = ds.attrs['legend_kwds'].pop('sortby', None)
         if legend_sortby and 'label' in ds:
@@ -1074,6 +1098,7 @@ class Animation(param.Parameterized):
             self.debug = debug
 
         data = self.finalize()
+        print(data)
         rows, cols = [max(rowcol) for rowcol in zip(*data.keys())]
 
         delays = xr.concat((
@@ -1090,6 +1115,7 @@ class Animation(param.Parameterized):
                 ds.sel(state=slice(None, state))
                 if 'line' in ds['chart']
                 or 'x_trail' in ds.data_vars
+                or 'x_discrete_trail' in ds.data_vars
                 else ds.sel(state=state)
                 for ds in data.values()
             ]
