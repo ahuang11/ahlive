@@ -14,90 +14,92 @@ sizes = {
 
 defaults = {}
 
-defaults['delays_kwds'] = {
+defaults['delays'] = {
     'aggregate': 'max',
     'transition_frames': 1 / 60,
     'final_frame': 1,
 }
 
-defaults['fig_kwds'] = {
+defaults['figure'] = {
     'figsize': (18, 9)
 }
 
-defaults['axes_kwds'] = {
+defaults['axes'] = {
     'frame_on': False
 }
 
-defaults['label_kwds'] = {
+defaults['label'] = {
     'fontsize': sizes['medium'],
     'replacements': {'_': ' '},
     'casing': 'title',
     'format': 'auto'
 }
 
-defaults['chart_kwds'] = {}
-defaults['chart_kwds']['bar'] = {
+defaults['chart'] = {}
+defaults['chart']['bar'] = {
     'bar_label': True,
     'capsize': 6
 }
-defaults['chart_kwds']['scatter'] = {
+defaults['chart']['scatter'] = {
     'expire': 1000,
     'stride': 1
 }
-defaults['chart_kwds']['barh'] = defaults['chart_kwds']['bar'].copy()
+defaults['chart']['barh'] = defaults['chart']['bar'].copy()
 
-defaults['REF_plot_kwds'] = {}
-defaults['REF_plot_kwds']['axvline'] = {
+defaults['ref_plot'] = {}
+defaults['ref_plot']['axvline'] = {
     'color': 'darkgray',
     'linestyle': '--'
 }
-defaults['REF_plot_kwds']['axhline'] = {
+defaults['ref_plot']['axhline'] = {
     'color': 'darkgray',
     'linestyle': '--'
 }
-defaults['REF_plot_kwds']['axvspan'] = {
+defaults['ref_plot']['axvspan'] = {
     'color': 'darkgray',
     'alpha': 0.3
 }
-defaults['REF_plot_kwds']['axhspan'] = {
+defaults['ref_plot']['axhspan'] = {
     'color': 'darkgray',
     'alpha': 0.3
 }
 
-defaults['REF_inline_kwds'] = defaults['label_kwds'].copy()
-defaults['REF_inline_kwds'].update({
+defaults['ref_inline'] = defaults['label'].copy()
+defaults['ref_inline'].update({
     'textcoords': 'offset points',
-    'color': 'darkgray'
+    'color': 'darkgray',
+    'casing': False
 })
 
-defaults['remark_inline_kwds'] = defaults['label_kwds'].copy()
-defaults['remark_inline_kwds'].update({
+defaults['remark_inline'] = defaults['label'].copy()
+defaults['remark_inline'].update({
     'fontsize': sizes['small'],
     'textcoords': 'offset points',
     'xytext': (0, 1.5),
     'ha': 'left',
-    'va': 'top'
+    'va': 'top',
+    'casing': False
 })
 
-defaults['xlabel_kwds'] = defaults['label_kwds'].copy()
-defaults['xlabel_kwds'].update({'fontsize': sizes['large']})
+defaults['xlabel'] = defaults['label'].copy()
+defaults['xlabel'].update({'fontsize': sizes['large']})
 
-defaults['ylabel_kwds'] = defaults['label_kwds'].copy()
-defaults['ylabel_kwds'].update({'fontsize': sizes['large']})
+defaults['ylabel'] = defaults['label'].copy()
+defaults['ylabel'].update({'fontsize': sizes['large']})
 
-defaults['clabel_kwds'] = defaults['label_kwds'].copy()
-defaults['clabel_kwds'].update({'fontsize': sizes['large']})
+defaults['clabel'] = defaults['label'].copy()
+defaults['clabel'].update({'fontsize': sizes['large']})
 
-defaults['title_kwds'] = defaults['label_kwds'].copy()
-defaults['title_kwds'].update({
+defaults['title'] = defaults['label'].copy()
+defaults['title'].update({
     'fontsize': sizes['large'], 'loc': 'left', 'casing': None})
 
-defaults['suptitle_kwds'] = defaults['label_kwds'].copy()
-defaults['suptitle_kwds'].update({
+defaults['suptitle'] = defaults['label'].copy()
+defaults['suptitle'].update({
     'fontsize': sizes['large'], 'casing': None})
 
-defaults['state_kwds'] = defaults['label_kwds'].copy()
-defaults['state_kwds'].update({
+defaults['state'] = defaults['label'].copy()
+defaults['state'].update({
     'alpha': 0.5,
     'xy': (0.975, 0.025),
     'ha': 'right',
@@ -106,42 +108,45 @@ defaults['state_kwds'].update({
     'fontsize': sizes['xxx-large'],
 })
 
-defaults['inline_kwds'] = defaults['label_kwds'].copy()
-defaults['inline_kwds'].update({'textcoords': 'offset points'})
+defaults['inline'] = defaults['label'].copy()
+defaults['inline'].update({
+    'textcoords': 'offset points',
+    'casing': False
+})
 
-defaults['legend_kwds'] = defaults['label_kwds'].copy()
-defaults['legend_kwds'].update({
+defaults['legend'] = defaults['label'].copy()
+defaults['legend'].update({
     'show': True,
     'framealpha': 0,
     'loc': 'upper left',
 })
 
-defaults['colorbar_kwds'] = {
+defaults['colorbar'] = {
     'orientation': 'vertical',
-    'num_colors': 5
 }
 
-defaults['tick_kwds'] = defaults['label_kwds'].copy()
-defaults['tick_kwds'].pop('fontsize')
-defaults['tick_kwds'].update({
+defaults['ticks'] = defaults['label'].copy()
+defaults['ticks'].pop('fontsize')
+defaults['ticks'].update({
     'length': 0,
     'which': 'both',
     'labelsize': sizes['small'],
 })
 
-defaults['xtick_kwds'] = defaults['tick_kwds'].copy()
-defaults['xtick_kwds'].update({'axis': 'x'})
+defaults['xticks'] = defaults['ticks'].copy()
+defaults['xticks'].update({'axis': 'x'})
 
-defaults['ytick_kwds'] = defaults['tick_kwds'].copy()
-defaults['ytick_kwds'].update({'axis': 'y'})
+defaults['yticks'] = defaults['ticks'].copy()
+defaults['yticks'].update({'axis': 'y'})
 
-defaults['ctick_kwds'] = defaults['tick_kwds'].copy()
+defaults['cticks'] = defaults['ticks'].copy()
+defaults['cticks'].update({'num_ticks': 5})
 
-defaults['land_kwds'] = {
+defaults['land'] = {
     'facecolor': 'whitesmoke'
 }
 
-defaults['caption_kwds'] = {
+defaults['caption'] = {
     'x': .085,
     'y': .005,
     'ha': 'left',
@@ -149,7 +154,7 @@ defaults['caption_kwds'] = {
     'fontsize': sizes['small']
 }
 
-defaults['watermark_kwds'] = {
+defaults['watermark'] = {
     'x': .995,
     'y': .005,
     'alpha': 0.28,
@@ -158,13 +163,13 @@ defaults['watermark_kwds'] = {
     'fontsize': sizes['x-small']
 }
 
-defaults['frame_kwds'] = {
+defaults['frame'] = {
     'format': 'jpg',
     'backend': 'agg',
     'transparent': False
 }
 
-defaults['animate_kwds'] = {
+defaults['animate'] = {
     'format': 'gif',
     'mode': 'I',
     'subrectangles': True
@@ -181,7 +186,7 @@ def scale_sizes(scale, keys=None):
 
 def load_defaults(default_key, input_kwds=None, **other_kwds):
     updated_kwds = defaults.get(default_key, {}).copy()
-    if default_key in ['chart_kwds', 'REF_plot_kwds']:
+    if default_key in ['chart', 'ref_plot']:
         updated_kwds = updated_kwds.get(
             other_kwds.pop('base_chart', None), updated_kwds
         ).copy()

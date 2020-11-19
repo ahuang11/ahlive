@@ -24,10 +24,10 @@ CHARTS = {
 }
 DIMS = {
     'base': ('item', 'state'),
-    'refs': ('REF_item', 'state')
+    'refs': ('ref_item', 'state')
 }
 VARS = {
-    'item': ['chart', 'REF_label', 'REF_chart'],
+    'item': ['chart', 'ref_label', 'ref_chart'],
     'state': ['state_label']
 }
 NULL_VALS = [(), {}, [], None, '']
@@ -53,6 +53,9 @@ class Data(Easing, Animation):
     xlabel = param.String()
     ylabel = param.String()
 
+    xticks = param.ClassSelector(class_=(Iterable,))
+    yticks = param.ClassSelector(class_=(Iterable,))
+
     legend = param.Boolean(default=True)
     grid = param.Boolean(default=True)
     batch = param.Boolean(default=False)
@@ -63,42 +66,16 @@ class Data(Easing, Animation):
     borders = param.Boolean(default=None)
     coastline = param.Boolean(default=True)
     land = param.Boolean(default=None)
-    lakes = param.Boolean(default=None)
     ocean = param.Boolean(default=None)
+    lakes = param.Boolean(default=None)
     rivers = param.Boolean(default=None)
     states = param.Boolean(default=None)
     worldwide = param.Boolean(default=None)
 
-    axes_kwds = param.Dict()
-    plot_kwds = param.Dict()
-    chart_kwds = param.Dict()
-    state_kwds = param.Dict()
-    inline_kwds = param.Dict()
-
-    grid_kwds = param.Dict()
-    margins_kwds = param.Dict()
-    title_kwds = param.Dict()
-    xlabel_kwds = param.Dict()
-    ylabel_kwds = param.Dict()
-    legend_kwds = param.Dict()
-    xtick_kwds = param.Dict()
-    ytick_kwds = param.Dict()
-
-    crs_kwds = param.Dict()
-    projection_kwds = param.Dict()
-    borders_kwds = param.Dict()
-    coastline_kwds = param.Dict()
-    land_kwds = param.Dict()
-    lakes_kwds = param.Dict()
-    ocean_kwds = param.Dict()
-    rivers_kwds = param.Dict()
-    states_kwds = param.Dict()
-
-    REF_plot_kwds = param.Dict()
-    REF_inline_kwds = param.Dict()
     rowcol = param.NumericTuple(default=(1, 1), length=2)
 
     _parameters = []
+    _is_configured = False
     data = {}
 
     def __init__(self, num_states, **kwds):
@@ -188,47 +165,9 @@ class Data(Easing, Animation):
         return coords
 
     def _load_attrs(self):
-        kwds_parameters = {
-            param: getattr(self, param) for param in self._parameters
-            if param.endswith('kwds')}
-
-        attrs = {}
-        for key, val in kwds_parameters.items():
-            attrs[key] = val or {}
-            if key == 'chart_kwds':
-                attrs[key]['chart_type'] = self.chart_type
-            elif key == 'grid_kwds':
-                attrs[key]['grid'] = self.grid
-            elif key == 'axes_kwds':
-                attrs[key]['style'] = self.style
-            elif key == 'title_kwds':
-                attrs[key]['label'] = self.title
-            elif key == 'xlabel_kwds':
-                attrs[key]['xlabel'] = self.xlabel
-            elif key == 'ylabel_kwds':
-                attrs[key]['ylabel'] = self.ylabel
-            elif key == 'legend_kwds':
-                attrs[key]['show'] = self.legend
-            elif key == 'crs_kwds':
-                attrs[key]['crs'] = self.crs
-            elif key == 'projection_kwds':
-                attrs[key]['projection'] = self.projection
-            elif key == 'borders_kwds':
-                attrs[key]['borders'] = self.borders
-            elif key == 'coastline_kwds':
-                attrs[key]['coastline'] = self.coastline
-            elif key == 'land_kwds':
-                attrs[key]['land'] = self.land
-            elif key == 'lakes_kwds':
-                attrs[key]['lakes'] = self.lakes
-            elif key == 'ocean_kwds':
-                attrs[key]['ocean'] = self.ocean
-            elif key == 'rivers_kwds':
-                attrs[key]['rivers'] = self.rivers
-            elif key == 'states_kwds':
-                attrs[key]['states'] = self.states
-
-        attrs['finalize_kwds'] = {
+        attrs = {
+        }
+        attrs['settings'] = {
             'xlim0s': self.xlim0s,
             'xlim1s': self.xlim1s,
             'ylim0s': self.ylim0s,
@@ -262,7 +201,7 @@ class Data(Easing, Animation):
 
     @staticmethod
     def _shift_items(self_ds, other_ds):
-        for item in ['item', 'REF_item']:
+        for item in ['item', 'ref_item']:
             if not (item in self_ds.dims and item in other_ds.dims):
                 continue
             has_same_items = len(
@@ -383,18 +322,100 @@ class Data(Easing, Animation):
             self_copy.data[(row, col)] = self_copy.data.pop(rowcol)
         return self_copy
 
+    def config(self, axes=None, plot=None, chart=None,
+               state=None, inline=None, grid=None,
+               title=None, xlabel=None, ylabel=None,
+               legend=None, xticks=None, yticks=None,
+               colorbar=None, clabel=None, cticks=None,
+               ref_plot=None, ref_inline=None, remark_inline=None,
+               remark=None, crs=None, projection=None,
+               borders=None, coastline=None, land=None, ocean=None,
+               lakes=None, rivers=None, states=None, margins=None,
+               figure=None, animate=None, suptitle=None, watermark=None,
+               caption=None, delays=None, frame=None):
+        attrs = {}
+        for key, val in locals().items():
+            if key in ['self', 'attrs']:
+                continue
+            if val is None:
+                attrs[key] = {}
+            elif not isinstance(val, dict):
+                raise ValueError(f'{key} value, {val} must be a dictionary!')
+            else:
+                attrs[key] = val
+
+            if key == 'chart':
+                attrs[key]['chart_type'] = self.chart_type
+            elif key == 'grid':
+                attrs[key]['grid'] = self.grid
+            elif key == 'axes':
+                attrs[key]['style'] = self.style
+            elif key == 'title':
+                attrs[key]['label'] = self.title
+            elif key == 'xlabel':
+                attrs[key]['xlabel'] = self.xlabel
+            elif key == 'ylabel':
+                attrs[key]['ylabel'] = self.ylabel
+            elif key == 'legend':
+                attrs[key]['show'] = self.legend
+            elif key == 'xticks':
+                attrs[key]['ticks'] = self.xticks
+            elif key == 'yticks':
+                attrs[key]['ticks'] = self.yticks
+            elif key == 'crs':
+                attrs[key]['crs'] = self.crs
+            elif key == 'projection':
+                attrs[key]['projection'] = self.projection
+            elif key == 'borders':
+                attrs[key]['borders'] = self.borders
+            elif key == 'coastline':
+                attrs[key]['coastline'] = self.coastline
+            elif key == 'land':
+                attrs[key]['land'] = self.land
+            elif key == 'lakes':
+                attrs[key]['lakes'] = self.lakes
+            elif key == 'ocean':
+                attrs[key]['ocean'] = self.ocean
+            elif key == 'rivers':
+                attrs[key]['rivers'] = self.rivers
+            elif key == 'states':
+                attrs[key]['states'] = self.states
+            elif key == 'figure':
+                attrs[key]['figsize'] = self.figsize
+            elif key == 'suptitle':
+                attrs[key]['t'] = self.suptitle
+            elif key == 'watermark':
+                attrs[key]['s'] = self.watermark
+            elif key == 'caption':
+                attrs[key]['s'] = self.caption
+            elif key == 'delays':
+                attrs[key]['delays'] = self.delays
+            elif key == 'clabel':
+                if hasattr(self, 'clabel'):
+                    attrs[key]['text'] = self.clabel
+            elif key == 'colorbar':
+                if hasattr(self, 'colorbar'):
+                    attrs[key]['show'] = self.colorbar
+            elif key == 'cticks':
+                if hasattr(self, 'cticks'):
+                    attrs[key]['ticks'] = self.cticks
+
+        self_copy = deepcopy(self)
+        for rowcol, ds in self_copy.data.items():
+            ds.attrs.update(**attrs)
+            self_copy.data[rowcol] = ds
+        self_copy._is_configured = True
+        return self_copy
+
 
 class Array(Data):
 
     xs = param.ClassSelector(class_=(Iterable,))
     ys = param.ClassSelector(class_=(Iterable,))
 
+    cticks = param.ClassSelector(class_=(Iterable,))
     colorbar = param.Boolean(default=False)
     clabel = param.String()
-
-    colorbar_kwds = param.Dict()
-    clabel_kwds = param.Dict()
-    ctick_kwds = param.Dict()
 
     def __init__(self, xs, ys, **kwds):
         num_states = len(xs)
@@ -402,17 +423,11 @@ class Array(Data):
         ds = self.data[self.rowcol]
         ds['x'] = DIMS['base'], self._adapt_input(xs)
         ds['y'] = DIMS['base'], self._adapt_input(ys)
-        ds.attrs.update({
-            'colorbar_kwds': self.colorbar_kwds or {},
-            'clabel_kwds': self.clabel_kwds or {},
-            'ctick_kwds': self.ctick_kwds or {}
-        })
 
-    def add_remarks(self, remarks=None, delays=None, condition=None,
-                        xs=None, ys=None, state_labels=None,
-                        inline_labels=None, rowcols=None,
-                        remark_inline_kwds=None, remark_kwds=None):
-        args = (xs, ys, state_labels, inline_labels, condition)
+    def remark(self, remarks=None, delays=None, condition=None,
+               xs=None, ys=None, state_labels=None,
+               inline_labels=None, rowcols=None):
+        args = (xs, state_labels, inline_labels, condition)
         args_none = sum([1 for arg in args if arg is None])
         if args_none == len(args):
             raise ValueError(
@@ -467,9 +482,6 @@ class Array(Data):
                 )
                 if 'item' in ds['delay'].dims:
                     ds['delay'] = ds['delay'].max('item')
-
-            ds.attrs['remark_inline_kwds'] = remark_inline_kwds or {}
-            ds.attrs['remark_kwds'] = remark_kwds or {}
 
             self_copy.data[rowcol] = ds
         return self_copy
@@ -533,10 +545,13 @@ class DataFrame(Array):
         for group, group_df in self._groupby_key(df, group_key):
             for label, label_df in self._groupby_key(group_df, label_key):
                 kwds_updated = kwds.copy()
-                kwds_updated.update({
-                    key: label_df[val].values
-                    if not isinstance(val, dict) and val in label_df else val
-                    for key, val in kwds.items()})
+                for key, val in kwds.items():
+                    if isinstance(val, dict):
+                        continue
+                    elif isinstance(val, str):
+                        if val in label_df.columns:
+                            val = label_df[val].values
+                    kwds_updated[key] = val
 
                 if 'xlabel' not in kwds_updated:
                     kwds_updated['xlabel'] = xs
@@ -574,10 +589,10 @@ class Reference(Data):
 
     def __init__(self, x0s=None, x1s=None, y0s=None, y1s=None, **kwds):
         ref_kwds = {
-            'REF_x0': x0s,
-            'REF_x1': x1s,
-            'REF_y0': y0s,
-            'REF_y1': y1s,
+            'ref_x0': x0s,
+            'ref_x1': x1s,
+            'ref_y0': y0s,
+            'ref_y1': y1s,
         }
         has_kwds = {key: val is not None for key, val in ref_kwds.items()}
         if not any(has_kwds.values()):
@@ -592,14 +607,14 @@ class Reference(Data):
             else:
                 ref_kwds.pop(key)
 
-        if has_kwds['REF_x0'] and has_kwds['REF_x1']:
-            ref_kwds['REF_chart'] = ['axvspan']
-        elif has_kwds['REF_y0'] and has_kwds['REF_y1']:
-            ref_kwds['REF_chart'] = ['axhspan']
-        elif has_kwds['REF_x0']:
-            ref_kwds['REF_chart'] = ['axvline']
-        elif has_kwds['REF_y0']:
-            ref_kwds['REF_chart'] = ['axhline']
+        if has_kwds['ref_x0'] and has_kwds['ref_x1']:
+            ref_kwds['ref_chart'] = ['axvspan']
+        elif has_kwds['ref_y0'] and has_kwds['ref_y1']:
+            ref_kwds['ref_chart'] = ['axhspan']
+        elif has_kwds['ref_x0']:
+            ref_kwds['ref_chart'] = ['axvline']
+        elif has_kwds['ref_y0']:
+            ref_kwds['ref_chart'] = ['axhline']
         else:
             raise NotImplementedError(
                 'One of the following combinations must be provided: '
@@ -608,7 +623,7 @@ class Reference(Data):
         super().__init__(num_states, **kwds)
         ds = self.data[self.rowcol]
         ds = ds.rename({
-            var: f'REF_{var}' for var in list(ds.data_vars) + ['item']})
+            var: f'ref_{var}' for var in list(ds.data_vars) + ['item']})
 
         for key, val in ref_kwds.items():
             val = self._adapt_input(val)
@@ -621,7 +636,7 @@ class Reference(Data):
 
         if inline_labels is not None:
             inline_labels = self._adapt_input(inline_labels)
-            ds['REF_inline_label'] = DIMS['refs'], inline_labels
+            ds['ref_inline_label'] = DIMS['refs'], inline_labels
 
             inline_loc = self.inline_loc
             if inline_loc is None:
@@ -629,7 +644,7 @@ class Reference(Data):
                     'Must provide an inline location '
                     'if inline_labels is not None!')
             else:
-                ds['REF_inline_loc'] = 'REF_item', [inline_loc]
+                ds['ref_inline_loc'] = 'ref_item', [inline_loc]
 
         self.data[self.rowcol] = ds
 

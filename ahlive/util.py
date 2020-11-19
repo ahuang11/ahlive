@@ -78,7 +78,7 @@ def srange(length, start=1):
 
 def transpose(da, dims=None):
     if dims is None:
-        item = 'item' if 'item' in da.dims else 'REF_item'
+        item = 'item' if 'item' in da.dims else 'ref_item'
         dims = (item, 'state')
     return da.transpose(*dims)
 

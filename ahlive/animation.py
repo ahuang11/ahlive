@@ -14,7 +14,7 @@ import dask.delayed
 import dask.diagnostics
 from pygifsicle import optimize
 from matplotlib import pyplot as plt
-from matplotlib.colors import Normalize
+from matplotlib.colors import BoundaryNorm
 from matplotlib.ticker import FormatStrFormatter, FixedLocator
 from matplotlib.patheffects import withStroke
 from mpl_toolkits.axes_grid1 import make_axes_locatable
@@ -36,32 +36,36 @@ GEO_FEATURES = [
     'rivers',
     'states',
 ]
+FIGURE_KEYS = [
+    'figure',
+    'suptitle',
+    'animate',
+    'frame',
+    'watermark',
+    'caption',
+    'delays',
+]
 
 
 class Animation(param.Parameterized):
 
     save_path = param.String(default='untitled.gif', precedence=1)
     figsize = param.NumericTuple(
-        default=defaults['fig_kwds']['figsize'], length=2, precedence=100)
+        default=defaults['figure']['figsize'], length=2, precedence=100)
     suptitle = param.String()
     watermark = param.String(default='Animated using Ahlive')
     caption = param.String()
     delays = param.ClassSelector(class_=(Iterable, int, float))
 
-    fig_kwds = param.Dict()
-    animate_kwds = param.Dict()
-    frame_kwds = param.Dict()
     num_workers = param.Integer(default=4, bounds=(1, None))
     return_out = param.Boolean(default=True)
-    suptitle_kwds = param.Dict()
-    watermark_kwds = param.Dict()
-    caption_kwds = param.Dict()
-    delays_kwds = param.Dict()
     debug = param.Integer(default=None)
 
     _num_states = 0
-    _path_effects = [withStroke(linewidth=3, alpha=0.5, foreground='white')]
+    _is_finalized = False
     _crs_names = {}
+    _figure_kwds = {}
+    _path_effects = [withStroke(linewidth=3, alpha=0.5, foreground='white')]
 
     def __init__(self, **kwds):
         super().__init__(**kwds)
@@ -104,6 +108,7 @@ class Animation(param.Parameterized):
 
     def _update_text(self, kwds, label_key, base=None, apply_format=True):
         label = kwds.get(label_key, None)
+
         if isinstance(label, Iterable) and not isinstance(label, str):
             labels = []
             for i, sub_label in enumerate(kwds[label_key]):
@@ -150,20 +155,19 @@ class Animation(param.Parameterized):
         casing = kwds.pop('casing', 'title')
         if casing:
             label = getattr(label, casing)()
-        kwds[label_key] = label
+        kwds[label_key] = label if label != 'None' else None
         return kwds
 
     def _prep_figure(self):
-        fig_kwds = load_defaults(
-            'fig_kwds', self.fig_kwds, figsize=self.figsize)
-        fig = plt.figure(**fig_kwds)
+        figure_kwds = load_defaults('figure', self._figure_kwds['figure'])
+        figure = plt.figure(**figure_kwds)
 
         if self.suptitle != '':
             suptitle_kwds = load_defaults(
-                'suptitle_kwds', self.suptitle_kwds, t=self.suptitle)
+                'suptitle', self._figure_kwds['suptitle'])
             suptitle_kwds = self._update_text(suptitle_kwds, 't')
-            fig.suptitle(**suptitle_kwds)
-        return fig
+            figure.suptitle(**suptitle_kwds)
+        return figure
 
     def _prep_axes(self, state_ds, rows, cols, irowcol):
         limits = {
@@ -171,7 +175,7 @@ class Animation(param.Parameterized):
             for var in list(state_ds.data_vars)
             if var[1:4] == 'lim'}
 
-        axes_kwds = state_ds.attrs['axes_kwds']
+        axes_kwds = state_ds.attrs['axes']
         style = axes_kwds.pop('style', '')
         if style == 'minimal':
             for axis in ['x', 'y']:
@@ -192,13 +196,13 @@ class Animation(param.Parameterized):
             axes_kwds['yticks'] = []
 
         axes_kwds['projection'] = pop(state_ds, 'projection', squeeze=True)
-        axes_kwds = load_defaults('axes_kwds', state_ds, **axes_kwds)
+        axes_kwds = load_defaults('axes', state_ds, **axes_kwds)
         transform = axes_kwds.pop('transform', None)
         ax = plt.subplot(rows, cols, irowcol, **axes_kwds)
 
         if transform is not None:
             from cartopy import feature as cfeature
-            if state_ds.attrs['finalize_kwds']['worldwide']:
+            if state_ds.attrs['settings']['worldwide']:
                 ax.set_global()
             else:
                 ax.set_extent([
@@ -208,7 +212,7 @@ class Animation(param.Parameterized):
                     limits.get('ylim1', 90)
                 ], transform)
             for feature in GEO_FEATURES:
-                feature_kwds = load_defaults(f'{feature}_kwds', state_ds)
+                feature_kwds = load_defaults(f'{feature}', state_ds)
                 if feature_kwds.pop(feature, False):
                     feature_obj = getattr(cfeature, feature.upper())
                     ax.add_feature(feature_obj, **feature_kwds)
@@ -224,13 +228,13 @@ class Animation(param.Parameterized):
 
     def _update_labels(self, state_ds, ax):
         for label in ['xlabel', 'ylabel', 'title']:
-            label_kwds = load_defaults(f'{label}_kwds', state_ds)
+            label_kwds = load_defaults(f'{label}', state_ds)
             key = label if label != 'title' else 'label'
             label_kwds = self._update_text(label_kwds, key)
             getattr(ax, f'set_{label}')(**label_kwds)
 
     def _update_margins(self, state_ds, ax):
-        margins_kwds = load_defaults('margins_kwds', state_ds)
+        margins_kwds = load_defaults('margins', state_ds)
         ax.margins(**margins_kwds)
 
     def _add_state_labels(self, state_ds, ax):
@@ -238,9 +242,9 @@ class Animation(param.Parameterized):
         if state_label is None:
             return
         state_label = to_pydt(state_label)
-        state_base = state_ds.attrs['base_kwds'].get('state')
+        state_base = state_ds.attrs['base'].get('state')
 
-        state_kwds = load_defaults('state_kwds', state_ds, text=state_label)
+        state_kwds = load_defaults('state', state_ds, text=state_label)
         state_kwds = self._update_text(state_kwds, 'text', base=state_base)
         ax.annotate(**state_kwds)
 
@@ -249,7 +253,7 @@ class Animation(param.Parameterized):
         if isinstance(plot, list):
             plot = plot[0]
 
-        if 'cmap' in overlay_ds.attrs['plot_kwds']:
+        if 'cmap' in overlay_ds.attrs['plot']:
             color = 'black'
         else:
             try:
@@ -281,7 +285,7 @@ class Animation(param.Parameterized):
         if all_none:
             return
         chart_kwds = load_defaults(
-            'chart_kwds', overlay_ds, base_chart=chart)
+            'chart', overlay_ds, base_chart=chart)
         chart_kwds['label'] = '_nolegend_'
         chart = chart_kwds.pop('chart', 'both')
         expire = chart_kwds.pop('expire')
@@ -310,7 +314,7 @@ class Animation(param.Parameterized):
         if deltas is None:
             return
         chart_kwds = load_defaults(
-            'chart_kwds', overlay_ds, base_chart=chart)
+            'chart', overlay_ds, base_chart=chart)
         if chart == 'bar':
             chart_kwds['yerr'] = deltas
             x_inlines = x_centers
@@ -340,14 +344,14 @@ class Animation(param.Parameterized):
                 color=color, path_effects=self._path_effects
             )
             remark_inline_kwds = load_defaults(
-                'remark_inline_kwds', state_ds,
+                'remark_inline', state_ds,
                 **remark_inline_kwds)
             remark_inline_kwds = self._update_text(
                 remark_inline_kwds, 'text', base=remark)
             ax.annotate(**remark_inline_kwds)
 
             remark_kwds = load_defaults(
-                'remark_kwds', state_ds, x=x, y=y, color=color)
+                'remark', state_ds, x=x, y=y, color=color)
             ax.scatter(**remark_kwds)
 
     def _plot_ref_chart(self, overlay_ds, ax):
@@ -365,7 +369,7 @@ class Animation(param.Parameterized):
             var: pop(overlay_ds, var, get=0)
             for var in list(overlay_ds.data_vars)}
         plot_kwds = load_defaults(
-            'REF_plot_kwds', overlay_ds,
+            'ref_plot', overlay_ds,
             base_chart=chart, label=label, **plot_kwds)
 
         if chart == 'axvline':
@@ -389,15 +393,15 @@ class Animation(param.Parameterized):
             color = self._get_color(overlay_ds, plot)
             self._add_inline_labels(
                 overlay_ds, ax, chart, inline_x, inline_y,
-                inline_labels, color, base_key='REF_inline',
-                inline_key='REF_inline_kwds')
+                inline_labels, color, base_key='ref_inline',
+                inline_key='ref_inline')
 
     def _add_inline_labels(self, overlay_ds, ax, chart,
                            xs, ys, inline_labels, color,
-                           base_key='inline', inline_key='inline_kwds'):
+                           base_key='inline', inline_key='inline'):
         if inline_labels is None:
             return
-        inline_base = overlay_ds.attrs['base_kwds'].get(base_key)
+        inline_base = overlay_ds.attrs['base'].get(base_key)
 
         ha = 'center'
         va = 'center'
@@ -433,7 +437,7 @@ class Animation(param.Parameterized):
         ax.annotate(**inline_kwds)
 
     def _update_grid(self, state_ds, ax):
-        grid_kwds = load_defaults('grid_kwds', state_ds)
+        grid_kwds = load_defaults('grid', state_ds)
         grid = grid_kwds.pop('grid', False)
         if not grid:
             return
@@ -467,42 +471,49 @@ class Animation(param.Parameterized):
             state_ds = state_ds[:, -1].T
         tick_labels = pop(state_ds, 'tick_label')
 
-        xtick_base = state_ds.attrs['base_kwds'].get('xtick')
-        xtick_kwds = load_defaults(
-            'xtick_kwds', state_ds, labels=tick_labels)
-        xtick_kwds = self._update_text(
-            xtick_kwds, 'labels', base=xtick_base,
+        xticks_base = state_ds.attrs['base'].get('xticks')
+        xticks_kwds = load_defaults(
+            'xticks', state_ds, labels=tick_labels)
+        xticks_kwds = self._update_text(
+            xticks_kwds, 'labels', base=xticks_base,
             apply_format=False)
-        xformat = xtick_kwds.pop('format', 'g')
-        xtick_labels = xtick_kwds.pop('labels')
-        x_is_datetime = xtick_kwds.pop('is_datetime', False)
+        xticks = xticks_kwds.pop('ticks')
+        xformat = xticks_kwds.pop('format', 'g')
+        xticks_labels = xticks_kwds.pop('labels')
+        x_is_datetime = xticks_kwds.pop('is_datetime', False)
 
-        ytick_base = state_ds.attrs['base_kwds'].get('ytick')
-        ytick_kwds = load_defaults(
-            'ytick_kwds', state_ds, labels=tick_labels)
-        ytick_kwds = self._update_text(
-            ytick_kwds, 'labels', base=ytick_base,
+        yticks_base = state_ds.attrs['base'].get('yticks')
+        yticks_kwds = load_defaults(
+            'yticks', state_ds, labels=tick_labels)
+        yticks_kwds = self._update_text(
+            yticks_kwds, 'labels', base=yticks_base,
             apply_format=False)
-        yformat = ytick_kwds.pop('format', 'g')
-        ytick_labels = ytick_kwds.pop('labels')
-        y_is_datetime = ytick_kwds.pop('is_datetime', False)
+        yticks = yticks_kwds.pop('ticks')
+        yformat = yticks_kwds.pop('format', 'g')
+        yticks_labels = yticks_kwds.pop('labels')
+        y_is_datetime = yticks_kwds.pop('is_datetime', False)
 
-        if gridlines is not None:
+        if gridlines is not None:  # geoaxes
             from cartopy.mpl.gridliner import (
                 LatitudeFormatter, LongitudeFormatter)
             gridlines.yformatter = LatitudeFormatter()
             gridlines.xformatter = LongitudeFormatter()
             for key in ['axis', 'which', 'length', 'labelsize']:
                 if key == 'labelsize':
-                    xtick_kwds['size'] = xtick_kwds.pop(
-                        key, defaults['tick_kwds']['labelsize'])
-                    ytick_kwds['size'] = ytick_kwds.pop(
-                        key, defaults['tick_kwds']['labelsize'])
+                    xticks_kwds['size'] = xticks_kwds.pop(
+                        key, defaults['ticks']['labelsize'])
+                    yticks_kwds['size'] = yticks_kwds.pop(
+                        key, defaults['ticks']['labelsize'])
                 else:
-                    xtick_kwds.pop(key, '')
-                    ytick_kwds.pop(key, '')
-            gridlines.ylabel_style = ytick_kwds
-            gridlines.xlabel_style = xtick_kwds
+                    xticks_kwds.pop(key, '')
+                    yticks_kwds.pop(key, '')
+            gridlines.ylabel_style = yticks_kwds
+            gridlines.xlabel_style = xticks_kwds
+
+            if xticks is not None:
+                gridlines.xlocator = FixedLocator(xticks)
+            if yticks is not None:
+                gridlines.ylocator = FixedLocator(yticks)
         else:
             if chart.startswith('bar'):
                 xs = pop(state_ds, 'x')
@@ -510,8 +521,8 @@ class Animation(param.Parameterized):
                     ax.set_xticks(xs)
                 elif chart == 'barh':
                     ax.set_yticks(xs)
-                ax.set_xticklabels(xtick_labels)
-                ax.set_yticklabels(ytick_labels)
+                ax.set_xtickslabels(xticks_labels)
+                ax.set_ytickslabels(yticks_labels)
             else:
                 if not x_is_datetime:
                     xformatter = FormatStrFormatter(f'%{xformat}')
@@ -530,15 +541,20 @@ class Animation(param.Parameterized):
                     yformatter = ConciseDateFormatter(ylocator)
                     ax.yaxis.set_major_locator(ylocator)
                     ax.yaxis.set_major_formatter(yformatter)
-            ax.tick_params(**xtick_kwds)
-            ax.tick_params(**ytick_kwds)
+
+                if xticks is not None:
+                    ax.set_ticks(xticks)
+                if yticks is not None:
+                    ax.set_ticks(yticks)
+            ax.tick_params(**xticks_kwds)
+            ax.tick_params(**yticks_kwds)
 
     def _update_legend(self, state_ds, ax):
         legend_labels = ax.get_legend_handles_labels()[1]
         ncol = int(len(legend_labels) / 5) or 1
         legend_kwds = dict(labels=legend_labels, ncol=ncol)
         legend_kwds = load_defaults(
-            'legend_kwds', state_ds, **legend_kwds)
+            'legend', state_ds, **legend_kwds)
 
         if not legend_labels or not legend_kwds.pop('show'):
             return
@@ -561,7 +577,7 @@ class Animation(param.Parameterized):
         if plot is None:
             return
 
-        colorbar_kwds = load_defaults('colorbar_kwds', state_ds, ax=ax)
+        colorbar_kwds = load_defaults('colorbar', state_ds, ax=ax)
         if not colorbar_kwds.pop('show'):
             return
 
@@ -574,58 +590,57 @@ class Animation(param.Parameterized):
                 size='2%', pad=0.1, axes_class=plt.Axes)
         ax.figure.add_axes(cax)
 
-        colorbar_kwds.pop('num_colors', None)
         colorbar = plt.colorbar(plot, cax=cax, **colorbar_kwds)
-        clabel_kwds = load_defaults(
-            'clabel_kwds', self.clabel_kwds, label=self.clabel)
+        clabel_kwds = load_defaults('clabel', state_ds)
         clabel_kwds = self._update_text(clabel_kwds, 'label')
         if colorbar_kwds['orientation'] == 'vertical':
             clabel_kwds['ylabel'] = clabel_kwds.pop('label')
-            ctick_kwds = {'axis': 'y'}
+            cticks_kwds = {'axis': 'y'}
             cax.set_ylabel(**clabel_kwds)
         else:
             clabel_kwds['xlabel'] = clabel_kwds.pop('label')
-            ctick_kwds = {'axis': 'x'}
+            cticks_kwds = {'axis': 'x'}
             cax.set_xlabel(**clabel_kwds)
 
-        cticks = colorbar.get_ticks()
-        ctick_base = state_ds.attrs['base_kwds']['ctick']
-        ctick_kwds = load_defaults('ctick_kwds', self.ctick_kwds,
-            ticks=cticks, **ctick_kwds)
-        ctick_kwds = self._update_text(
-            ctick_kwds, 'ticks', base=ctick_base,
+        cticks_base = state_ds.attrs['base']['cticks']
+        cticks_kwds = load_defaults('cticks', state_ds, **cticks_kwds)
+        cticks_kwds.pop('num_ticks', None)
+        cticks_kwds = self._update_text(
+            cticks_kwds, 'ticks', base=cticks_base,
             apply_format=False)
-        cformat = ctick_kwds.pop('format')
+        cformat = cticks_kwds.pop('format')
         cformatter = FormatStrFormatter(f'%{cformat}')
 
-        cticks = np.array(ctick_kwds.pop('ticks')).astype(float)
         if colorbar_kwds['orientation'] == 'vertical':
             cax.yaxis.set_major_formatter(cformatter)
         else:
             cax.xaxis.set_major_formatter(cformatter)
-        colorbar.set_ticks(cticks)
-        cax.tick_params(**ctick_kwds)
+        cticks = cticks_kwds.pop('ticks')
+        if cticks is not None:
+            colorbar.set_ticks(np.array(cticks).astype(float))
+            colorbar.set_ticklabels(cticks)
+        cax.tick_params(**cticks_kwds)
 
-    def _update_watermark(self, fig):
+    def _update_watermark(self, figure):
         watermark_kwds = load_defaults(
-            'watermark_kwds', self.watermark_kwds, s=self.watermark)
-        fig.text(**watermark_kwds)
+            'watermark', self._figure_kwds['watermark'])
+        figure.text(**watermark_kwds)
 
-    def _update_caption(self, fig):
+    def _update_caption(self, figure):
         caption_kwds = load_defaults(
-            'caption_kwds', self.caption_kwds, s=self.caption)
-        fig.text(**caption_kwds)
+            'caption', self._figure_kwds['caption'])
+        figure.text(**caption_kwds)
 
-    def _apply_hooks(self, fig, ax):  # TODO: implement
-        hooks = [self.hooks] if callable(self.hooks) else self.hooks
-        for hook in self.hooks:
+    def _apply_hooks(self, state_ds, figure, ax):  # TODO: implement
+        hooks = state_ds.attrs['settings'].pop('hooks')
+        for hook in hooks:
             if not callable(hook):
                 continue
-            hook(fig, ax)
+            hook(figure, ax)
 
     def _buffer_frame(self, state):
         buf = BytesIO()
-        frame_kwds = load_defaults('frame_kwds', self.frame_kwds)
+        frame_kwds = load_defaults('frame', self._figure_kwds['frame'])
         try:
             if self.debug:
                 debug_dir = 'AHLIVE_DEBUGGER'
@@ -689,7 +704,7 @@ class Animation(param.Parameterized):
         chart = ''
         plot = None
         base_vars = [
-            var for var in state_ds.data_vars if not var.startswith('REF_')]
+            var for var in state_ds.data_vars if not var.startswith('ref_')]
         base_state_ds = state_ds[base_vars]
         iter_ds = self._get_iter_ds(base_state_ds)
         for _, overlay_ds in iter_ds:
@@ -726,16 +741,17 @@ class Animation(param.Parameterized):
                 pop(overlay_ds, 'inline_label'), chart)
             remarks = self._reshape_batch(
                 pop(overlay_ds, 'remark'), chart)
+
             trail_plot_kwds = {
                 var: self._reshape_batch(pop(overlay_ds, var), chart, get=None)
-                for var in list(overlay_ds.data_vars)
-            }
+                for var in list(overlay_ds.data_vars)}
             trail_plot_kwds = load_defaults(
-                'plot_kwds', overlay_ds, **trail_plot_kwds)
+                'plot', overlay_ds, **trail_plot_kwds)
             plot_kwds = {
                 key: to_scalar(val) for key, val in trail_plot_kwds.items()}
             if 'label' in plot_kwds:
                 plot_kwds['label'] = to_scalar(plot_kwds['label'])
+
             plot, color = self._plot_chart(
                 overlay_ds, ax, chart, xs, ys, plot_kwds)
             self._plot_trails(
@@ -754,8 +770,8 @@ class Animation(param.Parameterized):
 
         ref_state_ds = state_ds.drop(base_vars + ['item'])
         ref_state_ds = ref_state_ds.rename({
-            var: var.replace('REF_', '')
-            for var in list(ref_state_ds) + ['REF_item']
+            var: var.replace('ref_', '')
+            for var in list(ref_state_ds) + ['ref_item']
             if var in state_ds
         })
         ref_iter_ds = self._get_iter_ds(ref_state_ds)
@@ -769,16 +785,17 @@ class Animation(param.Parameterized):
 
     @dask.delayed()
     def _draw_frame(self, state_ds_list, rows, cols):
-        fig = self._prep_figure()
+        figure = self._prep_figure()
         for irowcol, state_ds in enumerate(state_ds_list, 1):
             ax = self._prep_axes(state_ds, rows, cols, irowcol)
             self._draw_subplot(state_ds, ax)
+            self._apply_hooks(state_ds, figure, ax)
 
         if self.watermark:
-            self._update_watermark(fig)
+            self._update_watermark(figure)
 
         if self.caption:
-            self._update_caption(fig)
+            self._update_caption(figure)
 
         state = pop(state_ds, 'state', get=-1)
         buf = self._buffer_frame(state)
@@ -786,8 +803,8 @@ class Animation(param.Parameterized):
 
     def _config_chart(self, ds, chart):
         if chart.startswith('bar'):
-            chart_type = ds.attrs['chart_kwds'].pop('chart_type', 'race')
-            bar_label = ds.attrs['chart_kwds'].pop('bar_label', True)
+            chart_type = ds.attrs['chart'].pop('chart_type', 'race')
+            bar_label = ds.attrs['chart'].pop('bar_label', True)
             ds.coords['tick_label'] = ds['x']
             if bar_label:
                 ds['bar_label'] = ds['x']
@@ -805,9 +822,9 @@ class Animation(param.Parameterized):
                         item=slice(1, None))
                     ds['delta'] = ds['delta_label'] / 2
         elif chart == 'scatter':
-            chart_type = ds.attrs['chart_kwds'].pop('chart_type', 'basic')
+            chart_type = ds.attrs['chart'].pop('chart_type', 'basic')
             if chart_type == 'trail':
-                trail_chart = ds.attrs['chart_kwds']['chart']
+                trail_chart = ds.attrs['chart'].get('chart', 'scatter')
                 if trail_chart in ['line', 'both']:
                     ds['x_trail'] = ds['x'].copy()
                     ds['y_trail'] = ds['y'].copy()
@@ -816,7 +833,7 @@ class Animation(param.Parameterized):
                     ds['x_discrete_trail'] = ds['x'].copy()
                     ds['y_discrete_trail'] = ds['y'].copy()
 
-        legend_sortby = ds.attrs['legend_kwds'].pop('sortby', None)
+        legend_sortby = ds.attrs['legend'].pop('sortby', None)
         if legend_sortby and 'label' in ds:
             items = ds.mean('state').sortby(
                 legend_sortby, ascending=False)['item']
@@ -824,38 +841,38 @@ class Animation(param.Parameterized):
             ds['item'] = srange(ds['item'])
 
         if self.style == 'bare':
-            ds.attrs['grid_kwds']['b'] = False
+            ds.attrs['grid']['b'] = False
         elif chart == 'barh':
-            ds.attrs['grid_kwds']['axis'] = (
-                ds.attrs['grid_kwds'].get('axis', 'x'))
+            ds.attrs['grid']['axis'] = (
+                ds.attrs['grid'].get('axis', 'x'))
         elif chart == 'bar':
-            ds.attrs['grid_kwds']['axis'] = (
-                ds.attrs['grid_kwds'].get('axis', 'y'))
+            ds.attrs['grid']['axis'] = (
+                ds.attrs['grid'].get('axis', 'y'))
         else:
-            ds.attrs['grid_kwds']['axis'] = (
-                ds.attrs['grid_kwds'].get('axis', 'both'))
+            ds.attrs['grid']['axis'] = (
+                ds.attrs['grid'].get('axis', 'both'))
 
         return ds
 
     def _add_xy01_limits(self, ds, chart):
         limits = {
-            'xlim0': ds.attrs['finalize_kwds'].pop('xlim0s'),
-            'xlim1': ds.attrs['finalize_kwds'].pop('xlim1s'),
-            'ylim0': ds.attrs['finalize_kwds'].pop('ylim0s'),
-            'ylim1': ds.attrs['finalize_kwds'].pop('ylim1s')
+            'xlim0': ds.attrs['settings'].pop('xlim0s'),
+            'xlim1': ds.attrs['settings'].pop('xlim1s'),
+            'ylim0': ds.attrs['settings'].pop('ylim0s'),
+            'ylim1': ds.attrs['settings'].pop('ylim1s')
         }
 
-        if ds.attrs['finalize_kwds']['worldwide'] is None:
+        if ds.attrs['settings']['worldwide'] is None:
             if any(limit is not None for limit in limits.values()):
-                ds.attrs['finalize_kwds']['worldwide'] = False
+                ds.attrs['settings']['worldwide'] = False
             else:
-                ds.attrs['finalize_kwds']['worldwide'] = True
+                ds.attrs['settings']['worldwide'] = True
 
-        if ds.attrs['finalize_kwds']['worldwide']:
+        if ds.attrs['settings']['worldwide']:
             return ds
 
-        axes_kwds = ds.attrs['axes_kwds']
-        margins_kwds = ds.attrs['margins_kwds']
+        axes_kwds = ds.attrs['axes']
+        margins_kwds = ds.attrs['margins']
 
         for key, limit in limits.items():
             axis = key[0]
@@ -926,17 +943,17 @@ class Animation(param.Parameterized):
         if self.delays is None:
             delays = 0.5 if self._num_states < 10 else 1 / 60
         else:
-            delays = self.delays
+            delays = self._figure_kwds['delays']
 
         if isinstance(delays, (int, float)):
             transition_frames = delays
             delays = np.repeat(delays, self._num_states)
         else:
             transition_frames = (
-                defaults['delays_kwds']['transition_frames'])
+                defaults['delays']['transition_frames'])
 
         delays_kwds = load_defaults(
-            'delays_kwds', self.delays_kwds,
+            'delays', self._figure_kwds['delays'],
             transition_frames=transition_frames)
         aggregate = delays_kwds.pop('aggregate')
 
@@ -964,18 +981,18 @@ class Animation(param.Parameterized):
         return crs_obj
 
     def _add_geo_transforms(self, ds):
-        crs_kwds = load_defaults('crs_kwds', ds)
+        crs_kwds = load_defaults('crs', ds)
         crs = crs_kwds.pop('crs', None)
 
-        projection_kwds = load_defaults('projection_kwds', ds)
+        projection_kwds = load_defaults('projection', ds)
         projection = projection_kwds.pop('projection', None)
 
         if crs != '' or projection != '':
             crs_obj = self._get_crs(crs, crs_kwds)
-            ds.attrs['plot_kwds']['transform'] = crs_obj
-            ds.attrs['inline_kwds']['transform'] = crs_obj
-            ds.attrs['grid_kwds']['transform'] = crs_obj
-            ds.attrs['axes_kwds']['transform'] = crs_obj
+            ds.attrs['plot']['transform'] = crs_obj
+            ds.attrs['inline']['transform'] = crs_obj
+            ds.attrs['grid']['transform'] = crs_obj
+            ds.attrs['axes']['transform'] = crs_obj
 
             projection_obj = self._get_crs(projection, projection_kwds)
             ds['projection'] = projection_obj
@@ -996,21 +1013,37 @@ class Animation(param.Parameterized):
         if chart.startswith('bar'):
             color = None
             if set(np.unique(ds['label'])) == set(np.unique(ds['x'])):
-                ds.attrs['legend_kwds']['show'] = False
+                ds.attrs['legend']['show'] = False
 
-        num_colors = ds.attrs['colorbar_kwds'].pop(
-            'num_colors', defaults['colorbar_kwds']['num_colors'])
-        if 'c' in ds:  # TODO: add number of colors to options
-            ds.attrs['plot_kwds']['cmap'] = plt.get_cmap(
-                ds.attrs['plot_kwds'].get('cmap', 'plasma'), num_colors)
-            ds.attrs['plot_kwds']['vmin'] = ds.attrs['plot_kwds'].get(
-                'vmin', np.nanmin(ds['c'].values))
-            ds.attrs['plot_kwds']['vmax'] = ds.attrs['plot_kwds'].get(
-                'vmax', np.nanmax(ds['c'].values))
-            ds.attrs['colorbar_kwds']['show'] = ds.attrs['plot_kwds'].get(
+        if 'c' in ds:
+            cticks = ds.attrs['cticks'].get('ticks')
+            if cticks is None:
+                num_ticks = defaults['cticks'].get('num_ticks')
+            else:
+                num_ticks = len(cticks)
+            num_ticks = ds.attrs['cticks'].pop('num_ticks', num_ticks)
+            if num_ticks < 3:
+                raise ValueError('There must be at least 3 ticks for cticks!')
+            vmin = ds.attrs['plot'].get('vmin')
+            vmax = ds.attrs['plot'].get('vmax')
+
+            ds.attrs['plot']['cmap'] = plt.get_cmap(
+                ds.attrs['plot'].get('cmap', 'plasma'), num_ticks)
+
+            if cticks is not None:
+                ds.attrs['plot']['norm'] = ds.attrs['plot'].get(
+                    'norm', BoundaryNorm(cticks, num_ticks))
+            elif vmin is None and vmax is None:
+                cticks = np.linspace(
+                    np.nanmin(ds['c'].values),
+                    np.nanmax(ds['c'].values),
+                    num_ticks)
+                ds.attrs['plot']['norm'] = ds.attrs['plot'].get(
+                    'norm', BoundaryNorm(cticks, num_ticks))
+            ds.attrs['colorbar']['show'] = ds.attrs['plot'].get(
                 'show', True)
         else:
-            ds.attrs['colorbar_kwds']['show'] = False
+            ds.attrs['colorbar']['show'] = False
         return ds
 
     @staticmethod
@@ -1019,15 +1052,16 @@ class Animation(param.Parameterized):
         for xyc in ['x', 'y', 'c']:
             if xyc in ds:
                 try:
-                    base_kwds[f'{xyc}tick'] = np.nanquantile(ds[xyc], 0.5) / 10
+                    base_kwds[f'{xyc}ticks'] = (
+                        np.nanquantile(ds[xyc], 0.5) / 10)
                 except TypeError:
-                    base_kwds[f'{xyc}tick'] = np.nanmin(ds[xyc])
+                    base_kwds[f'{xyc}ticks'] = np.nanmin(ds[xyc])
                 if xyc == 'c':
                     continue
-                ds.attrs[f'{xyc}tick_kwds']['is_datetime'] = np.issubdtype(
+                ds.attrs[f'{xyc}ticks']['is_datetime'] = np.issubdtype(
                     ds[xyc].values.dtype, np.datetime64)
 
-        keys = ['inline', 'state', 'delta', 'bar', 'REF_inline']
+        keys = ['inline', 'state', 'delta', 'bar', 'ref_inline']
         for key in keys:
             key_label = f'{key}_label'
             if key_label in ds:
@@ -1039,7 +1073,7 @@ class Animation(param.Parameterized):
                 except Exception:
                     pass
 
-        ds.attrs['base_kwds'] = base_kwds
+        ds.attrs['base'] = base_kwds
         return ds
 
     def _interp_dataset(self, ds):
@@ -1051,9 +1085,9 @@ class Animation(param.Parameterized):
             ds = ds.expand_dims('item')
             ds['item'] = srange(ds['item'])
 
-        if 'REF_chart' in ds.data_vars and 'REF_item' not in ds.dims:
-            ds = ds.expand_dims('REF_item')
-            ds['REF_item'] = srange(ds['REF_item'])
+        if 'ref_chart' in ds.data_vars and 'ref_item' not in ds.dims:
+            ds = ds.expand_dims('ref_item')
+            ds['ref_item'] = srange(ds['ref_item'])
         ds['state'] = srange(self._num_states)
         return ds
 
@@ -1069,11 +1103,18 @@ class Animation(param.Parameterized):
             return da
 
     def finalize(self):
+        if not self._is_configured:
+            self = self.configure()
+
         data = deepcopy(self.data)
-        if all(ds.attrs.get('finalized') for ds in data.values()):
+        if self._is_finalized:
             return data
 
-        for rowcol, ds in data.items():
+        for i, (rowcol, ds) in enumerate(data.items()):
+            if i == 0:
+                for key in FIGURE_KEYS:
+                    self._figure_kwds[key] = ds.attrs[key]
+
             self._num_states = len(ds['state'])
             chart = to_scalar(ds['chart']) if 'chart' in ds else ''
             ds = self._fill_null(ds)
@@ -1090,7 +1131,9 @@ class Animation(param.Parameterized):
             if self.debug > 0:
                 ds = ds.isel(state=slice(None, self.debug))
             self._num_states = len(ds['state'])
+            self._is_finalized = True
             data[rowcol] = ds
+
         return data
 
     def animate(self, debug=None):
@@ -1145,7 +1188,7 @@ class Animation(param.Parameterized):
         delays = np.atleast_1d(delays)[:len(buf_list)].tolist()
         animate_kwds = dict(loop=loop, duration=delays)
         animate_kwds = load_defaults(
-            'animate_kwds', self.animate_kwds, **animate_kwds)
+            'animate', self._figure_kwds['animate'], **animate_kwds)
         with imageio.get_writer(self.save_path, **animate_kwds) as writer:
             for buf in buf_list:
                 image = imageio.imread(buf)
