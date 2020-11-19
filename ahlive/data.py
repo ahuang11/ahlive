@@ -10,7 +10,7 @@ import xarray as xr
 
 from .easing import Easing
 from .animation import Animation
-from .util import is_scalar, srange
+from .util import is_scalar, is_datetime, srange
 from .join import _get_rowcols, _combine, layout, cascade, overlay
 
 
@@ -424,18 +424,30 @@ class Array(Data):
         ds['x'] = DIMS['base'], self._adapt_input(xs)
         ds['y'] = DIMS['base'], self._adapt_input(ys)
 
+    @staticmethod
+    def _match_values(da, values, rtol, atol):
+        if is_datetime(da):
+            values = pd.to_datetime(values)
+        try:
+            return np.vstack([
+                np.isclose(da, value, rtol=rtol, atol=atol)
+                for value in np.atleast_1d(values)
+            ]).sum(axis=0)
+        except TypeError:
+            return da.isin(values)
+
     def remark(self, remarks=None, delays=None, condition=None,
-               xs=None, ys=None, state_labels=None,
-               inline_labels=None, rowcols=None):
-        args = (xs, state_labels, inline_labels, condition)
+               xs=None, ys=None, cs=None, state_labels=None,
+               inline_labels=None, rtol=1e-05, atol=1e-08, rowcols=None):
+        args = (xs, ys, cs, state_labels, inline_labels, condition)
         args_none = sum([1 for arg in args if arg is None])
         if args_none == len(args):
             raise ValueError(
-                'Must supply either xs, ys, state_labels, '
+                'Must supply either xs, ys, cs, state_labels, '
                 'inline_labels, or condition!')
         elif args_none != len(args) - 1:
             raise ValueError(
-                'Must supply only one of xs, ys, state_labels, '
+                'Must supply only one of xs, ys, cs, state_labels, '
                 'inline_labels, or condition!')
 
         if delays is None and remarks is None:
@@ -451,13 +463,20 @@ class Array(Data):
                 continue
 
             if xs is not None:
-                condition = ds['x'].isin(xs)
+                condition = self._match_values(
+                    ds['x'], xs, rtol=rtol, atol=atol)
             elif ys is not None:
-                condition = ds['y'].isin(ys)
+                condition = self._match_values(
+                    ds['y'], ys, rtol=rtol, atol=atol)
+            elif cs is not None:
+                condition = self._match_values(
+                    ds['c'], cs, rtol=rtol, atol=atol)
             elif state_labels is not None:
-                condition = ds['state_label'].isin(state_labels)
+                condition = self._match_values(
+                    ds['state_label'], state_labels, rtol=rtol, atol=atol)
             elif inline_labels is not None:
-                condition = ds['inline_label'].isin(inline_labels)
+                condition = self._match_values(
+                    ds['inline_label'], inline_labels, rtol=rtol, atol=atol)
             else:
                 condition = np.array(condition)
 

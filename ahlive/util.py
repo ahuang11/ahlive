@@ -43,6 +43,11 @@ def is_scalar(value):
     return np.size(value) == 1
 
 
+def is_datetime(value):
+    value = np.array(value)
+    return np.issubdtype(value.dtype, np.datetime64)
+
+
 def to_scalar(value, get=-1):
     value = np.atleast_1d(value).flat[get]
     return value

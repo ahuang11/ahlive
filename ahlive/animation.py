@@ -21,7 +21,7 @@ from mpl_toolkits.axes_grid1 import make_axes_locatable
 from matplotlib.dates import AutoDateLocator, ConciseDateFormatter
 
 from .config import defaults, load_defaults
-from .util import to_pydt, to_num, to_scalar, is_scalar, pop, srange
+from .util import to_pydt, to_num, to_scalar, is_datetime, is_scalar, pop, srange
 
 
 OPTIONS = {
@@ -1058,8 +1058,7 @@ class Animation(param.Parameterized):
                     base_kwds[f'{xyc}ticks'] = np.nanmin(ds[xyc])
                 if xyc == 'c':
                     continue
-                ds.attrs[f'{xyc}ticks']['is_datetime'] = np.issubdtype(
-                    ds[xyc].values.dtype, np.datetime64)
+                ds.attrs[f'{xyc}ticks']['is_datetime'] = is_datetime(ds[xyc])
 
         keys = ['inline', 'state', 'delta', 'bar', 'ref_inline']
         for key in keys:
