@@ -2,10 +2,10 @@ import xarray as xr
 
 
 sizes = {
-    'xx-small': 10,
-    'x-small': 16,
+    'xx-small': 12,
+    'x-small': 17,
     'small': 22,
-    'medium': 24,
+    'medium': 26,
     'large': 30,
     'x-large': 36,
     'xx-large': 60,
@@ -14,10 +14,19 @@ sizes = {
 
 defaults = {}
 
-defaults['delays'] = {
+defaults['durations'] = {
     'aggregate': 'max',
     'transition_frames': 1 / 60,
     'final_frame': 1,
+}
+
+defaults['spacing'] = {
+    'left': 0.05,
+    'right': 0.975,
+    'bottom': 0.1,
+    'top': 0.9,
+    'wspace': 0.2,
+    'hspace': 0.2
 }
 
 defaults['figure'] = {
@@ -31,7 +40,6 @@ defaults['axes'] = {
 defaults['label'] = {
     'fontsize': sizes['medium'],
     'replacements': {'_': ' '},
-    'casing': 'title',
     'format': 'auto'
 }
 
@@ -41,7 +49,7 @@ defaults['chart']['bar'] = {
     'capsize': 6
 }
 defaults['chart']['scatter'] = {
-    'expire': 1000,
+    'expire': 100,
     'stride': 1
 }
 defaults['chart']['barh'] = defaults['chart']['bar'].copy()
@@ -68,7 +76,6 @@ defaults['ref_inline'] = defaults['label'].copy()
 defaults['ref_inline'].update({
     'textcoords': 'offset points',
     'color': 'darkgray',
-    'casing': False
 })
 
 defaults['remark_inline'] = defaults['label'].copy()
@@ -78,7 +85,6 @@ defaults['remark_inline'].update({
     'xytext': (0, 1.5),
     'ha': 'left',
     'va': 'top',
-    'casing': False
 })
 
 defaults['xlabel'] = defaults['label'].copy()
@@ -92,16 +98,36 @@ defaults['clabel'].update({'fontsize': sizes['large']})
 
 defaults['title'] = defaults['label'].copy()
 defaults['title'].update({
-    'fontsize': sizes['large'], 'loc': 'left', 'casing': None})
+    'fontsize': sizes['large'], 'loc': 'left'})
+
+defaults['subtitle'] = defaults['label'].copy()
+defaults['subtitle'].update({
+    'fontsize': sizes['medium'], 'loc': 'right'})
+
+defaults['note'] = {
+    'x': .01,
+    'y': .05,
+    'ha': 'left',
+    'va': 'top',
+    'fontsize': sizes['x-small']
+}
+
+defaults['caption'] = {
+    'x': 0,
+    'y': -0.28,
+    'alpha': 0.7,
+    'ha': 'left',
+    'va': 'bottom',
+    'fontsize': sizes['x-small']
+}
 
 defaults['suptitle'] = defaults['label'].copy()
-defaults['suptitle'].update({
-    'fontsize': sizes['large'], 'casing': None})
+defaults['suptitle'].update({'fontsize': sizes['large']})
 
 defaults['state'] = defaults['label'].copy()
 defaults['state'].update({
     'alpha': 0.5,
-    'xy': (0.975, 0.025),
+    'xy': (0.988, 0.01),
     'ha': 'right',
     'va': 'bottom',
     'xycoords': 'axes fraction',
@@ -111,7 +137,6 @@ defaults['state'].update({
 defaults['inline'] = defaults['label'].copy()
 defaults['inline'].update({
     'textcoords': 'offset points',
-    'casing': False
 })
 
 defaults['legend'] = defaults['label'].copy()
@@ -146,21 +171,13 @@ defaults['land'] = {
     'facecolor': 'whitesmoke'
 }
 
-defaults['caption'] = {
-    'x': .085,
-    'y': .005,
-    'ha': 'left',
-    'va': 'bottom',
-    'fontsize': sizes['small']
-}
-
 defaults['watermark'] = {
     'x': .995,
     'y': .005,
     'alpha': 0.28,
     'ha': 'right',
     'va': 'bottom',
-    'fontsize': sizes['x-small']
+    'fontsize': sizes['xx-small']
 }
 
 defaults['frame'] = {
@@ -172,7 +189,6 @@ defaults['frame'] = {
 defaults['animate'] = {
     'format': 'gif',
     'mode': 'I',
-    'subrectangles': True
 }
 
 

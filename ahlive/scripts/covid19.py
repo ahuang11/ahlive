@@ -23,11 +23,11 @@
 
 # timeseries = ah.DataFrame(
 #     df_sum, 'date', 'new_cases',
-#     annotation_kwds={'format': '.0f'}, ytick_kwds={'format': '.0f'})
+#     remark_kwds={'format': '.0f'}, ytick_kwds={'format': '.0f'})
 # condition = df_sum['date'].isin(
 #     pd.date_range('2020-03-15', '2020-11-15', freq='1MS'))
-# timeseries = timeseries.add_annotations(
-#     annotations='y', delays=1, condition=condition)
+# timeseries = timeseries.add_remarks(
+#     remarks='y', delays=1, condition=condition)
 # geomap = ah.DataFrame(
 #     df, 'long', 'lat', state_labels='date', figsize=(24, 9),
 #     xlim0s=-92, xlim1s=-86.5, ylim0s=37, ylim1s=43, clabel='',
@@ -89,4 +89,45 @@
 #     inline_labels='name', state_labels='date', legend=False,
 #     frames=20, crs='PlateCarree', land=True, states=True, ocean=True
 # )
+# ahdf.animate()
+
+# import pandas as pd
+# import ahlive as ah
+
+# df = pd.read_csv('ibtracs.ALL.list.v04r00.csv').iloc[1:]
+# df = df[['ISO_TIME', 'NAME', 'USA_LAT', 'USA_LON',
+#          'USA_RMW', 'USA_WIND', 'USA_PRES']]
+# df['ISO_TIME'] = pd.to_datetime(df['ISO_TIME'])
+# df.index = df['ISO_TIME']
+# df.iloc[:, -5:] = df.iloc[:, -5:].apply(pd.to_numeric, errors='coerce')
+# df['USA_RMW'] = df['USA_RMW'] ** 2
+
+# df_sel = df.query('NAME == "DORIAN"')['2019':]
+# df_sel['USA_RMW'] = df_sel['USA_RMW'].fillna(10)
+
+# caption = """
+# Hurricane Dorian was an extremely powerful and devastating Category 5 Atlantic
+# hurricane, that became the most intense tropical cyclone on record to strike
+# the Bahamas, and is regarded as the worst natural disaster in the country's history.
+# """
+# ahdf = ah.DataFrame(
+#     df_sel, 'USA_LON', 'USA_LAT', s='USA_RMW',
+#     c='USA_WIND', clabel='Max Winds [kt]',
+#     title='Track of Hurricane Dorian (2019)', subtitle='data: IBTrACS',
+#     note='* Size of circle NOT shown to scale!', caption=caption,
+#     xlim0s='fixed_35', xlim1s='fixed_45',
+#     ylim0s='fixed_5', ylim1s='fixed_10',
+#     chart='scatter', chart_type='trail',
+#     inline_labels='USA_PRES', state_labels='ISO_TIME',
+#     projection='Moellwide', land=True, ocean=True,
+#     cticks=[0, 64, 83, 96, 113, 137, 200], frames=10, delays=1/30
+# )
+# ahdf = ahdf.config(
+#     chart={'chart': 'both', 'stride': 6, 'expire': 50},
+#     inline={'color': 'black', 'suffix': ' hPa'},
+#     state={'format': '%b %d', 'fontsize': 64},
+#     remark_inline={'color': 'black', 'suffix': ' kts'}
+# )
+# ahdf = ahdf.remark(
+#     cs=[64, 83, 96, 113, 137], delays=1, remarks='c', first=True)
 # ahdf.animate()

@@ -4,8 +4,10 @@
 # tests
 # gridspec
 # highlight item
-# add_reference
+# tutorial data
 # backdrop
+# as_items
+# easy accesss
 
 ## tests
 datetime
@@ -16,26 +18,31 @@ two items
 even odd
 negative
 single unique
+params carried over
+keywords carried over
+whether original object changes
 
 ## docs
 - overview
     - quick start
 - features
+    - preparing data
     - interpolation
     - join objects
     - geographic
     - customizing
     - hooks
-    - annotations
+    - marks
     - labels
 - examples
     - tutorial
     - scripts
+        - hurricane
         - covid cases
         - text movement
         - wx records broken
     - quick reference
     - references
-    - annotations
+    - marks
 - acknowledgements
 

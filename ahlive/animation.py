@@ -1,4 +1,5 @@
 import os
+import base64
 import warnings
 from io import BytesIO
 from copy import deepcopy
@@ -42,26 +43,24 @@ FIGURE_KEYS = [
     'animate',
     'frame',
     'watermark',
-    'caption',
-    'delays',
+    'spacing',
+    'durations',
 ]
 
 
 class Animation(param.Parameterized):
 
-    save_path = param.String(default='untitled.gif', precedence=1)
+    save_path = param.Path(default='untitled.gif')
     figsize = param.NumericTuple(
         default=defaults['figure']['figsize'], length=2, precedence=100)
     suptitle = param.String()
     watermark = param.String(default='Animated using Ahlive')
-    caption = param.String()
-    delays = param.ClassSelector(class_=(Iterable, int, float))
-
-    num_workers = param.Integer(default=4, bounds=(1, None))
-    return_out = param.Boolean(default=True)
+    durations = param.ClassSelector(class_=(Iterable, int, float))
+    fps = param.Number(default=None)
     debug = param.Integer(default=None)
+    show = param.Boolean(default=True)
+    workers = param.Integer(default=2)
 
-    _num_states = 0
     _is_finalized = False
     _crs_names = {}
     _figure_kwds = {}
@@ -152,7 +151,7 @@ class Animation(param.Parameterized):
         for key, val in replacements.items():
             label = label.replace(key, val)
 
-        casing = kwds.pop('casing', 'title')
+        casing = kwds.pop('casing', False)
         if casing:
             label = getattr(label, casing)()
         kwds[label_key] = label if label != 'None' else None
@@ -206,10 +205,10 @@ class Animation(param.Parameterized):
                 ax.set_global()
             else:
                 ax.set_extent([
-                    limits.get('xlim0', -180),
-                    limits.get('xlim1', 180),
-                    limits.get('ylim0', -90),
-                    limits.get('ylim1', 90)
+                    limits.get('xlim0s', -180),
+                    limits.get('xlim1s', 180),
+                    limits.get('ylim0s', -90),
+                    limits.get('ylim1s', 90)
                 ], transform)
             for feature in GEO_FEATURES:
                 feature_kwds = load_defaults(f'{feature}', state_ds)
@@ -217,21 +216,33 @@ class Animation(param.Parameterized):
                     feature_obj = getattr(cfeature, feature.upper())
                     ax.add_feature(feature_obj, **feature_kwds)
         else:
-            if 'xlim0' in limits or 'xlim1' in limits:
-                ax.set_xlim(to_pydt(
-                    limits.get('xlim0'), limits.get('xlim1')))
-            if 'ylim0' in limits or 'ylim1' in limits:
-                ax.set_ylim(to_pydt(
-                    limits.get('ylim0'), limits.get('ylim1')))
-
+            for axis in ['x', 'y']:
+                axis_lim0 = to_scalar(limits[f'{axis}lim0s'])
+                axis_lim1 = to_scalar(limits[f'{axis}lim1s'])
+                if axis_lim0 is not None or axis_lim1 is not None:
+                    getattr(ax, f'set_{axis}lim')(
+                        to_pydt(axis_lim0, axis_lim1))
         return ax
 
     def _update_labels(self, state_ds, ax):
-        for label in ['xlabel', 'ylabel', 'title']:
+        for label in ['xlabel', 'ylabel', 'title', 'subtitle']:
             label_kwds = load_defaults(f'{label}', state_ds)
-            key = label if label != 'title' else 'label'
+            key = label if 'title' not in label else 'label'
             label_kwds = self._update_text(label_kwds, key)
+            if label == 'subtitle':
+                label = 'title'
             getattr(ax, f'set_{label}')(**label_kwds)
+
+        if self.note:
+            note_kwds = load_defaults(
+                'note', state_ds, transform=ax.transAxes)
+            ax.text(**note_kwds)
+
+        if self.caption:
+            y = -0.28 + -0.02 * self.caption.count('\n')
+            caption_kwds = load_defaults(
+                'caption', state_ds, transform=ax.transAxes, y=y)
+            ax.text(**caption_kwds)
 
     def _update_margins(self, state_ds, ax):
         margins_kwds = load_defaults('margins', state_ds)
@@ -274,6 +285,10 @@ class Animation(param.Parameterized):
         elif chart.startswith('bar'):
             plot = getattr(ax, chart)(xs, ys, **plot_kwds)
         color = self._get_color(overlay_ds, plot)
+
+        if xs.ndim == 2:  # a batch with same label
+            for p in plot:
+                p.set_color(color)
         return plot, color
 
     def _plot_trails(self, overlay_ds, ax, chart, color, xs, ys,
@@ -284,29 +299,33 @@ class Animation(param.Parameterized):
             x_discrete_trails is None and y_discrete_trails is None)
         if all_none:
             return
-        chart_kwds = load_defaults(
-            'chart', overlay_ds, base_chart=chart)
-        chart_kwds['label'] = '_nolegend_'
+        chart_kwds = load_defaults('chart', overlay_ds, base_chart=chart)
         chart = chart_kwds.pop('chart', 'both')
         expire = chart_kwds.pop('expire')
         stride = chart_kwds.pop('stride')
-
-        if chart in ['line', 'both']:
-            x_trails = x_trails[-expire - 1:]
-            y_trails = y_trails[-expire - 1:]
-            plot = ax.plot(x_trails, y_trails, color=color, **chart_kwds)
+        line_chart_kwds = chart_kwds.copy()
 
         if chart in ['scatter', 'both']:
-            x_discrete_trails = x_discrete_trails[-expire - 1::stride]
-            y_discrete_trails = y_discrete_trails[-expire - 1::stride]
+            non_nan_indices = np.where(~np.isnan(x_discrete_trails))
+            x_discrete_trails = (
+                x_discrete_trails[non_nan_indices][-expire - 1::stride])
+            y_discrete_trails = (
+                y_discrete_trails[non_nan_indices][-expire - 1::stride])
             chart_kwds.update(**trail_plot_kwds)
             chart_kwds = {
-                key: val[-expire -1::stride]
-                if isinstance(val, np.ndarray) else val
+                key: val[non_nan_indices][-expire - 1::stride]
+                if not is_scalar(val) else val
                 for key, val in chart_kwds.items()}
             chart_kwds['label'] = '_nolegend_'
             plot = ax.scatter(
                 x_discrete_trails, y_discrete_trails, **chart_kwds)
+
+        if chart in ['line', 'both']:
+            x_trails = x_trails[-expire * self._num_steps - 1:]
+            y_trails = y_trails[-expire * self._num_steps - 1:]
+            line_chart_kwds['label'] = '_nolegend_'
+            plot = ax.plot(x_trails, y_trails, color=color, **line_chart_kwds)
+
 
     def _plot_deltas(self, overlay_ds, ax, chart,
                      x_centers, y_centers,
@@ -550,9 +569,12 @@ class Animation(param.Parameterized):
             ax.tick_params(**yticks_kwds)
 
     def _update_legend(self, state_ds, ax):
-        legend_labels = ax.get_legend_handles_labels()[1]
+        handles, legend_labels = ax.get_legend_handles_labels()
+        legend_items = dict(zip(legend_labels, handles))
         ncol = int(len(legend_labels) / 5) or 1
-        legend_kwds = dict(labels=legend_labels, ncol=ncol)
+        legend_kwds = dict(
+            handles=legend_items.values(), labels=legend_items.keys(),
+            ncol=ncol)
         legend_kwds = load_defaults(
             'legend', state_ds, **legend_kwds)
 
@@ -622,17 +644,22 @@ class Animation(param.Parameterized):
         cax.tick_params(**cticks_kwds)
 
     def _update_watermark(self, figure):
-        watermark_kwds = load_defaults(
-            'watermark', self._figure_kwds['watermark'])
-        figure.text(**watermark_kwds)
+        if self.watermark:
+            watermark_kwds = load_defaults(
+                'watermark', self._figure_kwds['watermark'])
+            figure.text(**watermark_kwds)
 
-    def _update_caption(self, figure):
-        caption_kwds = load_defaults(
-            'caption', self._figure_kwds['caption'])
-        figure.text(**caption_kwds)
+    def _update_spacing(self):
+        if self.caption:
+            bottom = 0.2 + 0.008 * self.caption.count('\n')
+        else:
+            bottom = defaults['spacing']['bottom']
+        spacing_kwds = load_defaults(
+            'spacing', self._figure_kwds['spacing'], bottom=bottom)
+        plt.subplots_adjust(**spacing_kwds)
 
     def _apply_hooks(self, state_ds, figure, ax):  # TODO: implement
-        hooks = state_ds.attrs['settings'].pop('hooks')
+        hooks = state_ds.attrs['settings'].pop('hooks', [])
         for hook in hooks:
             if not callable(hook):
                 continue
@@ -677,17 +704,18 @@ class Animation(param.Parameterized):
     def _groupby_key(data, key):
         if key is not None and key != '':
             if isinstance(data, xr.Dataset):
-                if key not in data.dims:
+                if key not in data.dims and key not in data.data_vars:
                     data = data.expand_dims(key)
-            return data.groupby(key)
+                elif key in data.data_vars and is_scalar(data[key]):
+                    data[key] = data[key].expand_dims('group')
+            return data.groupby(key)  # TODO: explore unsorted
         else:
             return zip([''], [data])
 
     def _get_iter_ds(self, state_ds):
-        batch = pop(state_ds, 'batch', dflt=False, get=0)
         if len(state_ds.data_vars) == 0:
             return zip([], [])
-        elif batch:
+        elif any(group for group in np.atleast_1d(state_ds['group']).flat):
             state_ds = state_ds.drop('label').rename({'group': 'label'})
             key = 'label'
         else:
@@ -751,7 +779,8 @@ class Animation(param.Parameterized):
                 key: to_scalar(val) for key, val in trail_plot_kwds.items()}
             if 'label' in plot_kwds:
                 plot_kwds['label'] = to_scalar(plot_kwds['label'])
-
+            if 'zorder' not in plot_kwds:
+                plot_kwds['zorder'] = 2
             plot, color = self._plot_chart(
                 overlay_ds, ax, chart, xs, ys, plot_kwds)
             self._plot_trails(
@@ -790,13 +819,8 @@ class Animation(param.Parameterized):
             ax = self._prep_axes(state_ds, rows, cols, irowcol)
             self._draw_subplot(state_ds, ax)
             self._apply_hooks(state_ds, figure, ax)
-
-        if self.watermark:
-            self._update_watermark(figure)
-
-        if self.caption:
-            self._update_caption(figure)
-
+        self._update_watermark(figure)
+        self._update_spacing()
         state = pop(state_ds, 'state', get=-1)
         buf = self._buffer_frame(state)
         return buf
@@ -856,11 +880,30 @@ class Animation(param.Parameterized):
 
     def _add_xy01_limits(self, ds, chart):
         limits = {
-            'xlim0': ds.attrs['settings'].pop('xlim0s'),
-            'xlim1': ds.attrs['settings'].pop('xlim1s'),
-            'ylim0': ds.attrs['settings'].pop('ylim0s'),
-            'ylim1': ds.attrs['settings'].pop('ylim1s')
-        }
+            key: val
+            for key, val in ds.attrs['settings'].items()
+            if key[1:4] == 'lim'}
+
+        for axis in ['x', 'y']:
+            axis_lim = limits.pop(f'{axis}lim')
+            if axis_lim is None:
+                continue
+
+            axis_lim0 = f'{axis}lim0s'
+            axis_lim1 = f'{axis}lim1s'
+
+            has_axis_lim0 = limits[axis_lim0] is not None
+            has_axis_lim1 = limits[axis_lim1] is not None
+            if has_axis_lim0 or has_axis_lim1:
+                warnings.warn(
+                    'Overwriting `{axis_lim0}` and `{axis_lim1}` '
+                    'with set `xlim` {axis_lim}!')
+            if isinstance(axis_lim, str):
+                limits[axis_lim0] = axis_lim
+                limits[axis_lim1] = axis_lim
+            else:
+                limits[axis_lim0] = axis_lim[0]
+                limits[axis_lim1] = axis_lim[1]
 
         if ds.attrs['settings']['worldwide'] is None:
             if any(limit is not None for limit in limits.values()):
@@ -875,8 +918,9 @@ class Animation(param.Parameterized):
         margins_kwds = ds.attrs['margins']
 
         for key, limit in limits.items():
-            axis = key[0]
-            num = int(key[-1])
+            # example: xlim0s
+            axis = key[0]  # x
+            num = int(key[-2])  # 0
             is_lower_limit = num == 0
 
             axis_limit_key = f'{axis}lim'
@@ -916,10 +960,11 @@ class Animation(param.Parameterized):
                 else:
                     offset = 0
 
-                stat = 'min' if is_lower_limit else 'max'
                 if limit == 'fixed':
+                    stat = 'min' if is_lower_limit else 'max'
                     limit = getattr(ds[axis], stat)().values
                 elif limit == 'follow':
+                    stat = 'max' if is_lower_limit else 'min'
                     limit = getattr(ds[axis], stat)('item').values
 
                 if not chart.startswith('bar'):
@@ -935,38 +980,36 @@ class Animation(param.Parameterized):
                     axis = 'x' if axis == 'y' else 'y'
                     key = axis + key[1:]
                 if is_scalar(limit) == 1:
-                    limit = [limit] * self._num_states
+                    limit = [limit] * self.num_states
                 ds[key] = ('state', limit)
         return ds
 
-    def _add_delays(self, ds):
-        if self.delays is None:
-            delays = 0.5 if self._num_states < 10 else 1 / 60
+    def _add_durations(self, ds):
+        if self.durations is None:
+            durations = 0.5 if self.num_states < 10 else 1 / 60
         else:
-            delays = self._figure_kwds['delays']
+            durations = self._figure_kwds['durations']['durations']
 
-        if isinstance(delays, (int, float)):
-            transition_frames = delays
-            delays = np.repeat(delays, self._num_states)
-        else:
-            transition_frames = (
-                defaults['delays']['transition_frames'])
+        if isinstance(durations, (int, float)):
+            durations = np.repeat(durations, self.num_states)
+        transition_frames = (
+            defaults['durations']['transition_frames'])
 
-        delays_kwds = load_defaults(
-            'delays', self._figure_kwds['delays'],
+        durations_kwds = load_defaults(
+            'durations', self._figure_kwds['durations'],
             transition_frames=transition_frames)
-        aggregate = delays_kwds.pop('aggregate')
+        aggregate = durations_kwds.pop('aggregate')
 
-        if np.isnan(delays[-1]):
-            delays[-1] = 0
-        delays[-1] += delays_kwds['final_frame']
+        if np.isnan(durations[-1]):
+            durations[-1] = 0
+        durations[-1] += durations_kwds['final_frame']
 
-        if 'delay' in ds:
-            ds['delay'] = ('state', delays + ds['delay'].values)
+        if 'duration' in ds:
+            ds['duration'] = ('state', durations + ds['duration'].values)
         else:
-            ds['delay'] = ('state', delays)
-        ds['delay'].attrs['transition_frames'] = transition_frames
-        ds['delay'].attrs['aggregate'] = aggregate
+            ds['duration'] = ('state', durations)
+        ds['duration'].attrs['transition_frames'] = transition_frames
+        ds['duration'].attrs['aggregate'] = aggregate
         return ds
 
     def _get_crs(self, crs_name, crs_kwds):
@@ -1008,6 +1051,17 @@ class Animation(param.Parameterized):
                     ds[var] = ds[var].where(~pd.isnull(ds[var]), '')
         return ds
 
+    def _compress_vars(self, da):
+        if isinstance(da, xr.Dataset):
+            da = da.map(self._compress_vars, keep_attrs=True)
+            return da
+
+        unique_vals = np.unique(da.values)
+        if len(unique_vals) == 1:
+            return unique_vals[0]
+        else:
+            return da
+
     @staticmethod
     def _add_color_kwds(ds, chart):
         if chart.startswith('bar'):
@@ -1018,7 +1072,7 @@ class Animation(param.Parameterized):
         if 'c' in ds:
             cticks = ds.attrs['cticks'].get('ticks')
             if cticks is None:
-                num_ticks = defaults['cticks'].get('num_ticks')
+                num_ticks = defaults['cticks']['num_ticks']
             else:
                 num_ticks = len(cticks)
             num_ticks = ds.attrs['cticks'].pop('num_ticks', num_ticks)
@@ -1078,7 +1132,6 @@ class Animation(param.Parameterized):
     def _interp_dataset(self, ds):
         ds = ds.reset_coords()
         ds = ds.map(self.interpolate, keep_attrs=True)
-        self._num_states = len(ds['state'])
 
         if 'x' in ds.data_vars and 'item' not in ds.dims:
             ds = ds.expand_dims('item')
@@ -1087,34 +1140,24 @@ class Animation(param.Parameterized):
         if 'ref_chart' in ds.data_vars and 'ref_item' not in ds.dims:
             ds = ds.expand_dims('ref_item')
             ds['ref_item'] = srange(ds['ref_item'])
-        ds['state'] = srange(self._num_states)
+        ds['item'] = srange(ds['item'])
+        ds['state'] = srange(len(ds['state']))
         return ds
 
-    def _compress_vars(self, da):
-        if isinstance(da, xr.Dataset):
-            da = da.map(self._compress_vars, keep_attrs=True)
-            return da
-
-        unique_vals = np.unique(da.values)
-        if len(unique_vals) == 1:
-            return unique_vals[0]
-        else:
-            return da
-
     def finalize(self):
-        if not self._is_configured:
-            self = self.configure()
-
-        data = deepcopy(self.data)
         if self._is_finalized:
-            return data
+            return self
 
-        for i, (rowcol, ds) in enumerate(data.items()):
+        self_copy = deepcopy(self)
+        if not self_copy._is_configured:
+            self_copy = self_copy.config()
+
+        data = {}
+        for i, (rowcol, ds) in enumerate(self_copy.data.items()):
             if i == 0:
                 for key in FIGURE_KEYS:
-                    self._figure_kwds[key] = ds.attrs[key]
+                    self_copy._figure_kwds[key] = ds.attrs[key]
 
-            self._num_states = len(ds['state'])
             chart = to_scalar(ds['chart']) if 'chart' in ds else ''
             ds = self._fill_null(ds)
             ds = self._compress_vars(ds)
@@ -1123,36 +1166,21 @@ class Animation(param.Parameterized):
             ds = self._config_chart(ds, chart)
             ds = self._add_xy01_limits(ds, chart)
             ds = self._add_base_kwds(ds)
-            ds = self._add_delays(ds)
+            if self.fps is None:
+                ds = self._add_durations(ds)
             ds = self._interp_dataset(ds)
             ds = self._add_geo_transforms(ds)
             ds.attrs['finalized'] = True
             if self.debug > 0:
                 ds = ds.isel(state=slice(None, self.debug))
-            self._num_states = len(ds['state'])
-            self._is_finalized = True
+            self_copy._is_finalized = True
             data[rowcol] = ds
+        self_copy.data = data
+        return self_copy
 
-        return data
-
-    def animate(self, debug=None):
-        if debug is not None:
-            self.debug = debug
-
-        data = self.finalize()
-        print(data)
-        rows, cols = [max(rowcol) for rowcol in zip(*data.keys())]
-
-        delays = xr.concat((
-            pop(ds, 'delay', to_numpy=False) for ds in data.values()
-        ), 'item')
-        delays = getattr(
-            delays, delays.attrs['aggregate'])('item', keep_attrs=True)
-        delays = delays.where(
-            delays > 0, delays.attrs['transition_frames']).squeeze()
-
+    def _render_frames(self, data, rows, cols):
         jobs = []
-        for state in srange(self._num_states):
+        for state in srange(self.num_states):
             state_ds_list = [
                 ds.sel(state=slice(None, state))
                 if 'line' in ds['chart']
@@ -1164,10 +1192,10 @@ class Animation(param.Parameterized):
             job = self._draw_frame(state_ds_list, rows, cols)
             jobs.append(job)
 
-        if self._num_states >= self.num_workers:
-            num_workers = self.num_workers
+        if self.num_states >= self.workers:
+            num_workers = self.workers
         else:
-            num_workers = self._num_states
+            num_workers = self.num_states
 
         scheduler = 'single-threaded' if self.debug else 'processes'
         with dask.diagnostics.ProgressBar(minimum=0.5):
@@ -1176,7 +1204,32 @@ class Animation(param.Parameterized):
                     jobs, num_workers=num_workers,
                     scheduler=scheduler)[0]
                 if buf is not None]
+        return buf_list
 
+    def _decide_speed(self, save_ext, buf_list, durations, animate_kwds):
+        if self.fps is not None:
+            animate_kwds['fps'] = self.fps
+            return animate_kwds
+
+        durations = getattr(
+            durations, durations.attrs['aggregate']
+        )('item', keep_attrs=True)
+        durations = durations.where(
+            durations > 0, durations.attrs['transition_frames']).squeeze()
+        durations = np.atleast_1d(durations)[:len(buf_list)]
+
+        if save_ext != '.gif':
+            fps = 1 / durations.min()
+            warnings.warn(
+                f'Only GIFs support setting explicit durations; '
+                f'defaulting `fps` to {fps} from 1 / min(durations)')
+            animate_kwds['fps'] = fps
+        else:
+            # imageio requires native list
+            animate_kwds['duration'] = durations.tolist()
+        return animate_kwds
+
+    def _export_file(self, buf_list, durations):
         if isinstance(self.loop, bool):
             loop = int(not self.loop)
         elif isinstance(self.loop, str):
@@ -1184,14 +1237,71 @@ class Animation(param.Parameterized):
         else:
             loop = self.loop
 
-        delays = np.atleast_1d(delays)[:len(buf_list)].tolist()
-        animate_kwds = dict(loop=loop, duration=delays)
+        save_file, save_ext = os.path.splitext(self.save_path)
+        if save_ext == '':
+            warnings.warn(
+                f'{save_path} has no extension; defaulting to .gif')
+            save_ext = '.gif'
+            save_path = f'{save_file}.gif'
+        else:
+            save_ext = save_ext.lower()
+            save_path = self.save_path
+
+        if not os.path.isabs(save_path):
+            save_path = os.path.join(os.getcwd(), save_path)
+
+        animate_kwds = dict(loop=loop, format=save_ext)
+        animate_kwds = self._decide_speed(
+            save_ext, buf_list, durations, animate_kwds)
+        if save_ext == '.gif':
+            animate_kwds['subrectangles'] = True
+
         animate_kwds = load_defaults(
             'animate', self._figure_kwds['animate'], **animate_kwds)
-        with imageio.get_writer(self.save_path, **animate_kwds) as writer:
+        with imageio.get_writer(save_path, **animate_kwds) as writer:
             for buf in buf_list:
                 image = imageio.imread(buf)
                 writer.append_data(image)
                 buf.close()
-        optimize(self.save_path)
-        print(self.save_path)
+        return save_path, save_ext
+
+    @staticmethod
+    def _show_output(save_path, save_ext):
+        with open(save_path, 'rb') as fi:
+            b64 = base64.b64encode(fi.read()).decode('ascii')
+        if save_ext == '.gif':
+            from IPython import display
+            return display.HTML(f'<img src="data:image/gif;base64,{b64}" />')
+        else:
+            from IPython.display import Video
+            return Video(save_path)
+
+    def animate(self, save_path=None, show=None, workers=None):
+        if save_path is not None:
+            self.save_path = save_path
+        if show is not None:
+            self.show = show
+        if workers is not None:
+            self.workers = workers
+
+        self = self.finalize()
+        data = self.data
+        print(data)
+
+        rows, cols = [max(rowcol) for rowcol in zip(*data.keys())]
+
+        if self.fps is None:
+            durations = xr.concat((
+                pop(ds, 'duration', to_numpy=False) for ds in data.values()
+            ), 'item')
+        else:
+            durations = None
+
+        buf_list = self._render_frames(data, rows, cols)
+        save_path, save_ext = self._export_file(buf_list, durations)
+        if self.show:
+            try:
+                return self._show_output(save_path, save_ext)
+            except Exception as e:
+                warnings.warn(f'Unable to show output in notebook due to {e}!')
+        return save_path

@@ -47,6 +47,8 @@ class Easing(param.Parameterized):
             'traceback backtracks the original path to the initial state.'
         )
 
+    _num_steps = 1
+
     def __init__(self, **kwds):
         super().__init__(**kwds)
 
@@ -56,6 +58,8 @@ class Easing(param.Parameterized):
             name = da.name
             if 'state' not in da.dims:
                 return da
+            elif 'item' in da.dims and da.dims != ('item', 'state'):
+                raise ValueError(f'Reorder {name} to be (item, state)!')
 
         array = np.array(da)
         if array.ndim == 1:
@@ -73,8 +77,10 @@ class Easing(param.Parameterized):
                 num_steps = int(np.ceil(350 / num_states))
         else:
             num_steps = self.frames
+        self._num_steps = num_steps
 
-        if num_steps == 1 and isinstance(self.loop, int) or self.loop is None:
+        has_loop = isinstance(self.loop, int) or self.loop is not None
+        if num_steps == 1 and not has_loop:
             return da
 
         steps = np.linspace(0, 1, num_steps)
@@ -85,14 +91,13 @@ class Easing(param.Parameterized):
             interp = ALIASES.get(self.interp, self.interp)
 
         num_result = (num_states - 1) * num_steps
-        if name in ['delay', 'root']:
+        if name in ['duration', 'root']:
             result = np.full(num_result, 0.)
             indices = np.arange(num_states) * num_steps
             indices[-1] -= 1
             result[indices] = array[0]  # (1, num_states)
             result = result.reshape(1, -1)
         elif name.endswith('discrete_trail'):
-            print(name)
             indices = np.arange(num_states * num_steps - num_steps)
             result = pd.DataFrame(
                 array, columns=np.arange(0, num_states * num_steps, num_steps)
@@ -136,7 +141,7 @@ class Easing(param.Parameterized):
 
         if self.loop in ['traceback', 'rollback']:
             result_back = result[:, ::-2]
-            if name == 'delay' and self.loop == 'rollback':
+            if name == 'duration' and self.loop == 'rollback':
                 result_back = np.repeat(
                     0, result_back.shape[1]
                 ).reshape(1, -1)
