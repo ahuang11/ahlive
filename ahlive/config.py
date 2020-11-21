@@ -187,7 +187,6 @@ defaults['frame'] = {
 }
 
 defaults['animate'] = {
-    'format': 'gif',
     'mode': 'I',
 }
 

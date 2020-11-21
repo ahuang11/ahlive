@@ -50,7 +50,7 @@ FIGURE_KEYS = [
 
 class Animation(param.Parameterized):
 
-    save_path = param.Path(default='untitled.gif')
+    path = param.Path(default='untitled.gif')
     figsize = param.NumericTuple(
         default=defaults['figure']['figsize'], length=2, precedence=100)
     suptitle = param.String()
@@ -58,7 +58,10 @@ class Animation(param.Parameterized):
     durations = param.ClassSelector(class_=(Iterable, int, float))
     fps = param.Number(default=None)
     debug = param.Integer(default=None)
+    export = param.Boolean(default=True)
     show = param.Boolean(default=True)
+    static = param.Boolean(default=False)
+    merge = param.Boolean(default=True)
     workers = param.Integer(default=2)
 
     _is_finalized = False
@@ -170,7 +173,7 @@ class Animation(param.Parameterized):
 
     def _prep_axes(self, state_ds, rows, cols, irowcol):
         limits = {
-            var: pop(state_ds, var)[-1]
+            var: pop(state_ds, var, get=-1)
             for var in list(state_ds.data_vars)
             if var[1:4] == 'lim'}
 
@@ -669,12 +672,6 @@ class Animation(param.Parameterized):
         buf = BytesIO()
         frame_kwds = load_defaults('frame', self._figure_kwds['frame'])
         try:
-            if self.debug:
-                debug_dir = 'AHLIVE_DEBUGGER'
-                fmt = frame_kwds['format']
-                debug_path = os.path.join(debug_dir, f'{state}.{fmt}')
-                os.makedirs(debug_dir, exist_ok=True)
-                plt.savefig(debug_path, **frame_kwds)
             plt.savefig(buf, **frame_kwds)
             buf.seek(0)
             plt.close()
@@ -813,9 +810,9 @@ class Animation(param.Parameterized):
         self._update_colorbar(state_ds, ax, plot)
 
     @dask.delayed()
-    def _draw_frame(self, state_ds_list, rows, cols):
+    def _draw_frame(self, state_ds_rowcols, rows, cols):
         figure = self._prep_figure()
-        for irowcol, state_ds in enumerate(state_ds_list, 1):
+        for irowcol, state_ds in enumerate(state_ds_rowcols, 1):
             ax = self._prep_axes(state_ds, rows, cols, irowcol)
             self._draw_subplot(state_ds, ax)
             self._apply_hooks(state_ds, figure, ax)
@@ -1178,10 +1175,12 @@ class Animation(param.Parameterized):
         self_copy.data = data
         return self_copy
 
-    def _render_frames(self, data, rows, cols):
+    def _compute_frames(self, data, rows, cols):
         jobs = []
         for state in srange(self.num_states):
-            state_ds_list = [
+            if self.static:
+                state = self.num_states
+            state_ds_rowcols = [
                 ds.sel(state=slice(None, state))
                 if 'line' in ds['chart']
                 or 'x_trail' in ds.data_vars
@@ -1189,8 +1188,10 @@ class Animation(param.Parameterized):
                 else ds.sel(state=state)
                 for ds in data.values()
             ]
-            job = self._draw_frame(state_ds_list, rows, cols)
+            job = self._draw_frame(state_ds_rowcols, rows, cols)
             jobs.append(job)
+            if self.static:
+                break
 
         if self.num_states >= self.workers:
             num_workers = self.workers
@@ -1206,7 +1207,7 @@ class Animation(param.Parameterized):
                 if buf is not None]
         return buf_list
 
-    def _decide_speed(self, save_ext, buf_list, durations, animate_kwds):
+    def _decide_speed(self, ext, buf_list, durations, animate_kwds):
         if self.fps is not None:
             animate_kwds['fps'] = self.fps
             return animate_kwds
@@ -1218,7 +1219,7 @@ class Animation(param.Parameterized):
             durations > 0, durations.attrs['transition_frames']).squeeze()
         durations = np.atleast_1d(durations)[:len(buf_list)]
 
-        if save_ext != '.gif':
+        if ext != '.gif':
             fps = 1 / durations.min()
             warnings.warn(
                 f'Only GIFs support setting explicit durations; '
@@ -1229,7 +1230,7 @@ class Animation(param.Parameterized):
             animate_kwds['duration'] = durations.tolist()
         return animate_kwds
 
-    def _export_file(self, buf_list, durations):
+    def _export_rendered(self, buf_list, durations):
         if isinstance(self.loop, bool):
             loop = int(not self.loop)
         elif isinstance(self.loop, str):
@@ -1237,54 +1238,72 @@ class Animation(param.Parameterized):
         else:
             loop = self.loop
 
-        save_file, save_ext = os.path.splitext(self.save_path)
-        if save_ext == '':
+        file, ext = os.path.splitext(self.path)
+        if self.static or not self.merge:
+            ext = '.png'
+        elif ext == '':
+            ext = '.' + defaults["animate"]["format"]
             warnings.warn(
-                f'{save_path} has no extension; defaulting to .gif')
-            save_ext = '.gif'
-            save_path = f'{save_file}.gif'
+                f'{path} has no extension; defaulting to {ext}')
         else:
-            save_ext = save_ext.lower()
-            save_path = self.save_path
+            ext = ext.lower()
 
-        if not os.path.isabs(save_path):
-            save_path = os.path.join(os.getcwd(), save_path)
+        path = f'{file}{ext}'
+        if not os.path.isabs(path):
+            path = os.path.join(os.getcwd(), path)
 
-        animate_kwds = dict(loop=loop, format=save_ext)
-        animate_kwds = self._decide_speed(
-            save_ext, buf_list, durations, animate_kwds)
-        if save_ext == '.gif':
-            animate_kwds['subrectangles'] = True
+        if self.static:
+            image = imageio.imread(buf_list[0])
+            imageio.imwrite(path, image)
+        elif self.merge:
+            animate_kwds = dict(loop=loop, format=ext)
+            animate_kwds = self._decide_speed(
+                ext, buf_list, durations, animate_kwds)
+            if ext == '.gif':
+                animate_kwds['subrectangles'] = True
 
-        animate_kwds = load_defaults(
-            'animate', self._figure_kwds['animate'], **animate_kwds)
-        with imageio.get_writer(save_path, **animate_kwds) as writer:
-            for buf in buf_list:
+            animate_kwds = load_defaults(
+                'animate', self._figure_kwds['animate'], **animate_kwds)
+            with imageio.get_writer(path, **animate_kwds) as writer:
+                for buf in buf_list:
+                    image = imageio.imread(buf)
+                    writer.append_data(image)
+                    buf.close()
+        else:
+            file_dir = file
+            if not os.path.isabs(file_dir):
+                file_dir = os.path.join(os.getcwd(), file_dir)
+            os.makedirs(file_dir, exist_ok=True)
+            zfill = len(str(len(buf_list)))
+            for state, buf in enumerate(buf_list, 1):
+                path = os.path.join(file_dir, f'{state:0{zfill}d}{ext}')
                 image = imageio.imread(buf)
-                writer.append_data(image)
-                buf.close()
-        return save_path, save_ext
+                imageio.imwrite(path, image)
+        return path, ext
 
     @staticmethod
-    def _show_output(save_path, save_ext):
-        with open(save_path, 'rb') as fi:
+    def _show_output(path, ext):
+        from IPython import display
+        with open(path, 'rb') as fi:
             b64 = base64.b64encode(fi.read()).decode('ascii')
-        if save_ext == '.gif':
-            from IPython import display
+        if ext == '.gif':
             return display.HTML(f'<img src="data:image/gif;base64,{b64}" />')
+        elif ext == '.mp4':
+            return display.Video(path)
+        elif ext in ['.jpg', '.png']:
+            return display.Image(path)
         else:
-            from IPython.display import Video
-            return Video(save_path)
+            raise NotImplementedError(f'No method implemented to show {ext}!')
 
-    def animate(self, save_path=None, show=None, workers=None):
-        if save_path is not None:
-            self.save_path = save_path
-        if show is not None:
-            self.show = show
-        if workers is not None:
-            self.workers = workers
+    def render(self, path=None, export=None, show=None,
+               static=None, merge=None, workers=None):
+        for key, val in locals().items():
+            if key in ['self']:
+                continue
+            elif val is not None:
+                setattr(self, key, val)
 
-        self = self.finalize()
+        self.data = self.finalize().data
         data = self.data
         print(data)
 
@@ -1297,11 +1316,20 @@ class Animation(param.Parameterized):
         else:
             durations = None
 
-        buf_list = self._render_frames(data, rows, cols)
-        save_path, save_ext = self._export_file(buf_list, durations)
-        if self.show:
-            try:
-                return self._show_output(save_path, save_ext)
-            except Exception as e:
-                warnings.warn(f'Unable to show output in notebook due to {e}!')
-        return save_path
+        buf_list = self._compute_frames(data, rows, cols)
+
+        if self.export:
+            path, ext = self._export_rendered(buf_list, durations)
+
+            if self.show:
+                try:
+                    return self._show_output(path, ext)
+                except Exception as e:
+                    warnings.warn(
+                        f'Unable to show output in '
+                        f'notebook due to {e}!')
+        elif not self.merge:
+            return buf_list
+        elif self.static:
+            return buf_list[0]
+        return path

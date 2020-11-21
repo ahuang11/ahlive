@@ -1,13 +1,8 @@
 ## issues
-# gridded
+# gridded Dataset
 # documentation
 # tests
-# gridspec
-# highlight item
 # tutorial data
-# backdrop
-# as_items
-# easy accesss
 
 ## tests
 datetime
@@ -46,3 +41,8 @@ whether original object changes
     - marks
 - acknowledgements
 
+
+## future
+stacked shift plots https://imgur.com/r/interestingasfuck/xhYCQh4
+highlight item
+gridspec
