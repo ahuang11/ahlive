@@ -4,10 +4,17 @@ import xarray as xr
 from .config import sizes, defaults
 
 
+def to_1d(value, flat=True):
+    array = np.atleast_1d(value)
+    if flat:
+        array = array.flat
+    return array
+
+
 def to_pydt(*values):
     if values is None:
         return
-    array = np.array(values)
+    array = to_1d(values, flat=False)
     if np.issubdtype(array.dtype, np.datetime64):
         array = array.astype('M8[ms]').astype('O')
     if np.size(array) == 1:
@@ -49,7 +56,7 @@ def is_datetime(value):
 
 
 def to_scalar(value, get=-1):
-    value = np.atleast_1d(value).flat[get]
+    value = to_1d(value)[get]
     return value
 
 
@@ -57,7 +64,7 @@ def pop(ds, key, dflt=None, get=None, squeeze=False, to_numpy=True):
     try:
         array = ds[key]
         if to_numpy:
-            array = np.atleast_1d(array)
+            array = to_1d(array, flat=False)
         del ds[key]
     except KeyError:
         array = dflt

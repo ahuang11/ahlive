@@ -10,20 +10,19 @@ import xarray as xr
 
 from .easing import Easing
 from .animation import Animation
-from .util import is_scalar, is_datetime, srange
+from .util import is_scalar, is_datetime, srange, to_1d, to_scalar
 from .join import _get_rowcols, _combine, layout, cascade, overlay
 
 
 CHARTS = {
-    'plot': [
-        'scatter', 'line', 'barh', 'bar',
-        'axvspan', 'axhspan', 'axvline', 'axhline'],
     'base': ['scatter', 'line', 'barh', 'bar'],
+    'grid': ['pcolormesh', 'pcolorfast', 'contour', 'contourf', 'scatter'],
     'refs': ['axvspan', 'axhspan', 'axvline', 'axhline'],
-    'type': ['race', 'delta', 'trail'],
+    'type': ['race', 'delta', 'trail', 'globe'],
 }
 DIMS = {
     'base': ('item', 'state'),
+    'grid': ('item', 'state', 'xi', 'yi'),
     'refs': ('ref_item', 'state')
 }
 LIMS = [
@@ -44,8 +43,8 @@ class Data(Easing, Animation):
     state_labels = param.ClassSelector(class_=(Iterable,))
     inline_labels = param.ClassSelector(class_=(Iterable,))
 
-    xlim = param.ClassSelector(class_=(Iterable))
-    ylim = param.ClassSelector(class_=(Iterable))
+    xlims = param.ClassSelector(class_=(Iterable))
+    ylims = param.ClassSelector(class_=(Iterable))
     xlim0s = param.ClassSelector(class_=(Iterable, int, float))
     xlim1s = param.ClassSelector(class_=(Iterable, int, float))
     ylim0s = param.ClassSelector(class_=(Iterable, int, float))
@@ -197,7 +196,7 @@ class Data(Easing, Animation):
 
     def _load_attrs(self):
         for axis in ['x', 'y']:
-            axis_lim = getattr(self, f'{axis}lim')
+            axis_lim = getattr(self, f'{axis}lims')
             if axis_lim is None:
                 continue
             elif not isinstance(axis_lim, str) and len(axis_lim) != 2:
@@ -208,8 +207,8 @@ class Data(Easing, Animation):
 
         attrs = {}
         attrs['settings'] = {
-            'xlim': self.xlim,
-            'ylim': self.ylim,
+            'xlims': self.xlims,
+            'ylims': self.ylims,
             'xlim0s': self.xlim0s,
             'xlim1s': self.xlim1s,
             'ylim0s': self.ylim0s,
@@ -496,7 +495,7 @@ class Array(Data):
         try:
             return xr.concat((
                 np.isclose(da, value, rtol=rtol, atol=atol)
-                for value in np.atleast_1d(values)), 'stack'
+                for value in to_1d(values)), 'stack'
             ).sum('stack')
         except TypeError:
             return da.isin(values)
@@ -627,9 +626,7 @@ class DataFrame(Array):
     join = param.ObjectSelector(
         default='overlay', objects=['overlay', 'layout', 'cascade'])
 
-    def __init__(self, df, xs, ys, **kwds):
-        join = kwds.pop('join', 'overlay')
-
+    def __init__(self, df, xs, ys, join='overlay', **kwds):
         group_key = kwds.pop('group', None)
         label_key = kwds.pop('label', None)
 
@@ -674,6 +671,30 @@ class DataFrame(Array):
             self.data = cascade(arrays, quick=True).data
 
 
+class Array2D(Array):
+
+    cs = param.ClassSelector(class_=(Iterable,))
+
+    def __init__(self, xs, ys, cs, **kwds):
+        num_states = len(xs)
+        super().__init__(num_states, **kwds)
+        ds = self.data[self.rowcol]
+        ds = ds.assign_coords(**{'xc': xs, 'yc': ys})
+        ds = ds.assign({'cs': (DIMS['grid'], cs)})
+        self.data = {self.rowcol: ds}
+
+
+class Dataset(Array2D, DataFrame):
+
+    ds = param.ObjectSelector(objects=(xr.Dataset,))
+
+    inline_loc = param.ClassSelector(class_=(Iterable, int, float))
+
+    def __init__(self, ds, xs, ys, cs, **kwds):
+        num_states = len(cs)
+        super().__init__(ds['xs'], ds['ys'], ds['cs'], **kwds)
+
+
 class Reference(Data):
 
     chart = param.ObjectSelector(objects=CHARTS['refs'])
@@ -700,18 +721,18 @@ class Reference(Data):
         for key in list(ref_kwds):
             val = ref_kwds[key]
             if val is not None:
-                num_states = val.shape[-1]
+                num_states = to_1d(val, flat=False).shape[-1]
             else:
                 ref_kwds.pop(key)
 
         if has_kwds['ref_x0'] and has_kwds['ref_x1']:
-            ref_kwds['ref_chart'] = ['axvspan']
+            kwds['chart'] = 'axvspan'
         elif has_kwds['ref_y0'] and has_kwds['ref_y1']:
-            ref_kwds['ref_chart'] = ['axhspan']
+            kwds['chart'] = 'axhspan'
         elif has_kwds['ref_x0']:
-            ref_kwds['ref_chart'] = ['axvline']
+            kwds['chart'] = 'axvline'
         elif has_kwds['ref_y0']:
-            ref_kwds['ref_chart'] = ['axhline']
+            kwds['chart'] = 'axhline'
         else:
             raise NotImplementedError(
                 'One of the following combinations must be provided: '
@@ -735,7 +756,7 @@ class Reference(Data):
             inline_labels = self._adapt_input(inline_labels)
             ds['ref_inline_label'] = DIMS['refs'], inline_labels
 
-            inline_loc = self.inline_loc
+            inline_loc = to_scalar(self.inline_loc)
             if inline_loc is None:
                 raise ValueError(
                     'Must provide an inline location '
@@ -744,4 +765,3 @@ class Reference(Data):
                 ds['ref_inline_loc'] = 'ref_item', [inline_loc]
 
         self.data[self.rowcol] = ds
-

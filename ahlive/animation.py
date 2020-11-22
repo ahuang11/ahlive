@@ -22,7 +22,7 @@ from mpl_toolkits.axes_grid1 import make_axes_locatable
 from matplotlib.dates import AutoDateLocator, ConciseDateFormatter
 
 from .config import defaults, load_defaults
-from .util import to_pydt, to_num, to_scalar, is_datetime, is_scalar, pop, srange
+from .util import to_pydt, to_1d, to_num, to_scalar, is_datetime, is_scalar, pop, srange
 
 
 OPTIONS = {
@@ -57,21 +57,23 @@ class Animation(param.Parameterized):
     watermark = param.String(default='Animated using Ahlive')
     durations = param.ClassSelector(class_=(Iterable, int, float))
     fps = param.Number(default=None)
-    debug = param.Integer(default=None)
     export = param.Boolean(default=True)
-    show = param.Boolean(default=True)
-    static = param.Boolean(default=False)
-    merge = param.Boolean(default=True)
+    show = param.Boolean(default=None)
+    animate = param.ClassSelector(
+        default=True, class_=(Iterable, int, slice, bool))
     workers = param.Integer(default=2)
+    debug = param.Boolean(default=None)
 
     _is_finalized = False
+    _subset_states = None
+    _animate = None
+    _is_static = None
     _crs_names = {}
     _figure_kwds = {}
     _path_effects = [withStroke(linewidth=3, alpha=0.5, foreground='white')]
 
     def __init__(self, **kwds):
         super().__init__(**kwds)
-        self.debug = self.debug or 0
 
     @staticmethod
     def _get_base_format(num):
@@ -220,8 +222,8 @@ class Animation(param.Parameterized):
                     ax.add_feature(feature_obj, **feature_kwds)
         else:
             for axis in ['x', 'y']:
-                axis_lim0 = to_scalar(limits[f'{axis}lim0s'])
-                axis_lim1 = to_scalar(limits[f'{axis}lim1s'])
+                axis_lim0 = to_scalar(limits.get(f'{axis}lim0s'))
+                axis_lim1 = to_scalar(limits.get(f'{axis}lim1s'))
                 if axis_lim0 is not None or axis_lim1 is not None:
                     getattr(ax, f'set_{axis}lim')(
                         to_pydt(axis_lim0, axis_lim1))
@@ -565,9 +567,9 @@ class Animation(param.Parameterized):
                     ax.yaxis.set_major_formatter(yformatter)
 
                 if xticks is not None:
-                    ax.set_ticks(xticks)
+                    ax.set_xticks(xticks)
                 if yticks is not None:
-                    ax.set_ticks(yticks)
+                    ax.set_yticks(yticks)
             ax.tick_params(**xticks_kwds)
             ax.tick_params(**yticks_kwds)
 
@@ -712,7 +714,7 @@ class Animation(param.Parameterized):
     def _get_iter_ds(self, state_ds):
         if len(state_ds.data_vars) == 0:
             return zip([], [])
-        elif any(group for group in np.atleast_1d(state_ds['group']).flat):
+        elif any(group for group in to_1d(state_ds['group'])):
             state_ds = state_ds.drop('label').rename({'group': 'label'})
             key = 'label'
         else:
@@ -734,7 +736,7 @@ class Animation(param.Parameterized):
         iter_ds = self._get_iter_ds(base_state_ds)
         for _, overlay_ds in iter_ds:
             overlay_ds = overlay_ds.where(overlay_ds['chart'] != '', drop=True)
-            if len(np.atleast_1d(overlay_ds['state'])) == 0:
+            if len(to_1d(overlay_ds['state'])) == 0:
                 continue
             chart = pop(overlay_ds, 'chart', get=0)
             if pd.isnull(chart):
@@ -794,7 +796,7 @@ class Animation(param.Parameterized):
             self._add_remarks(
                 overlay_ds, ax, chart, xs, ys, remarks, color)
 
-        ref_state_ds = state_ds.drop(base_vars + ['item'])
+        ref_state_ds = state_ds.drop(base_vars + ['item'], errors='ignore')
         ref_state_ds = ref_state_ds.rename({
             var: var.replace('ref_', '')
             for var in list(ref_state_ds) + ['ref_item']
@@ -882,7 +884,7 @@ class Animation(param.Parameterized):
             if key[1:4] == 'lim'}
 
         for axis in ['x', 'y']:
-            axis_lim = limits.pop(f'{axis}lim')
+            axis_lim = limits.pop(f'{axis}lims')
             if axis_lim is None:
                 continue
 
@@ -894,7 +896,7 @@ class Animation(param.Parameterized):
             if has_axis_lim0 or has_axis_lim1:
                 warnings.warn(
                     'Overwriting `{axis_lim0}` and `{axis_lim1}` '
-                    'with set `xlim` {axis_lim}!')
+                    'with set `{axis_lim}` {axis_lim}!')
             if isinstance(axis_lim, str):
                 limits[axis_lim0] = axis_lim
                 limits[axis_lim1] = axis_lim
@@ -950,6 +952,7 @@ class Animation(param.Parameterized):
                         f"from {OPTIONS['limit']} or numeric values!"
                     )
 
+
             input_ = limit
             if isinstance(limit, str):
                 if '_' in limit:
@@ -957,12 +960,24 @@ class Animation(param.Parameterized):
                 else:
                     offset = 0
 
+                if axis in ds:
+                    var = axis
+                else:
+                    ref_vars = ['ref_x0', 'ref_y0', 'ref_y0', 'ref_y1']
+                    if is_lower_limit:
+                        ref_vars = ref_vars[::-1]
+                    for var in ref_vars:
+                        if var in ds and axis in var:
+                            break
+                    else:
+                        continue
+
                 if limit == 'fixed':
                     stat = 'min' if is_lower_limit else 'max'
-                    limit = getattr(ds[axis], stat)().values
+                    limit = getattr(ds[var], stat)().values
                 elif limit == 'follow':
                     stat = 'max' if is_lower_limit else 'min'
-                    limit = getattr(ds[axis], stat)('item').values
+                    limit = getattr(ds[var], stat)('item').values
 
                 if not chart.startswith('bar'):
                     if is_lower_limit:
@@ -1050,6 +1065,8 @@ class Animation(param.Parameterized):
 
     def _compress_vars(self, da):
         if isinstance(da, xr.Dataset):
+            if da.get('item', 1) == 1 and da.get('ref_item') == 1:
+                return da
             da = da.map(self._compress_vars, keep_attrs=True)
             return da
 
@@ -1137,13 +1154,33 @@ class Animation(param.Parameterized):
         if 'ref_chart' in ds.data_vars and 'ref_item' not in ds.dims:
             ds = ds.expand_dims('ref_item')
             ds['ref_item'] = srange(ds['ref_item'])
-        ds['item'] = srange(ds['item'])
+
         ds['state'] = srange(len(ds['state']))
         return ds
 
     def finalize(self):
         if self._is_finalized:
             return self
+
+        if isinstance(self.animate, slice):
+            start = self.animate.start
+            stop = self.animate.stop
+            step = self.animate.step or 1
+            self._subset_states = range(start, stop, step)
+            self._animate = True
+            self._is_static = is_scalar(self._subset_states)
+        elif isinstance(self.animate, bool):
+            self._subset_states = None
+            self._animate = self.animate
+            self._is_static = False
+        elif isinstance(self.animate, (Iterable, int)):
+            self._subset_states = to_1d(self.animate, flat=False)
+            self._animate = self.animate
+            if self._subset_states[0] == 0:
+                warnings.warn(
+                    'State 0 detected in `animate`; shifting by 1.')
+                self._subset_states += 1
+            self._is_static = True if isinstance(self.animate, int) else False
 
         self_copy = deepcopy(self)
         if not self_copy._is_configured:
@@ -1168,21 +1205,22 @@ class Animation(param.Parameterized):
             ds = self._interp_dataset(ds)
             ds = self._add_geo_transforms(ds)
             ds.attrs['finalized'] = True
-            if self.debug > 0:
-                ds = ds.isel(state=slice(None, self.debug))
             self_copy._is_finalized = True
             data[rowcol] = ds
         self_copy.data = data
         return self_copy
 
-    def _compute_frames(self, data, rows, cols):
+    def _create_frames(self, data, rows, cols):
         jobs = []
-        for state in srange(self.num_states):
-            if self.static:
-                state = self.num_states
+        if self._subset_states is not None:
+            states = self._subset_states
+        else:
+            states = srange(self.num_states)
+
+        for state in states:
             state_ds_rowcols = [
                 ds.sel(state=slice(None, state))
-                if 'line' in ds['chart']
+                if 'line' in ds.get('chart', ds.get('ref_chart'))
                 or 'x_trail' in ds.data_vars
                 or 'x_discrete_trail' in ds.data_vars
                 else ds.sel(state=state)
@@ -1190,8 +1228,6 @@ class Animation(param.Parameterized):
             ]
             job = self._draw_frame(state_ds_rowcols, rows, cols)
             jobs.append(job)
-            if self.static:
-                break
 
         if self.num_states >= self.workers:
             num_workers = self.workers
@@ -1217,7 +1253,7 @@ class Animation(param.Parameterized):
         )('item', keep_attrs=True)
         durations = durations.where(
             durations > 0, durations.attrs['transition_frames']).squeeze()
-        durations = np.atleast_1d(durations)[:len(buf_list)]
+        durations = to_1d(durations)[:len(buf_list)]
 
         if ext != '.gif':
             fps = 1 / durations.min()
@@ -1239,7 +1275,7 @@ class Animation(param.Parameterized):
             loop = self.loop
 
         file, ext = os.path.splitext(self.path)
-        if self.static or not self.merge:
+        if self._is_static or not self._animate:
             ext = '.png'
         elif ext == '':
             ext = '.' + defaults["animate"]["format"]
@@ -1252,10 +1288,10 @@ class Animation(param.Parameterized):
         if not os.path.isabs(path):
             path = os.path.join(os.getcwd(), path)
 
-        if self.static:
+        if self._is_static:
             image = imageio.imread(buf_list[0])
             imageio.imwrite(path, image)
-        elif self.merge:
+        elif self._animate:
             animate_kwds = dict(loop=loop, format=ext)
             animate_kwds = self._decide_speed(
                 ext, buf_list, durations, animate_kwds)
@@ -1282,7 +1318,7 @@ class Animation(param.Parameterized):
         return path, ext
 
     @staticmethod
-    def _show_output(path, ext):
+    def _show_output_file(path, ext):
         from IPython import display
         with open(path, 'rb') as fi:
             b64 = base64.b64encode(fi.read()).decode('ascii')
@@ -1295,20 +1331,56 @@ class Animation(param.Parameterized):
         else:
             raise NotImplementedError(f'No method implemented to show {ext}!')
 
+    @staticmethod
+    def _show_output_buf(buf):
+        from IPython import display
+        image = imageio.imread(buf)
+        return display.Image(image)
+
+    def _show_output(self, *args):
+        if self.show is None:
+            try:
+                get_ipython
+                show = True
+            except NameError as e:
+                show = False
+        else:
+            show = self.show
+
+        if show and not self._animate:
+            warnings.warn('Unable to show unmerged output!')
+            return args[0]
+        elif not show or not self.export:
+            return args[0]
+
+        if self._is_static:
+            args[0] = args[0][0]
+
+        try:
+            if isinstance(args[0], str):
+                return self._show_output_file(*args)
+            else:
+                return self._show_output_buf(*args)
+        except Exception as e:
+            warnings.warn(
+                f'Unable to show output in notebook due to {e}!')
+            return args[0]
+
     def render(self, path=None, export=None, show=None,
-               static=None, merge=None, workers=None):
+               animate=None, workers=None):
         for key, val in locals().items():
             if key in ['self']:
                 continue
             elif val is not None:
                 setattr(self, key, val)
 
+        # rather than directly setting data = self.data, this
+        # way triggers computing num_states automatically
         self.data = self.finalize().data
         data = self.data
         print(data)
 
-        rows, cols = [max(rowcol) for rowcol in zip(*data.keys())]
-
+        # pop before creating frames
         if self.fps is None:
             durations = xr.concat((
                 pop(ds, 'duration', to_numpy=False) for ds in data.values()
@@ -1316,20 +1388,12 @@ class Animation(param.Parameterized):
         else:
             durations = None
 
-        buf_list = self._compute_frames(data, rows, cols)
+        rows, cols = [max(rowcol) for rowcol in zip(*data.keys())]
+        buf_list = self._create_frames(data, rows, cols)
 
         if self.export:
             path, ext = self._export_rendered(buf_list, durations)
-
-            if self.show:
-                try:
-                    return self._show_output(path, ext)
-                except Exception as e:
-                    warnings.warn(
-                        f'Unable to show output in '
-                        f'notebook due to {e}!')
-        elif not self.merge:
-            return buf_list
-        elif self.static:
-            return buf_list[0]
-        return path
+            output = self._show_output(path, ext)
+        else:
+            output = self._show_output(buf_list)
+        return output

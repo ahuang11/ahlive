@@ -1,5 +1,4 @@
-from .data import Array, DataFrame, Reference
+from .data import Array, DataFrame, Dataset, Reference
 from .easing import Easing
-from .animation import Animation
 from .tutorial import load_data
 from .join import overlay, cascade, layout

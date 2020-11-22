@@ -68,7 +68,9 @@ class Easing(param.Parameterized):
             array = np.hstack([array, array[:, :1]])
 
         num_items, num_states = array.shape
-        new_shape = (num_items, -1)
+
+        if num_items == 1 and num_states == 1:
+            return
 
         if self.frames is None:
             if num_states < 10:
@@ -79,6 +81,7 @@ class Easing(param.Parameterized):
             num_steps = self.frames
         self._num_steps = num_steps
 
+        new_shape = (num_items, -1)
         has_loop = isinstance(self.loop, int) or self.loop is not None
         if num_steps == 1 and not has_loop:
             return da

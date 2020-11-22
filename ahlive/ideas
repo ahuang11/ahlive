@@ -3,6 +3,9 @@
 # documentation
 # tests
 # tutorial data
+# blacken
+# isort
+# optimize
 
 ## tests
 datetime
@@ -15,6 +18,7 @@ negative
 single unique
 params carried over
 keywords carried over
+reference alone
 whether original object changes
 
 ## docs
