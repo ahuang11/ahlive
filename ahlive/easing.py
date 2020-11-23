@@ -58,8 +58,9 @@ class Easing(param.Parameterized):
             name = da.name
             if 'state' not in da.dims:
                 return da
-            elif 'item' in da.dims and da.dims != ('item', 'state'):
-                raise ValueError(f'Reorder {name} to be (item, state)!')
+            elif 'item' in da.dims:
+                da = da.transpose('item', 'state', ...)
+            coords = da.drop('state').coords
 
         array = np.array(da)
         if array.ndim == 1:
@@ -70,7 +71,7 @@ class Easing(param.Parameterized):
         num_items, num_states = array.shape
 
         if num_items == 1 and num_states == 1:
-            return
+            return da
 
         if self.frames is None:
             if num_states < 10:
@@ -87,7 +88,6 @@ class Easing(param.Parameterized):
             return da
 
         steps = np.linspace(0, 1, num_steps)
-
         if self.interp is None:
             interp = 'cubic' if num_states < 10 else 'linear'
         else:
@@ -154,8 +154,12 @@ class Easing(param.Parameterized):
             if len(da.dims) == 1:
                 result = result.squeeze()
             da_result = xr.DataArray(
-                result, dims=da.dims, name=da.name, attrs=da.attrs)
-            return da_result
+                result, dims=da.dims, coords=coords,
+                name=da.name, attrs=da.attrs)
+            if len(da_result['state']) == 0:
+                return da
+            else:
+                return da_result
         else:
             return result
 

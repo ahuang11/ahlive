@@ -33,10 +33,6 @@ defaults['figure'] = {
     'figsize': (18, 9)
 }
 
-defaults['axes'] = {
-    'frame_on': False
-}
-
 defaults['label'] = {
     'fontsize': sizes['medium'],
     'replacements': {'_': ' '},
@@ -74,6 +70,12 @@ defaults['ref_plot']['axhspan'] = {
 
 defaults['ref_inline'] = defaults['label'].copy()
 defaults['ref_inline'].update({
+    'textcoords': 'offset points',
+    'color': 'darkgray',
+})
+
+defaults['grid_inline'] = defaults['label'].copy()
+defaults['grid_inline'].update({
     'textcoords': 'offset points',
     'color': 'darkgray',
 })
@@ -186,7 +188,13 @@ defaults['frame'] = {
     'transparent': False
 }
 
+defaults['compute'] = {
+    'num_workers': 2,
+    'scheduler': 'processes'
+}
+
 defaults['animate'] = {
+    'format': 'gif',
     'mode': 'I',
 }
 

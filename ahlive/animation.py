@@ -26,26 +26,38 @@ from .util import to_pydt, to_1d, to_num, to_scalar, is_datetime, is_scalar, pop
 
 
 OPTIONS = {
-    'limit': ['fixed', 'follow']
+    'limit': ['fixed', 'follow'],
+    'scheduler': ['processes', 'single-threaded']
 }
-GEO_FEATURES = [
-    'borders',
-    'coastline',
-    'land',
-    'lakes',
-    'ocean',
-    'rivers',
-    'states',
-]
-FIGURE_KEYS = [
-    'figure',
-    'suptitle',
-    'animate',
-    'frame',
-    'watermark',
-    'spacing',
-    'durations',
-]
+KEYS = {
+    'figure': [
+        'figure',
+        'suptitle',
+        'animate',
+        'compute',
+        'frame',
+        'watermark',
+        'spacing',
+        'durations',
+    ],  # figure-wide
+    'base': [
+        'inline',
+        'state',
+        'delta',
+        'bar',
+        'ref_inline',
+        'grid_inline'
+    ],  # base magnitude
+    'geo': [
+        'borders',
+        'coastline',
+        'land',
+        'lakes',
+        'ocean',
+        'rivers',
+        'states'
+    ]  # geographic features
+}
 
 
 class Animation(param.Parameterized):
@@ -61,15 +73,18 @@ class Animation(param.Parameterized):
     show = param.Boolean(default=None)
     animate = param.ClassSelector(
         default=True, class_=(Iterable, int, slice, bool))
-    workers = param.Integer(default=2)
+    workers = param.Integer(
+        default=defaults['compute']['num_workers'], bounds=(1, None))
+    scheduler = param.ObjectSelector(
+        default=defaults['compute']['scheduler'], objects=OPTIONS['scheduler'])
     debug = param.Boolean(default=None)
 
     _is_finalized = False
     _subset_states = None
     _animate = None
     _is_static = None
-    _crs_names = {}
-    _figure_kwds = {}
+    _crs_names = None
+    _figure_kwds = None
     _path_effects = [withStroke(linewidth=3, alpha=0.5, foreground='white')]
 
     def __init__(self, **kwds):
@@ -162,73 +177,6 @@ class Animation(param.Parameterized):
         kwds[label_key] = label if label != 'None' else None
         return kwds
 
-    def _prep_figure(self):
-        figure_kwds = load_defaults('figure', self._figure_kwds['figure'])
-        figure = plt.figure(**figure_kwds)
-
-        if self.suptitle != '':
-            suptitle_kwds = load_defaults(
-                'suptitle', self._figure_kwds['suptitle'])
-            suptitle_kwds = self._update_text(suptitle_kwds, 't')
-            figure.suptitle(**suptitle_kwds)
-        return figure
-
-    def _prep_axes(self, state_ds, rows, cols, irowcol):
-        limits = {
-            var: pop(state_ds, var, get=-1)
-            for var in list(state_ds.data_vars)
-            if var[1:4] == 'lim'}
-
-        axes_kwds = state_ds.attrs['axes']
-        style = axes_kwds.pop('style', '')
-        if style == 'minimal':
-            for axis in ['x', 'y']:
-                axis_min =  float(state_ds[axis].values.min())
-                axis_max =  float(state_ds[axis].values.max())
-                axis_lim = axes_kwds.get(f'{axis}lim', None)
-                if axis_lim is not None:
-                    axis_min = max(axis_min, axis_lim[0])
-                    axis_max = min(axis_max, axis_lim[1])
-                axes_kwds[f'{axis}ticks'] = to_pydt(
-                    axis_min, axis_max)
-
-                axis_label = axes_kwds.get(f'{axis}label', None)
-                if axis_label is not None:
-                    axes_kwds[f'{axis}label'] = f'Higher {axis_label} ➜'
-        elif style == 'bare':
-            axes_kwds['xticks'] = []
-            axes_kwds['yticks'] = []
-
-        axes_kwds['projection'] = pop(state_ds, 'projection', squeeze=True)
-        axes_kwds = load_defaults('axes', state_ds, **axes_kwds)
-        transform = axes_kwds.pop('transform', None)
-        ax = plt.subplot(rows, cols, irowcol, **axes_kwds)
-
-        if transform is not None:
-            from cartopy import feature as cfeature
-            if state_ds.attrs['settings']['worldwide']:
-                ax.set_global()
-            else:
-                ax.set_extent([
-                    limits.get('xlim0s', -180),
-                    limits.get('xlim1s', 180),
-                    limits.get('ylim0s', -90),
-                    limits.get('ylim1s', 90)
-                ], transform)
-            for feature in GEO_FEATURES:
-                feature_kwds = load_defaults(f'{feature}', state_ds)
-                if feature_kwds.pop(feature, False):
-                    feature_obj = getattr(cfeature, feature.upper())
-                    ax.add_feature(feature_obj, **feature_kwds)
-        else:
-            for axis in ['x', 'y']:
-                axis_lim0 = to_scalar(limits.get(f'{axis}lim0s'))
-                axis_lim1 = to_scalar(limits.get(f'{axis}lim1s'))
-                if axis_lim0 is not None or axis_lim1 is not None:
-                    getattr(ax, f'set_{axis}lim')(
-                        to_pydt(axis_lim0, axis_lim1))
-        return ax
-
     def _update_labels(self, state_ds, ax):
         for label in ['xlabel', 'ylabel', 'title', 'subtitle']:
             label_kwds = load_defaults(f'{label}', state_ds)
@@ -283,18 +231,17 @@ class Animation(param.Parameterized):
 
     def _plot_chart(self, overlay_ds, ax, chart, xs, ys, plot_kwds):
         if chart == 'scatter':
-            # select last state
-            plot = ax.scatter(xs, ys, **plot_kwds)
+            ax.scatter(xs, ys, **plot_kwds)
         elif chart == 'line':
-            plot = ax.plot(xs, ys, **plot_kwds)
+            ax.plot(xs, ys, **plot_kwds)
         elif chart.startswith('bar'):
-            plot = getattr(ax, chart)(xs, ys, **plot_kwds)
+            getattr(ax, chart)(xs, ys, **plot_kwds)
         color = self._get_color(overlay_ds, plot)
 
-        if xs.ndim == 2:  # a batch with same label
+        if xs.ndim == 2:  # a grouped batch with same label
             for p in plot:
                 p.set_color(color)
-        return plot, color
+        return color
 
     def _plot_trails(self, overlay_ds, ax, chart, color, xs, ys,
                      x_trails, y_trails, x_discrete_trails, y_discrete_trails,
@@ -322,15 +269,14 @@ class Animation(param.Parameterized):
                 if not is_scalar(val) else val
                 for key, val in chart_kwds.items()}
             chart_kwds['label'] = '_nolegend_'
-            plot = ax.scatter(
+            ax.scatter(
                 x_discrete_trails, y_discrete_trails, **chart_kwds)
 
         if chart in ['line', 'both']:
             x_trails = x_trails[-expire * self._num_steps - 1:]
             y_trails = y_trails[-expire * self._num_steps - 1:]
             line_chart_kwds['label'] = '_nolegend_'
-            plot = ax.plot(x_trails, y_trails, color=color, **line_chart_kwds)
-
+            ax.plot(x_trails, y_trails, color=color, **line_chart_kwds)
 
     def _plot_deltas(self, overlay_ds, ax, chart,
                      x_centers, y_centers,
@@ -378,48 +324,6 @@ class Animation(param.Parameterized):
                 'remark', state_ds, x=x, y=y, color=color)
             ax.scatter(**remark_kwds)
 
-    def _plot_ref_chart(self, overlay_ds, ax):
-        label = pop(overlay_ds, 'label', get=0) or '_nolegend_'
-        chart = pop(overlay_ds, 'chart', get=0)
-
-        x0s = pop(overlay_ds, 'x0')
-        x1s = pop(overlay_ds, 'x1')
-        y0s = pop(overlay_ds, 'y0')
-        y1s = pop(overlay_ds, 'y1')
-        inline_loc = pop(overlay_ds, 'inline_loc')
-        inline_labels = pop(overlay_ds, 'inline_label', squeeze=True)
-
-        plot_kwds = {
-            var: pop(overlay_ds, var, get=0)
-            for var in list(overlay_ds.data_vars)}
-        plot_kwds = load_defaults(
-            'ref_plot', overlay_ds,
-            base_chart=chart, label=label, **plot_kwds)
-
-        if chart == 'axvline':
-            plot = ax.axvline(x0s[-1], **plot_kwds)
-            inline_x = x0s
-            inline_y = inline_loc
-        elif chart == 'axhline':
-            plot = ax.axhline(y0s[-1], **plot_kwds)
-            inline_x = inline_loc
-            inline_y = y0s
-        elif chart == 'axhspan':
-            plot = ax.axhspan(y0s[-1], y1s[-1], **plot_kwds)
-            inline_x = inline_loc
-            inline_y = [np.max([y0s, y1s])]
-        elif chart == 'axvspan':
-            plot = ax.axvspan(x0s[-1], x1s[-1], **plot_kwds)
-            inline_x = [np.max([y0s, y1s])]
-            inline_y = inline_loc
-
-        if inline_labels is not None:
-            color = self._get_color(overlay_ds, plot)
-            self._add_inline_labels(
-                overlay_ds, ax, chart, inline_x, inline_y,
-                inline_labels, color, base_key='ref_inline',
-                inline_key='ref_inline')
-
     def _add_inline_labels(self, overlay_ds, ax, chart,
                            xs, ys, inline_labels, color,
                            base_key='inline', inline_key='inline'):
@@ -460,6 +364,272 @@ class Animation(param.Parameterized):
             inline_kwds, 'text', base=inline_base)
         ax.annotate(**inline_kwds)
 
+    @staticmethod
+    def _reshape_batch(array, chart, get=-1):
+        if array is None:
+            return array
+
+        if get is not None and chart != 'line':
+            if array.ndim == 2:
+                array = array[:, get]
+            else:
+                array = array[[get]]
+
+        return array.T
+
+    @staticmethod
+    def _groupby_key(data, key):
+        if key is not None and key != '':
+            if isinstance(data, xr.Dataset):
+                if key not in data.dims and key not in data.data_vars:
+                    data = data.expand_dims(key)
+                elif key in data.data_vars and is_scalar(data[key]):
+                    data[key] = data[key].expand_dims('group')
+            return data.groupby(key)  # TODO: explore unsorted
+        else:
+            return zip([''], [data])
+
+    def _get_iter_ds(self, state_ds):
+        if len(state_ds.data_vars) == 0:
+            return zip([], [])
+        elif any(group for group in to_1d(state_ds['group'])):
+            state_ds = state_ds.drop('label').rename({'group': 'label'})
+            key = 'label'
+        else:
+            state_ds = state_ds.drop('group', errors='ignore')
+            key = 'item'
+        iter_ds = self._groupby_key(state_ds, key)
+        return iter_ds
+
+    def _process_base_vars(self, state_ds, ax):
+        base_state_ds = self._subset_vars(state_ds)
+        iter_ds = self._get_iter_ds(base_state_ds)
+        for _, overlay_ds in iter_ds:
+            overlay_ds = overlay_ds.where(
+                overlay_ds['chart'] != '', drop=True)
+            if len(to_1d(overlay_ds['state'])) == 0:
+                continue
+            chart = pop(overlay_ds, 'chart', get=0)
+            if pd.isnull(chart):
+                chart = str(chart)
+                continue
+            xs = self._reshape_batch(
+                pop(overlay_ds, 'x'), chart)
+            ys = self._reshape_batch(
+                pop(overlay_ds, 'y'), chart)
+            x_trails = self._reshape_batch(
+                pop(overlay_ds, 'x_trail'), chart, get=None)
+            y_trails = self._reshape_batch(
+                pop(overlay_ds, 'y_trail'), chart, get=None)
+            x_discrete_trails = self._reshape_batch(
+                pop(overlay_ds, 'x_discrete_trail'), chart, get=None)
+            y_discrete_trails = self._reshape_batch(
+                pop(overlay_ds, 'y_discrete_trail'), chart, get=None)
+            x_centers = self._reshape_batch(
+                pop(overlay_ds, 'x_center'), chart)
+            y_centers = self._reshape_batch(
+                pop(overlay_ds, 'y_center'), chart)
+            deltas = self._reshape_batch(
+                pop(overlay_ds, 'delta'), chart)
+            delta_labels = self._reshape_batch(
+                pop(overlay_ds, 'delta_label'), chart)
+            bar_labels = self._reshape_batch(
+                pop(overlay_ds, 'bar_label'), chart)
+            inline_labels = self._reshape_batch(
+                pop(overlay_ds, 'inline_label'), chart)
+            remarks = self._reshape_batch(
+                pop(overlay_ds, 'remark'), chart)
+
+            trail_plot_kwds = {
+                var: self._reshape_batch(pop(overlay_ds, var), chart, get=None)
+                for var in list(overlay_ds.data_vars)}
+            trail_plot_kwds = load_defaults(
+                'plot', overlay_ds, **trail_plot_kwds)
+            plot_kwds = {
+                key: to_scalar(val) for key, val in trail_plot_kwds.items()}
+            if 'label' in plot_kwds:
+                plot_kwds['label'] = to_scalar(plot_kwds['label'])
+            if 'zorder' not in plot_kwds:
+                plot_kwds['zorder'] = 2
+
+            color = self._plot_chart(
+                overlay_ds, ax, chart, xs, ys, plot_kwds)
+            self._plot_trails(
+                overlay_ds, ax, chart, color, xs, ys, x_trails, y_trails,
+                x_discrete_trails, y_discrete_trails, trail_plot_kwds)
+            self._plot_deltas(
+                overlay_ds, ax, chart, x_centers, y_centers,
+                deltas, delta_labels, color)
+            self._add_inline_labels(
+                overlay_ds, ax, chart, xs, ys, bar_labels, 'black',
+                base_key='bar')
+            self._add_inline_labels(
+                overlay_ds, ax, chart, xs, ys, inline_labels, color)
+            self._add_remarks(
+                overlay_ds, ax, chart, xs, ys, remarks, color)
+
+    @staticmethod
+    def _subset_vars(state_ds, key=None):
+        if key is None:
+            state_ds = state_ds[[
+                var for var in state_ds.data_vars if
+                not var.startswith('ref_') and
+                not var.startswith('grid_')]]
+        else:
+            keyu = f'{key}_'
+            extra_vars = [f'{keyu}item']
+            if key == 'grid':
+                extra_vars += ['grid_x', 'grid_y']
+            state_ds = state_ds[[
+                var for var in state_ds.data_vars if var.startswith(keyu)]]
+            state_ds = state_ds.rename({
+                var: var.replace(f'{keyu}', '')
+                for var in list(state_ds) + extra_vars
+                if var in state_ds
+            })
+        return state_ds
+
+    def _process_grid_vars(self, state_ds, ax):
+        grid_state_ds = self._subset_vars(state_ds, 'grid')
+        grid_iter_ds = self._get_iter_ds(grid_state_ds)
+        for _, overlay_ds in grid_iter_ds:
+            label = pop(overlay_ds, 'label', get=0) or '_nolegend_'
+            chart = pop(overlay_ds, 'chart', get=0)
+
+            xs = pop(overlay_ds, 'x')
+            ys = pop(overlay_ds, 'y')
+            cs = pop(overlay_ds, 'c')
+            inline_loc = pop(overlay_ds, 'inline_loc')
+            inline_labels = pop(overlay_ds, 'inline_label', squeeze=True)
+
+            plot_kwds = {
+                var: pop(overlay_ds, var, get=0)
+                for var in list(overlay_ds.data_vars)}
+            plot_kwds = load_defaults(
+                'grid_plot', overlay_ds,
+                base_chart=chart, label=label, **plot_kwds)
+
+            getattr(ax, chart)(xs, ys, cs, **plot_kwds)
+            if inline_labels is not None:
+                color = 'black'
+                self._add_inline_labels(
+                    overlay_ds, ax, chart, inline_x, inline_y,
+                    inline_labels, color, base_key='grid_inline',
+                    inline_key='grid_inline')
+
+    def _plot_ref_chart(self, overlay_ds, ax, chart,
+                        x0s, x1s, y0s, y1s, plot_kwds):
+        if chart == 'axvline':
+            ax.axvline(x0s[-1], **plot_kwds)
+        elif chart == 'axhline':
+            ax.axhline(y0s[-1], **plot_kwds)
+        elif chart == 'axhspan':
+            ax.axhspan(y0s[-1], y1s[-1], **plot_kwds)
+        elif chart == 'axvspan':
+            ax.axvspan(x0s[-1], x1s[-1], **plot_kwds)
+        color = self._get_color(overlay_ds, plot)
+        return color
+
+    def _process_ref_vars(self, state_ds, ax):
+        ref_state_ds = self._subset_vars(state_ds, 'ref')
+        ref_iter_ds = self._get_iter_ds(ref_state_ds)
+        for _, overlay_ds in ref_iter_ds:
+            label = pop(overlay_ds, 'label', get=0) or '_nolegend_'
+            chart = pop(overlay_ds, 'chart', get=0)
+
+            x0s = pop(overlay_ds, 'x0')
+            x1s = pop(overlay_ds, 'x1')
+            y0s = pop(overlay_ds, 'y0')
+            y1s = pop(overlay_ds, 'y1')
+            inline_loc = pop(overlay_ds, 'inline_loc')
+            inline_labels = pop(overlay_ds, 'inline_label', squeeze=True)
+
+            plot_kwds = {
+                var: pop(overlay_ds, var, get=0)
+                for var in list(overlay_ds.data_vars)}
+            plot_kwds = load_defaults(
+                'ref_plot', overlay_ds,
+                base_chart=chart, label=label, **plot_kwds)
+
+            color = self._plot_ref_chart(
+                overlay_ds, ax, chart, x0s, x1s, y0s, y1s, plot_kwds)
+
+            if chart == 'axvline':
+                inline_x = x0s
+                inline_y = inline_loc
+
+            self._add_inline_labels(
+                overlay_ds, ax, chart, inline_x, inline_y,
+                inline_labels, color, base_key='ref_inline',
+                inline_key='ref_inline')
+
+    def _prep_figure(self):
+        figure_kwds = load_defaults('figure', self._figure_kwds['figure'])
+        figure = plt.figure(**figure_kwds)
+
+        if self.suptitle != '':
+            suptitle_kwds = load_defaults(
+                'suptitle', self._figure_kwds['suptitle'])
+            suptitle_kwds = self._update_text(suptitle_kwds, 't')
+            figure.suptitle(**suptitle_kwds)
+        return figure
+
+    def _prep_axes(self, state_ds, rows, cols, irowcol):
+        limits = {
+            var: pop(state_ds, var, get=-1)
+            for var in list(state_ds.data_vars)
+            if var[1:4] == 'lim'}
+
+        axes_kwds = state_ds.attrs['axes']
+        style = axes_kwds.pop('style', '')
+        if style == 'minimal':
+            for axis in ['x', 'y']:
+                axis_min =  float(state_ds[axis].values.min())
+                axis_max =  float(state_ds[axis].values.max())
+                axis_lim = axes_kwds.get(f'{axis}lim', None)
+                if axis_lim is not None:
+                    axis_min = max(axis_min, axis_lim[0])
+                    axis_max = min(axis_max, axis_lim[1])
+                axes_kwds[f'{axis}ticks'] = to_pydt(
+                    axis_min, axis_max)
+
+                axis_label = axes_kwds.get(f'{axis}label', None)
+                if axis_label is not None:
+                    axes_kwds[f'{axis}label'] = f'Higher {axis_label} ➜'
+        elif style == 'bare':
+            axes_kwds['xticks'] = []
+            axes_kwds['yticks'] = []
+
+        axes_kwds['projection'] = pop(state_ds, 'projection', squeeze=True)
+        axes_kwds = load_defaults('axes', state_ds, **axes_kwds)
+        transform = axes_kwds.pop('transform', None)
+        ax = plt.subplot(rows, cols, irowcol, **axes_kwds)
+
+        if transform is not None:
+            from cartopy import feature as cfeature
+            if state_ds.attrs['settings']['worldwide']:
+                ax.set_global()
+            else:
+                ax.set_extent([
+                    limits.get('xlim0s', -180),
+                    limits.get('xlim1s', 180),
+                    limits.get('ylim0s', -90),
+                    limits.get('ylim1s', 90)
+                ], transform)
+            for feature in KEYS['geo']:
+                feature_kwds = load_defaults(f'{feature}', state_ds)
+                if feature_kwds.pop(feature, False):
+                    feature_obj = getattr(cfeature, feature.upper())
+                    ax.add_feature(feature_obj, **feature_kwds)
+        else:
+            for axis in ['x', 'y']:
+                axis_lim0 = to_scalar(limits.get(f'{axis}lim0s'))
+                axis_lim1 = to_scalar(limits.get(f'{axis}lim1s'))
+                if axis_lim0 is not None or axis_lim1 is not None:
+                    getattr(ax, f'set_{axis}lim')(
+                        to_pydt(axis_lim0, axis_lim1))
+        return ax
+
     def _update_grid(self, state_ds, ax):
         grid_kwds = load_defaults('grid', state_ds)
         grid = grid_kwds.pop('grid', False)
@@ -490,8 +660,9 @@ class Animation(param.Parameterized):
             gridlines = None
         return gridlines
 
-    def _update_ticks(self, state_ds, ax, chart, gridlines):
-        if chart.startswith('bar'):
+    def _update_ticks(self, state_ds, ax, gridlines):
+        chart = to_scalar(state_ds.get('chart', ''))
+        if 'bar' in chart:
             state_ds = state_ds[:, -1].T
         tick_labels = pop(state_ds, 'tick_label')
 
@@ -600,12 +771,10 @@ class Animation(param.Parameterized):
             legend_label.set_path_effects(self._path_effects)
         legend.get_frame().set_linewidth(0)
 
-    def _update_colorbar(self, state_ds, ax, plot):
-        if plot is None:
-            return
-
+    def _update_colorbar(self, state_ds, ax):
+        plot = plt.getp(ax, 'children')[0]
         colorbar_kwds = load_defaults('colorbar', state_ds, ax=ax)
-        if not colorbar_kwds.pop('show'):
+        if not colorbar_kwds.pop('show', False):
             return
 
         divider = make_axes_locatable(ax)
@@ -629,7 +798,10 @@ class Animation(param.Parameterized):
             cticks_kwds = {'axis': 'x'}
             cax.set_xlabel(**clabel_kwds)
 
-        cticks_base = state_ds.attrs['base']['cticks']
+        if 'cticks' in state_ds.attrs['base']:
+            cticks_base = state_ds.attrs['base']['cticks']
+        else:
+            cticks_base = state_ds.attrs['base']['grid_cticks']
         cticks_kwds = load_defaults('cticks', state_ds, **cticks_kwds)
         cticks_kwds.pop('num_ticks', None)
         cticks_kwds = self._update_text(
@@ -648,6 +820,27 @@ class Animation(param.Parameterized):
             colorbar.set_ticklabels(cticks)
         cax.tick_params(**cticks_kwds)
 
+    def _draw_subplot(self, state_ds, ax):
+        self._update_labels(state_ds, ax)
+        self._update_margins(state_ds, ax)
+        self._add_state_labels(state_ds, ax)
+
+        self._process_base_vars(state_ds, ax)
+        self._process_grid_vars(state_ds, ax)
+        self._process_ref_vars(state_ds, ax)
+
+        gridlines = self._update_grid(state_ds, ax)
+        self._update_ticks(state_ds, ax, gridlines)
+        self._update_legend(state_ds, ax)
+        self._update_colorbar(state_ds, ax)
+
+    def _apply_hooks(self, state_ds, figure, ax):  # TODO: implement
+        hooks = state_ds.attrs['settings'].pop('hooks', [])
+        for hook in hooks:
+            if not callable(hook):
+                continue
+            hook(figure, ax)
+
     def _update_watermark(self, figure):
         if self.watermark:
             watermark_kwds = load_defaults(
@@ -662,13 +855,6 @@ class Animation(param.Parameterized):
         spacing_kwds = load_defaults(
             'spacing', self._figure_kwds['spacing'], bottom=bottom)
         plt.subplots_adjust(**spacing_kwds)
-
-    def _apply_hooks(self, state_ds, figure, ax):  # TODO: implement
-        hooks = state_ds.attrs['settings'].pop('hooks', [])
-        for hook in hooks:
-            if not callable(hook):
-                continue
-            hook(figure, ax)
 
     def _buffer_frame(self, state):
         buf = BytesIO()
@@ -685,131 +871,6 @@ class Animation(param.Parameterized):
             else:
                 print(error_msg)
             return
-
-    @staticmethod
-    def _reshape_batch(array, chart, get=-1):
-        if array is None:
-            return array
-
-        if get is not None and chart != 'line':
-            if array.ndim == 2:
-                array = array[:, get]
-            else:
-                array = array[[get]]
-
-        return array.T
-
-    @staticmethod
-    def _groupby_key(data, key):
-        if key is not None and key != '':
-            if isinstance(data, xr.Dataset):
-                if key not in data.dims and key not in data.data_vars:
-                    data = data.expand_dims(key)
-                elif key in data.data_vars and is_scalar(data[key]):
-                    data[key] = data[key].expand_dims('group')
-            return data.groupby(key)  # TODO: explore unsorted
-        else:
-            return zip([''], [data])
-
-    def _get_iter_ds(self, state_ds):
-        if len(state_ds.data_vars) == 0:
-            return zip([], [])
-        elif any(group for group in to_1d(state_ds['group'])):
-            state_ds = state_ds.drop('label').rename({'group': 'label'})
-            key = 'label'
-        else:
-            state_ds = state_ds.drop('group', errors='ignore')
-            key = 'item'
-        iter_ds = self._groupby_key(state_ds, key)
-        return iter_ds
-
-    def _draw_subplot(self, state_ds, ax):
-        self._update_labels(state_ds, ax)
-        self._update_margins(state_ds, ax)
-        self._add_state_labels(state_ds, ax)
-
-        chart = ''
-        plot = None
-        base_vars = [
-            var for var in state_ds.data_vars if not var.startswith('ref_')]
-        base_state_ds = state_ds[base_vars]
-        iter_ds = self._get_iter_ds(base_state_ds)
-        for _, overlay_ds in iter_ds:
-            overlay_ds = overlay_ds.where(overlay_ds['chart'] != '', drop=True)
-            if len(to_1d(overlay_ds['state'])) == 0:
-                continue
-            chart = pop(overlay_ds, 'chart', get=0)
-            if pd.isnull(chart):
-                chart = str(chart)
-                continue
-            xs = self._reshape_batch(
-                pop(overlay_ds, 'x'), chart)
-            ys = self._reshape_batch(
-                pop(overlay_ds, 'y'), chart)
-            x_trails = self._reshape_batch(
-                pop(overlay_ds, 'x_trail'), chart, get=None)
-            y_trails = self._reshape_batch(
-                pop(overlay_ds, 'y_trail'), chart, get=None)
-            x_discrete_trails = self._reshape_batch(
-                pop(overlay_ds, 'x_discrete_trail'), chart, get=None)
-            y_discrete_trails = self._reshape_batch(
-                pop(overlay_ds, 'y_discrete_trail'), chart, get=None)
-            x_centers = self._reshape_batch(
-                pop(overlay_ds, 'x_center'), chart)
-            y_centers = self._reshape_batch(
-                pop(overlay_ds, 'y_center'), chart)
-            deltas = self._reshape_batch(
-                pop(overlay_ds, 'delta'), chart)
-            delta_labels = self._reshape_batch(
-                pop(overlay_ds, 'delta_label'), chart)
-            bar_labels = self._reshape_batch(
-                pop(overlay_ds, 'bar_label'), chart)
-            inline_labels = self._reshape_batch(
-                pop(overlay_ds, 'inline_label'), chart)
-            remarks = self._reshape_batch(
-                pop(overlay_ds, 'remark'), chart)
-
-            trail_plot_kwds = {
-                var: self._reshape_batch(pop(overlay_ds, var), chart, get=None)
-                for var in list(overlay_ds.data_vars)}
-            trail_plot_kwds = load_defaults(
-                'plot', overlay_ds, **trail_plot_kwds)
-            plot_kwds = {
-                key: to_scalar(val) for key, val in trail_plot_kwds.items()}
-            if 'label' in plot_kwds:
-                plot_kwds['label'] = to_scalar(plot_kwds['label'])
-            if 'zorder' not in plot_kwds:
-                plot_kwds['zorder'] = 2
-            plot, color = self._plot_chart(
-                overlay_ds, ax, chart, xs, ys, plot_kwds)
-            self._plot_trails(
-                overlay_ds, ax, chart, color, xs, ys, x_trails, y_trails,
-                x_discrete_trails, y_discrete_trails, trail_plot_kwds)
-            self._plot_deltas(
-                overlay_ds, ax, chart, x_centers, y_centers,
-                deltas, delta_labels, color)
-            self._add_inline_labels(
-                overlay_ds, ax, chart, xs, ys, bar_labels, 'black',
-                base_key='bar')
-            self._add_inline_labels(
-                overlay_ds, ax, chart, xs, ys, inline_labels, color)
-            self._add_remarks(
-                overlay_ds, ax, chart, xs, ys, remarks, color)
-
-        ref_state_ds = state_ds.drop(base_vars + ['item'], errors='ignore')
-        ref_state_ds = ref_state_ds.rename({
-            var: var.replace('ref_', '')
-            for var in list(ref_state_ds) + ['ref_item']
-            if var in state_ds
-        })
-        ref_iter_ds = self._get_iter_ds(ref_state_ds)
-        for _, ref_overlay_ds in ref_iter_ds:
-            self._plot_ref_chart(ref_overlay_ds, ax)
-
-        gridlines = self._update_grid(state_ds, ax)
-        self._update_ticks(state_ds, ax, chart, gridlines)
-        self._update_legend(state_ds, ax)
-        self._update_colorbar(state_ds, ax, plot)
 
     @dask.delayed()
     def _draw_frame(self, state_ds_rowcols, rows, cols):
@@ -844,7 +905,7 @@ class Animation(param.Parameterized):
                     ds['delta_label'] = ds['delta_label'].isel(
                         item=slice(1, None))
                     ds['delta'] = ds['delta_label'] / 2
-        elif chart == 'scatter':
+        else:
             chart_type = ds.attrs['chart'].pop('chart_type', 'basic')
             if chart_type == 'trail':
                 trail_chart = ds.attrs['chart'].get('chart', 'scatter')
@@ -855,6 +916,22 @@ class Animation(param.Parameterized):
                 if trail_chart in ['scatter', 'both']:
                     ds['x_discrete_trail'] = ds['x'].copy()
                     ds['y_discrete_trail'] = ds['y'].copy()
+            elif chart_type == 'rotate':
+                central_lon = ds.attrs['projection']['central_longitude']
+                if is_scalar(central_lon):
+                    central_lon_end = central_lon + 359.99
+                    central_lons = np.linspace(
+                        central_lon, central_lon_end, self.num_states)
+                elif len(to_1d(central_lon)) != self.num_states:
+                    central_lons = np.linspace(
+                        np.min(central_lon),
+                        np.max(central_lon),
+                        self.num_states
+                    )
+                else:
+                    central_lons = central_lon
+                ds['central_longitude'] = ('state', central_lons)
+                ds.attrs['projection']['projection'] = 'Orthographic'
 
         legend_sortby = ds.attrs['legend'].pop('sortby', None)
         if legend_sortby and 'label' in ds:
@@ -877,7 +954,116 @@ class Animation(param.Parameterized):
 
         return ds
 
+    def _add_durations(self, ds, figure_kwds):
+        if self.durations is None:
+            durations = 0.5 if self.num_states < 10 else 1 / 60
+        else:
+            durations = figure_kwds['durations']
+
+        if isinstance(durations, (int, float)):
+            durations = np.repeat(durations, self.num_states)
+        transition_frames = (
+            defaults['durations']['transition_frames'])
+
+        durations_kwds = load_defaults(
+            'durations', figure_kwds, transition_frames=transition_frames)
+        aggregate = durations_kwds.pop('aggregate')
+
+        if np.isnan(durations[-1]):
+            durations[-1] = 0
+        durations[-1] += durations_kwds['final_frame']
+
+        if 'duration' in ds:
+            ds['duration'] = ('state', durations + ds['duration'].values)
+        else:
+            ds['duration'] = ('state', durations)
+        ds['duration'].attrs['transition_frames'] = transition_frames
+        ds['duration'].attrs['aggregate'] = aggregate
+        return ds
+
+    def _get_crs(self, crs_name, crs_kwds, central_longitude=None):
+        import cartopy.crs as ccrs
+        if self._crs_names is None:
+            self._crs_names = {
+                crs_name.lower(): crs_name for crs_name in dir(ccrs)
+                if '_' not in crs_name}
+
+        crs_name = self._crs_names.get(crs_name.lower(), 'PlateCarree')
+        if central_longitude is not None:
+            crs_kwds['central_longitude'] = central_longitude
+        crs_obj = getattr(ccrs, crs_name)(**crs_kwds)
+        return crs_obj
+
+    @staticmethod
+    def _fill_null(ds):
+        for var in ds.data_vars:
+            if ds[var].dtype == 'O':
+                try:
+                    ds[var] = ds[var].astype(float)
+                except ValueError:
+                    ds[var] = ds[var].where(~pd.isnull(ds[var]), '')
+        return ds
+
+    def _compress_vars(self, da):
+        if isinstance(da, xr.Dataset):
+            if da.get('item', 1) == 1 and da.get('ref_item') == 1:
+                return da
+            da = da.map(self._compress_vars, keep_attrs=True)
+            return da
+
+        unique_vals = np.unique(da.values)
+        if len(unique_vals) == 1:
+            return unique_vals[0]
+        else:
+            return da
+
+    @staticmethod
+    def _add_color_kwds(ds, chart):
+        if chart is not None:
+            if chart.startswith('bar'):
+                color = None
+                if set(np.unique(ds['label'])) == set(np.unique(ds['x'])):
+                    ds.attrs['legend']['show'] = False
+
+        if 'c' in ds:
+            c_var = 'c'
+            plot_key = 'plot'
+        else:
+            c_var = 'grid_c'
+            plot_key = 'grid_plot'
+        if c_var in ds:
+            cticks = ds.attrs['cticks'].get('ticks')
+            if cticks is None:
+                num_ticks = defaults['cticks']['num_ticks']
+            else:
+                num_ticks = len(cticks)
+            num_ticks = ds.attrs['cticks'].pop('num_ticks', num_ticks)
+            if num_ticks < 3:
+                raise ValueError('There must be at least 3 ticks for cticks!')
+
+            ds.attrs[plot_key]['cmap'] = plt.get_cmap(
+                ds.attrs[plot_key].get('cmap', 'plasma'), num_ticks)
+
+            vmin = ds.attrs[plot_key].get('vmin')
+            vmax = ds.attrs[plot_key].get('vmax')
+            if cticks is not None:
+                ds.attrs[plot_key]['norm'] = ds.attrs[plot_key].get(
+                    'norm', BoundaryNorm(cticks, num_ticks))
+            elif vmin is None and vmax is None:
+                cticks = np.linspace(
+                    np.nanmin(ds[c_var].values),
+                    np.nanmax(ds[c_var].values),
+                    num_ticks)
+                ds.attrs[plot_key]['norm'] = ds.attrs[plot_key].get(
+                    'norm', BoundaryNorm(cticks, num_ticks))
+            ds.attrs['colorbar']['show'] = ds.attrs[plot_key].get(
+                'show', True)
+        else:
+            ds.attrs['colorbar']['show'] = False
+        return ds
+
     def _add_xy01_limits(self, ds, chart):
+        # TODO: breakdown function
         limits = {
             key: val
             for key, val in ds.attrs['settings'].items()
@@ -952,7 +1138,6 @@ class Animation(param.Parameterized):
                         f"from {OPTIONS['limit']} or numeric values!"
                     )
 
-
             input_ = limit
             if isinstance(limit, str):
                 if '_' in limit:
@@ -996,140 +1181,22 @@ class Animation(param.Parameterized):
                 ds[key] = ('state', limit)
         return ds
 
-    def _add_durations(self, ds):
-        if self.durations is None:
-            durations = 0.5 if self.num_states < 10 else 1 / 60
-        else:
-            durations = self._figure_kwds['durations']['durations']
-
-        if isinstance(durations, (int, float)):
-            durations = np.repeat(durations, self.num_states)
-        transition_frames = (
-            defaults['durations']['transition_frames'])
-
-        durations_kwds = load_defaults(
-            'durations', self._figure_kwds['durations'],
-            transition_frames=transition_frames)
-        aggregate = durations_kwds.pop('aggregate')
-
-        if np.isnan(durations[-1]):
-            durations[-1] = 0
-        durations[-1] += durations_kwds['final_frame']
-
-        if 'duration' in ds:
-            ds['duration'] = ('state', durations + ds['duration'].values)
-        else:
-            ds['duration'] = ('state', durations)
-        ds['duration'].attrs['transition_frames'] = transition_frames
-        ds['duration'].attrs['aggregate'] = aggregate
-        return ds
-
-    def _get_crs(self, crs_name, crs_kwds):
-        import cartopy.crs as ccrs
-        if len(self._crs_names) == 0:
-            self._crs_names = {
-                crs_name.lower(): crs_name for crs_name in dir(ccrs)
-                if '_' not in crs_name}
-
-        crs_name = self._crs_names.get(crs_name.lower(), 'PlateCarree')
-        crs_obj = getattr(ccrs, crs_name)(**crs_kwds)
-        return crs_obj
-
-    def _add_geo_transforms(self, ds):
-        crs_kwds = load_defaults('crs', ds)
-        crs = crs_kwds.pop('crs', None)
-
-        projection_kwds = load_defaults('projection', ds)
-        projection = projection_kwds.pop('projection', None)
-
-        if crs != '' or projection != '':
-            crs_obj = self._get_crs(crs, crs_kwds)
-            ds.attrs['plot']['transform'] = crs_obj
-            ds.attrs['inline']['transform'] = crs_obj
-            ds.attrs['grid']['transform'] = crs_obj
-            ds.attrs['axes']['transform'] = crs_obj
-
-            projection_obj = self._get_crs(projection, projection_kwds)
-            ds['projection'] = projection_obj
-        return ds
-
-    @staticmethod
-    def _fill_null(ds):
-        for var in ds.data_vars:
-            if ds[var].dtype == 'O':
-                try:
-                    ds[var] = ds[var].astype(float)
-                except ValueError:
-                    ds[var] = ds[var].where(~pd.isnull(ds[var]), '')
-        return ds
-
-    def _compress_vars(self, da):
-        if isinstance(da, xr.Dataset):
-            if da.get('item', 1) == 1 and da.get('ref_item') == 1:
-                return da
-            da = da.map(self._compress_vars, keep_attrs=True)
-            return da
-
-        unique_vals = np.unique(da.values)
-        if len(unique_vals) == 1:
-            return unique_vals[0]
-        else:
-            return da
-
-    @staticmethod
-    def _add_color_kwds(ds, chart):
-        if chart.startswith('bar'):
-            color = None
-            if set(np.unique(ds['label'])) == set(np.unique(ds['x'])):
-                ds.attrs['legend']['show'] = False
-
-        if 'c' in ds:
-            cticks = ds.attrs['cticks'].get('ticks')
-            if cticks is None:
-                num_ticks = defaults['cticks']['num_ticks']
-            else:
-                num_ticks = len(cticks)
-            num_ticks = ds.attrs['cticks'].pop('num_ticks', num_ticks)
-            if num_ticks < 3:
-                raise ValueError('There must be at least 3 ticks for cticks!')
-            vmin = ds.attrs['plot'].get('vmin')
-            vmax = ds.attrs['plot'].get('vmax')
-
-            ds.attrs['plot']['cmap'] = plt.get_cmap(
-                ds.attrs['plot'].get('cmap', 'plasma'), num_ticks)
-
-            if cticks is not None:
-                ds.attrs['plot']['norm'] = ds.attrs['plot'].get(
-                    'norm', BoundaryNorm(cticks, num_ticks))
-            elif vmin is None and vmax is None:
-                cticks = np.linspace(
-                    np.nanmin(ds['c'].values),
-                    np.nanmax(ds['c'].values),
-                    num_ticks)
-                ds.attrs['plot']['norm'] = ds.attrs['plot'].get(
-                    'norm', BoundaryNorm(cticks, num_ticks))
-            ds.attrs['colorbar']['show'] = ds.attrs['plot'].get(
-                'show', True)
-        else:
-            ds.attrs['colorbar']['show'] = False
-        return ds
-
     @staticmethod
     def _add_base_kwds(ds):
+        # TODO: support subplots
         base_kwds = {}
-        for xyc in ['x', 'y', 'c']:
+        for xyc in ['x', 'y', 'c', 'grid_c']:
             if xyc in ds:
                 try:
                     base_kwds[f'{xyc}ticks'] = (
                         np.nanquantile(ds[xyc], 0.5) / 10)
                 except TypeError:
                     base_kwds[f'{xyc}ticks'] = np.nanmin(ds[xyc])
-                if xyc == 'c':
+                if 'c' in xyc:
                     continue
                 ds.attrs[f'{xyc}ticks']['is_datetime'] = is_datetime(ds[xyc])
 
-        keys = ['inline', 'state', 'delta', 'bar', 'ref_inline']
-        for key in keys:
+        for key in KEYS['base']:
             key_label = f'{key}_label'
             if key_label in ds:
                 try:
@@ -1144,8 +1211,10 @@ class Animation(param.Parameterized):
         return ds
 
     def _interp_dataset(self, ds):
-        ds = ds.reset_coords()
-        ds = ds.map(self.interpolate, keep_attrs=True)
+        if len(ds.dims) > 2:  # more than (item, state)
+            ds = ds.stack({'stacked': ['grid_item', 'grid_y', 'grid_x']})
+            ds = ds.transpose('stacked', 'state')
+        ds = ds.map(self.interpolate, keep_attrs=True).unstack()
 
         if 'x' in ds.data_vars and 'item' not in ds.dims:
             ds = ds.expand_dims('item')
@@ -1158,6 +1227,49 @@ class Animation(param.Parameterized):
         ds['state'] = srange(len(ds['state']))
         return ds
 
+    def _add_geo_transforms(self, ds):
+        crs_kwds = load_defaults('crs', ds)
+        crs = crs_kwds.pop('crs', None)
+
+        projection_kwds = load_defaults('projection', ds)
+        projection = projection_kwds.pop('projection', None)
+
+        if 'central_longitude' in ds:
+            central_lon = pop(ds, 'central_longitude')
+        elif 'central_longitude' in projection_kwds:
+            central_lon = projection_kwds['central_longitude']
+        else:
+            central_lon = float(ds['grid_x'].mean())
+
+        if crs != '' or projection != '':
+            crs_obj = self._get_crs(crs, crs_kwds)
+            ds.attrs['plot']['transform'] = crs_obj
+            ds.attrs['inline']['transform'] = crs_obj
+
+            ds.attrs['ref_plot']['transform'] = crs_obj
+            ds.attrs['ref_inline']['transform'] = crs_obj
+
+            ds.attrs['grid_plot']['transform'] = crs_obj
+            ds.attrs['grid_inline']['transform'] = crs_obj
+
+            ds.attrs['grid']['transform'] = crs_obj
+            ds.attrs['axes']['transform'] = crs_obj
+
+            if is_scalar(central_lon):
+                projection_obj = self._get_crs(projection, projection_kwds)
+                ds['projection'] = projection_obj
+            else:
+                projection_obj = [
+                    self._get_crs(
+                        projection, projection_kwds, central_longitude=cl)
+                    for cl in central_lon]
+                if len(central_lon) != self.num_states:
+                    raise ValueError(
+                        f'Length of central_longitude must be scalar or '
+                        f'have {self.num_states} num_states!')
+                ds['projection'] = 'state', projection_obj
+        return ds
+
     def finalize(self):
         if self._is_finalized:
             return self
@@ -1166,7 +1278,7 @@ class Animation(param.Parameterized):
             start = self.animate.start
             stop = self.animate.stop
             step = self.animate.step or 1
-            self._subset_states = range(start, stop, step)
+            self._subset_states = np.arange(start, stop, step)
             self._animate = True
             self._is_static = is_scalar(self._subset_states)
         elif isinstance(self.animate, bool):
@@ -1175,7 +1287,7 @@ class Animation(param.Parameterized):
             self._is_static = False
         elif isinstance(self.animate, (Iterable, int)):
             self._subset_states = to_1d(self.animate, flat=False)
-            self._animate = self.animate
+            self._animate = True
             if self._subset_states[0] == 0:
                 warnings.warn(
                     'State 0 detected in `animate`; shifting by 1.')
@@ -1188,25 +1300,27 @@ class Animation(param.Parameterized):
 
         data = {}
         for i, (rowcol, ds) in enumerate(self_copy.data.items()):
-            if i == 0:
-                for key in FIGURE_KEYS:
-                    self_copy._figure_kwds[key] = ds.attrs[key]
+            if self_copy._figure_kwds is None:
+                figure_kwds = {}
+                for key in KEYS['figure']:
+                    figure_kwds[key] = ds.attrs[key]
 
             chart = to_scalar(ds['chart']) if 'chart' in ds else ''
             ds = self._fill_null(ds)
             ds = self._compress_vars(ds)
-            if chart != '':
-                ds = self._add_color_kwds(ds, chart)
+            ds = self._add_color_kwds(ds, chart)
             ds = self._config_chart(ds, chart)
             ds = self._add_xy01_limits(ds, chart)
             ds = self._add_base_kwds(ds)
             if self.fps is None:
-                ds = self._add_durations(ds)
+                ds = self._add_durations(ds, figure_kwds)
             ds = self._interp_dataset(ds)
             ds = self._add_geo_transforms(ds)
             ds.attrs['finalized'] = True
             self_copy._is_finalized = True
             data[rowcol] = ds
+
+        self_copy._figure_kwds = figure_kwds
         self_copy.data = data
         return self_copy
 
@@ -1214,32 +1328,37 @@ class Animation(param.Parameterized):
         jobs = []
         if self._subset_states is not None:
             states = self._subset_states
+            negative_indices = states < 0
+            states[negative_indices] = (
+                self.num_states - states[negative_indices]) - 1
         else:
             states = srange(self.num_states)
 
         for state in states:
-            state_ds_rowcols = [
-                ds.sel(state=slice(None, state))
-                if 'line' in ds.get('chart', ds.get('ref_chart'))
-                or 'x_trail' in ds.data_vars
-                or 'x_discrete_trail' in ds.data_vars
-                else ds.sel(state=state)
-                for ds in data.values()
-            ]
+            state_ds_rowcols = []
+            for ds in data.values():
+                is_line = 'line' == ds.get('chart', '')
+                is_trail = (
+                    'x_trail' in ds.data_vars or
+                    'x_discrete_trail' in ds.data_vars)
+                if is_line or is_trail:
+                    state_ds_rowcols.append(ds.sel(state=slice(None, state)))
+                else:
+                    state_ds_rowcols.append(ds.sel(state=state))
             job = self._draw_frame(state_ds_rowcols, rows, cols)
             jobs.append(job)
 
+        scheduler = 'single-threaded' if self.debug else 'processes'
+        compute_kwds = load_defaults(
+            'compute', self._figure_kwds['compute'], scheduler=scheduler)
         if self.num_states >= self.workers:
-            num_workers = self.workers
+            num_workers = compute_kwds['num_workers']
         else:
             num_workers = self.num_states
 
-        scheduler = 'single-threaded' if self.debug else 'processes'
-        with dask.diagnostics.ProgressBar(minimum=0.5):
+        with dask.diagnostics.ProgressBar():
             buf_list = [
-                buf for buf in dask.compute(
-                    jobs, num_workers=num_workers,
-                    scheduler=scheduler)[0]
+                buf for buf in dask.compute(jobs, **compute_kwds)[0]
                 if buf is not None]
         return buf_list
 
@@ -1353,14 +1472,12 @@ class Animation(param.Parameterized):
         elif not show or not self.export:
             return args[0]
 
-        if self._is_static:
-            args[0] = args[0][0]
-
         try:
             if isinstance(args[0], str):
                 return self._show_output_file(*args)
             else:
-                return self._show_output_buf(*args)
+                arg = args[0][0]  # grab first buf
+                return self._show_output_buf(arg)
         except Exception as e:
             warnings.warn(
                 f'Unable to show output in notebook due to {e}!')
@@ -1376,11 +1493,10 @@ class Animation(param.Parameterized):
 
         # rather than directly setting data = self.data, this
         # way triggers computing num_states automatically
-        self.data = self.finalize().data
+        self.__dict__.update(self.finalize().__dict__)
         data = self.data
-        print(data)
 
-        # pop before creating frames
+        # unrecognized durations keyword if not popped
         if self.fps is None:
             durations = xr.concat((
                 pop(ds, 'duration', to_numpy=False) for ds in data.values()

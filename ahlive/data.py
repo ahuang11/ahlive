@@ -18,11 +18,11 @@ CHARTS = {
     'base': ['scatter', 'line', 'barh', 'bar'],
     'grid': ['pcolormesh', 'pcolorfast', 'contour', 'contourf', 'scatter'],
     'refs': ['axvspan', 'axhspan', 'axvline', 'axhline'],
-    'type': ['race', 'delta', 'trail', 'globe'],
+    'type': ['race', 'delta', 'trail', 'rotate'],
 }
 DIMS = {
     'base': ('item', 'state'),
-    'grid': ('item', 'state', 'xi', 'yi'),
+    'grid': ('grid_item', 'state', 'grid_y', 'grid_x'),
     'refs': ('ref_item', 'state')
 }
 LIMS = [
@@ -66,6 +66,7 @@ class Data(Easing, Animation):
 
     crs = param.String()
     projection = param.String()
+    central_lon = param.ClassSelector(class_=(Iterable, int, float))
     borders = param.Boolean(default=None)
     coastline = param.Boolean(default=True)
     land = param.Boolean(default=None)
@@ -115,12 +116,15 @@ class Data(Easing, Animation):
             break
         self._data = data
 
-    def _adapt_input(self, val, reshape=True):
+    def _adapt_input(self, val, reshape=True, shape=None):
         val = np.array(val)
         if is_scalar(val):
             val = np.repeat(val, self.num_states)
         if reshape:
-            val = val.reshape(-1, self.num_states)
+            if shape is None:
+                val = val.reshape(-1, self.num_states)
+            else:
+                val = val.reshape(-1, self.num_states, *shape)
         return val
 
     def _amend_input_vars(self, input_vars):
@@ -375,15 +379,21 @@ class Data(Easing, Animation):
 
     def config(self, axes=None, plot=None, chart=None,
                state=None, inline=None, grid=None,
-               title=None, subtitle=None, xlabel=None, ylabel=None,
-               note=None, caption=None, legend=None, xticks=None, yticks=None,
+               title=None, subtitle=None,
+               xlabel=None, ylabel=None,
+               note=None, caption=None, legend=None,
+               xticks=None, yticks=None,
                colorbar=None, clabel=None, cticks=None,
-               ref_plot=None, ref_inline=None, remark_inline=None,
-               remark=None, crs=None, projection=None,
+               grid_plot=None, grid_inline=None,
+               ref_plot=None, ref_inline=None,
+               remark_inline=None, remark=None,
+               crs=None, projection=None,
                borders=None, coastline=None, land=None, ocean=None,
                lakes=None, rivers=None, states=None, margins=None,
-               figure=None, animate=None, suptitle=None, watermark=None,
+               figure=None, animate=None, compute=None,
+               suptitle=None, watermark=None,
                spacing=None, durations=None, frame=None):
+        # TODO: find a better way to implement this as a class
         attrs = {}
         for key, val in locals().items():
             if key in ['self', 'attrs']:
@@ -423,6 +433,7 @@ class Data(Easing, Animation):
                 attrs[key]['crs'] = self.crs
             elif key == 'projection':
                 attrs[key]['projection'] = self.projection
+                attrs[key]['central_longitude'] = self.central_lon
             elif key == 'borders':
                 attrs[key]['borders'] = self.borders
             elif key == 'coastline':
@@ -441,19 +452,19 @@ class Data(Easing, Animation):
                 attrs[key]['figsize'] = self.figsize
             elif key == 'suptitle':
                 attrs[key]['t'] = self.suptitle
+            elif key == 'compute':
+                attrs[key]['scheduler'] = self.scheduler
+                attrs[key]['num_workers'] = self.workers
             elif key == 'watermark':
                 attrs[key]['s'] = self.watermark
             elif key == 'durations':
                 attrs[key]['durations'] = self.durations
             elif key == 'clabel':
-                if hasattr(self, 'clabel'):
-                    attrs[key]['text'] = self.clabel
+                attrs[key]['text'] = self.clabel
             elif key == 'colorbar':
-                if hasattr(self, 'colorbar'):
-                    attrs[key]['show'] = self.colorbar
+                attrs[key]['show'] = self.colorbar
             elif key == 'cticks':
-                if hasattr(self, 'cticks'):
-                    attrs[key]['ticks'] = self.cticks
+                attrs[key]['ticks'] = self.cticks
 
         self_copy = deepcopy(self)
         data = {}
@@ -465,51 +476,62 @@ class Data(Easing, Animation):
         return self_copy
 
 
-class Array(Data):
+class ReferenceArray(param.Parameterized):
 
-    xs = param.ClassSelector(class_=(Iterable,))
-    ys = param.ClassSelector(class_=(Iterable,))
+    def __init__(self, **kwds):
+        super().__init__(**kwds)
 
-    cticks = param.ClassSelector(class_=(Iterable,))
-    colorbar = param.Boolean(default=False)
-    clabel = param.String()
+    def reference(self, x0s=None, x1s=None, y0s=None, y1s=None,
+                  label=None, inline_labels=None, inline_loc=None,
+                  rowcols=None, **kwds):
+        if rowcols is None:
+            rowcols = self.data.keys()
 
-    def __init__(self, xs, ys, **kwds):
-        num_states = len(xs)
-        super().__init__(num_states, **kwds)
-        ds = self.data[self.rowcol]
-        ds = ds.assign(**{
-            'x': (DIMS['base'], self._adapt_input(xs)),
-            'y': (DIMS['base'], self._adapt_input(ys))})
-        self.data = {self.rowcol: ds}
-
-    @staticmethod
-    def _match_values(da, values, first, rtol, atol):
-        if is_datetime(da):
-            values = pd.to_datetime(values)
-        if first:
-            return xr.concat((
-                da['state'] == (da >= value).argmax()
-                for value in values), 'stack'
-            ).sum('stack')
-        try:
-            return xr.concat((
-                np.isclose(da, value, rtol=rtol, atol=atol)
-                for value in to_1d(values)), 'stack'
-            ).sum('stack')
-        except TypeError:
-            return da.isin(values)
-
-    def invert(self):
-        data = {}
         self_copy = deepcopy(self)
         for rowcol, ds in self_copy.data.items():
-            attrs = ds.attrs
-            df = ds.to_dataframe().rename_axis(DIMS['base'][::-1])
-            ds = df.to_xarray().assign_attrs(attrs).transpose(*DIMS['base'])
-            data[rowcol] = ds
-        self_copy.data = data
+            if rowcol not in rowcols:
+                continue
+
+            kwds.update({
+                'x0s': x0s, 'x1s': x1s, 'y0s': y0s, 'y1s': y1s, 'label': label,
+                'inline_labels': inline_labels, 'inline_loc': inline_loc})
+            has_kwds = {key: val is not None for key, val in kwds.items()}
+            if has_kwds['x0s'] and has_kwds['x1s']:
+                loc_axis = 'x'
+            elif has_kwds['y0s'] and has_kwds['y1s']:
+                loc_axis = 'y'
+            elif has_kwds['x0s']:
+                loc_axis = 'x'
+            elif has_kwds['y0s']:
+                loc_axis = 'y'
+
+            for key in list(kwds):
+                val = kwds[key]
+                if isinstance(val, str):
+                    if hasattr(ds, val):
+                        kwds[key] = getattr(ds[loc_axis], val)('item')
+
+            self_copy *= Reference(**kwds)
+
         return self_copy
+
+
+class ColorArray(param.Parameterized):
+
+    cs = param.ClassSelector(class_=(Iterable,))
+
+    cticks = param.ClassSelector(class_=(Iterable,))
+    colorbar = param.Boolean(default=True)
+    clabel = param.String()
+
+    def __init__(self, **kwds):
+        super().__init__(**kwds)
+
+
+class RemarkArray(param.Parameterized):
+
+    def __init__(self, **kwds):
+        super().__init__(**kwds)
 
     def remark(self, remarks=None, durations=None, condition=None,
                xs=None, ys=None, cs=None, state_labels=None,
@@ -584,39 +606,77 @@ class Array(Data):
         self_copy.data = data
         return self_copy
 
-    def reference(self, x0s=None, x1s=None, y0s=None, y1s=None,
-                  label=None, inline_labels=None, inline_loc=None,
-                  rowcols=None, **kwds):
-        if rowcols is None:
-            rowcols = self.data.keys()
 
+class Array(Data, ReferenceArray, ColorArray, RemarkArray):
+
+    xs = param.ClassSelector(class_=(Iterable,))
+    ys = param.ClassSelector(class_=(Iterable,))
+
+    def __init__(self, xs, ys, **kwds):
+        num_states = len(xs)
+        super().__init__(num_states, **kwds)
+        ds = self.data[self.rowcol]
+        ds = ds.assign(**{
+            'x': (DIMS['base'], self._adapt_input(xs)),
+            'y': (DIMS['base'], self._adapt_input(ys))})
+        self.data = {self.rowcol: ds}
+
+    @staticmethod
+    def _match_values(da, values, first, rtol, atol):
+        if is_datetime(da):
+            values = pd.to_datetime(values)
+        if first:
+            return xr.concat((
+                da['state'] == (da >= value).argmax()
+                for value in values), 'stack'
+            ).sum('stack')
+        try:
+            return xr.concat((
+                np.isclose(da, value, rtol=rtol, atol=atol)
+                for value in to_1d(values)), 'stack'
+            ).sum('stack')
+        except TypeError:
+            return da.isin(values)
+
+    def invert(self):
+        data = {}
         self_copy = deepcopy(self)
         for rowcol, ds in self_copy.data.items():
-            if rowcol not in rowcols:
-                continue
-
-            kwds.update({
-                'x0s': x0s, 'x1s': x1s, 'y0s': y0s, 'y1s': y1s, 'label': label,
-                'inline_labels': inline_labels, 'inline_loc': inline_loc})
-            has_kwds = {key: val is not None for key, val in kwds.items()}
-            if has_kwds['x0s'] and has_kwds['x1s']:
-                loc_axis = 'x'
-            elif has_kwds['y0s'] and has_kwds['y1s']:
-                loc_axis = 'y'
-            elif has_kwds['x0s']:
-                loc_axis = 'x'
-            elif has_kwds['y0s']:
-                loc_axis = 'y'
-
-            for key in list(kwds):
-                val = kwds[key]
-                if isinstance(val, str):
-                    if hasattr(ds, val):
-                        kwds[key] = getattr(ds[loc_axis], val)('item')
-
-            self_copy *= Reference(**kwds)
-
+            attrs = ds.attrs
+            df = ds.to_dataframe().rename_axis(DIMS['base'][::-1])
+            ds = df.to_xarray().assign_attrs(attrs).transpose(*DIMS['base'])
+            data[rowcol] = ds
+        self_copy.data = data
         return self_copy
+
+
+class Array2D(Data, ReferenceArray, ColorArray, RemarkArray):
+
+    chart = param.ObjectSelector(
+        objects=CHARTS['grid'], default=CHARTS['grid'][0])
+
+    def __init__(self, xs, ys, cs, **kwds):
+        shape = cs.shape[-2:]
+        if cs.ndim > 2:
+            num_states = len(cs)
+            if shape[0] != len(ys):
+                cs = np.swapaxes(cs, -1, -2)
+                shape = shape[::-1]  # TODO: auto figure out time dimension
+        else:
+            num_states = 1
+        super().__init__(num_states, **kwds)
+
+        ds = self.data[self.rowcol]
+        ds = ds.assign_coords({
+            'grid_x': xs.values,
+            'grid_y': ys.values,
+        }).assign({
+            'c': (DIMS['grid'], self._adapt_input(cs, shape=shape))
+        })
+        ds = ds.rename({
+            var: f'grid_{var}' for var in list(ds.data_vars) + ['item']
+            if ds[var].dims != ('state',)})
+        self.data = {self.rowcol: ds}
 
 
 class DataFrame(Array):
@@ -671,28 +731,20 @@ class DataFrame(Array):
             self.data = cascade(arrays, quick=True).data
 
 
-class Array2D(Array):
-
-    cs = param.ClassSelector(class_=(Iterable,))
-
-    def __init__(self, xs, ys, cs, **kwds):
-        num_states = len(xs)
-        super().__init__(num_states, **kwds)
-        ds = self.data[self.rowcol]
-        ds = ds.assign_coords(**{'xc': xs, 'yc': ys})
-        ds = ds.assign({'cs': (DIMS['grid'], cs)})
-        self.data = {self.rowcol: ds}
-
-
-class Dataset(Array2D, DataFrame):
+class Dataset(Array2D):
 
     ds = param.ObjectSelector(objects=(xr.Dataset,))
 
-    inline_loc = param.ClassSelector(class_=(Iterable, int, float))
+    inline_locs = param.ClassSelector(class_=(Iterable, int, float))
 
     def __init__(self, ds, xs, ys, cs, **kwds):
         num_states = len(cs)
-        super().__init__(ds['xs'], ds['ys'], ds['cs'], **kwds)
+        super().__init__(ds[xs], ds[ys], cs=ds[cs], **kwds)
+        # ds = self.data[self.rowcol]
+        # ds = ds.assign_coords(**{'xc': xs, 'yc': ys})
+        # ds = ds.assign({'cs': (DIMS['grid'], cs)})
+        # self.data = {self.rowcol: ds}
+        # super().__init__(ds['xs'], ds['ys'], ds['cs'], **kwds)
 
 
 class Reference(Data):
@@ -703,7 +755,7 @@ class Reference(Data):
     x1s = param.ClassSelector(class_=(Iterable,))
     y0s = param.ClassSelector(class_=(Iterable,))
     y1s = param.ClassSelector(class_=(Iterable,))
-    inline_loc = param.ClassSelector(class_=(Iterable, int, float))
+    inline_locs = param.ClassSelector(class_=(Iterable, int, float))
 
     def __init__(self, x0s=None, x1s=None, y0s=None, y1s=None, **kwds):
         ref_kwds = {
@@ -741,7 +793,8 @@ class Reference(Data):
         super().__init__(num_states, **kwds)
         ds = self.data[self.rowcol]
         ds = ds.rename({
-            var: f'ref_{var}' for var in list(ds.data_vars) + ['item']})
+            var: f'ref_{var}' for var in list(ds.data_vars) + ['item']
+            if ds[var].dims != ('state',)})
 
         for key, val in ref_kwds.items():
             val = self._adapt_input(val)
@@ -756,12 +809,12 @@ class Reference(Data):
             inline_labels = self._adapt_input(inline_labels)
             ds['ref_inline_label'] = DIMS['refs'], inline_labels
 
-            inline_loc = to_scalar(self.inline_loc)
-            if inline_loc is None:
+            inline_locs = to_scalar(self.inline_locs)
+            if inline_locs is None:
                 raise ValueError(
                     'Must provide an inline location '
                     'if inline_labels is not None!')
             else:
-                ds['ref_inline_loc'] = 'ref_item', [inline_loc]
+                ds['ref_inline_loc'] = 'ref_item', [inline_locs]
 
         self.data[self.rowcol] = ds

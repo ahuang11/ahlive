@@ -20,6 +20,8 @@ params carried over
 keywords carried over
 reference alone
 whether original object changes
+lat / lon first
+ref xy dot
 
 ## docs
 - overview
