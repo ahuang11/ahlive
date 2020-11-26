@@ -96,6 +96,7 @@ def transpose(da, dims=None):
 
 
 def ffill(da):
+    """ds.ffill does not handle datetimes"""
     if 'state' not in da.dims:
         return da
     try:

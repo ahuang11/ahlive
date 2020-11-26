@@ -9,26 +9,11 @@ import numpy as np
 import xarray as xr
 
 from .easing import Easing
-from .animation import Animation
-from .util import is_scalar, is_datetime, srange, to_1d, to_scalar
+from .animation import Animation, CHARTS, DIMS, LIMS, VARS
+from .util import is_scalar, is_datetime, srange, to_1d, to_scalar, ffill
 from .join import _get_rowcols, _combine, layout, cascade, overlay
 
 
-CHARTS = {
-    'base': ['scatter', 'line', 'barh', 'bar'],
-    'grid': ['pcolormesh', 'pcolorfast', 'contour', 'contourf', 'scatter'],
-    'refs': ['axvspan', 'axhspan', 'axvline', 'axhline'],
-    'type': ['race', 'delta', 'trail', 'rotate'],
-}
-DIMS = {
-    'base': ('item', 'state'),
-    'grid': ('grid_item', 'state', 'grid_y', 'grid_x'),
-    'refs': ('ref_item', 'state')
-}
-LIMS = [
-    'xlims0', 'xlims1', 'ylims0', 'ylims1',
-    'xlim0', 'xlim1', 'ylim0', 'ylim1'
-]
 NULL_VALS = [(), {}, [], None, '']
 
 
@@ -79,7 +64,6 @@ class Data(Easing, Animation):
     rowcol = param.NumericTuple(default=(1, 1), length=2)
 
     _parameters = []
-    _is_configured = False
     data = {}
 
     def __init__(self, num_states, **kwds):
@@ -222,6 +206,43 @@ class Data(Easing, Animation):
         }
         return attrs
 
+    @staticmethod
+    def _match_states(self_ds, other_ds):
+        other_num_states = len(other_ds['state'])
+        self_num_states = len(self_ds['state'])
+        if other_num_states != self_num_states:
+            warnings.warn(
+                f'The latter dataset has {other_num_states} state(s) while '
+                f'the former has {self_num_states} state(s); '
+                f'reindexing the latter dataset to match the former.'
+            )
+            other_ds = other_ds.reindex(state=self_ds['state']).map(
+                ffill, keep_attrs=True)
+        return other_ds
+
+    @staticmethod
+    def _shift_items(self_ds, other_ds):
+        for item in DIMS['item']:
+            if not (item in self_ds.dims and item in other_ds.dims):
+                continue
+            has_same_items = len(
+                set(self_ds[item].values) |
+                set(other_ds[item].values)
+            ) > 0
+            if has_same_items:
+                other_ds[item] = other_ds[item].copy()
+                other_ds[item] = (
+                    other_ds[item] + self_ds[item].max())
+        return other_ds
+
+    @staticmethod
+    def _drop_state(joined_ds):
+        for var in VARS['stateless']:
+            if var in joined_ds:
+                if 'state' in joined_ds[var].dims:
+                    joined_ds[var] = joined_ds[var].max('state')
+        return joined_ds
+
     def _propagate_params(self, self_copy, other):
         for param in self._parameters:
             try:
@@ -244,28 +265,8 @@ class Data(Easing, Animation):
                 setattr(self_copy, param, other_param)
         return self_copy
 
-    @staticmethod
-    def _shift_items(self_ds, other_ds):
-        for item in ['item', 'ref_item']:
-            if not (item in self_ds.dims and item in other_ds.dims):
-                continue
-            has_same_items = len(
-                set(self_ds[item].values) |
-                set(other_ds[item].values)
-            ) > 0
-            if has_same_items:
-                other_ds[item] = other_ds[item].copy()
-                other_ds[item] = (
-                    other_ds[item] + self_ds[item].max())
-        return other_ds
-
-    @staticmethod
-    def _drop_state(joined_ds):
-        for var in ['chart', 'ref_label', 'ref_chart']:
-            if var in joined_ds:
-                if 'state' in joined_ds[var].dims:
-                    joined_ds[var] = joined_ds[var].max('state')
-        return joined_ds
+    def __getitem__(self, key):
+        return self.data[key]
 
     def __str__(self):
         strings = []
@@ -284,11 +285,13 @@ class Data(Easing, Animation):
 
     def __mul__(self, other):
         self_copy = deepcopy(self)
+        other_copy = deepcopy(other)
         rowcols = _get_rowcols([self, other])
         data = {}
         for rowcol in rowcols:
             self_ds = self.data.get(rowcol)
-            other_ds = other.data.get(rowcol)
+            other_ds = other_copy.data.get(rowcol)
+            other_ds = self._match_states(self_ds, other_ds)
 
             if self_ds is None:
                 data[rowcol] = other_ds
@@ -296,12 +299,11 @@ class Data(Easing, Animation):
                 data[rowcol] = self_ds
             else:
                 other_ds = self._shift_items(self_ds, other_ds)
-                joined_ds = _combine(
-                    [self_ds, other_ds], method='merge')
+                joined_ds = _combine([self_ds, other_ds], method='merge')
                 joined_ds = self._drop_state(joined_ds)
                 data[rowcol] = joined_ds
         self_copy.data = data
-        self_copy = self._propagate_params(self_copy, other)
+        self_copy = self._propagate_params(self_copy, other_copy)
         return self_copy
 
     def __rmul__(self, other):
@@ -326,15 +328,22 @@ class Data(Easing, Animation):
 
     def __add__(self, other):
         self_copy = deepcopy(self)
+        other_copy = deepcopy(other)
         self_cols = max(self_copy.data, key=operator.itemgetter(1))[1]
+        rowcols = _get_rowcols([self, other])
         data = {}
-        for rowcol, ds in other.data.items():
+        for rowcol in rowcols:
+            self_ds = self.data.get(rowcol)
+            other_ds = other_copy.data.get(rowcol)
+            other_ds = self._match_states(self_ds, other_ds)
+
             if rowcol[0] <= self_cols:
                 rowcol_shifted = (rowcol[0], rowcol[1] + self_cols)
-                data[rowcol_shifted] = ds
+                data[rowcol_shifted] = other_ds
             else:
-                data[rowcol] = ds
-        self_copy.data = data
+                data[rowcol] = other_ds
+
+        self_copy.data.update(data)
         self_copy = self._propagate_params(self_copy, other)
         return self_copy
 
@@ -370,7 +379,7 @@ class Data(Easing, Animation):
     def cols(self, ncols):
         self_copy = deepcopy(self)
         data = {}
-        for iplot, rowcol in enumerate(self_copy.data):
+        for iplot, rowcol in enumerate(self_copy.data.copy()):
             row = (iplot) // ncols + 1
             col = (iplot) % ncols + 1
             data[(row, col)] = self_copy.data.pop(rowcol)
@@ -448,31 +457,29 @@ class Data(Easing, Animation):
                 attrs[key]['rivers'] = self.rivers
             elif key == 'states':
                 attrs[key]['states'] = self.states
-            elif key == 'figure':
-                attrs[key]['figsize'] = self.figsize
-            elif key == 'suptitle':
-                attrs[key]['t'] = self.suptitle
-            elif key == 'compute':
-                attrs[key]['scheduler'] = self.scheduler
-                attrs[key]['num_workers'] = self.workers
-            elif key == 'watermark':
-                attrs[key]['s'] = self.watermark
-            elif key == 'durations':
-                attrs[key]['durations'] = self.durations
             elif key == 'clabel':
-                attrs[key]['text'] = self.clabel
+                try:  # TODO: refactor this
+                    attrs[key]['text'] = self.clabel
+                except AttributeError:
+                    pass
             elif key == 'colorbar':
-                attrs[key]['show'] = self.colorbar
+                try:
+                    attrs[key]['show'] = self.colorbar
+                except AttributeError:
+                    pass
             elif key == 'cticks':
-                attrs[key]['ticks'] = self.cticks
-
+                try:
+                    attrs[key]['ticks'] = self.cticks
+                    attrs[key]['tick_labels'] = self.ctick_labels
+                except AttributeError:
+                    pass
         self_copy = deepcopy(self)
         data = {}
         for rowcol, ds in self_copy.data.items():
             ds.attrs.update(**attrs)
+            ds.attrs['configured'] = True
             data[rowcol] = ds
         self_copy.data = data
-        self_copy._is_configured = True
         return self_copy
 
 
@@ -521,6 +528,7 @@ class ColorArray(param.Parameterized):
     cs = param.ClassSelector(class_=(Iterable,))
 
     cticks = param.ClassSelector(class_=(Iterable,))
+    ctick_labels = param.ClassSelector(class_=(Iterable,))
     colorbar = param.Boolean(default=True)
     clabel = param.String()
 
@@ -655,6 +663,9 @@ class Array2D(Data, ReferenceArray, ColorArray, RemarkArray):
     chart = param.ObjectSelector(
         objects=CHARTS['grid'], default=CHARTS['grid'][0])
 
+    inline_xs = param.ClassSelector(class_=(Iterable, int, float))
+    inline_ys = param.ClassSelector(class_=(Iterable, int, float))
+
     def __init__(self, xs, ys, cs, **kwds):
         shape = cs.shape[-2:]
         if cs.ndim > 2:
@@ -668,14 +679,35 @@ class Array2D(Data, ReferenceArray, ColorArray, RemarkArray):
 
         ds = self.data[self.rowcol]
         ds = ds.assign_coords({
-            'grid_x': xs.values,
-            'grid_y': ys.values,
+            'x': xs.values,
+            'y': ys.values,
         }).assign({
             'c': (DIMS['grid'], self._adapt_input(cs, shape=shape))
         })
+
+        inline_labels = self.inline_labels
+        if isinstance(inline_labels, str):
+            if inline_labels in ds.data_vars:
+                inline_labels = ds[inline_labels].isel(item=[0])
+
+        if inline_labels is not None:
+            inline_xs = self.inline_xs
+            inline_ys = self.inline_ys
+            if inline_xs is None or inline_ys is None:
+                raise ValueError(
+                    'Must provide an inline x and y '
+                    'if inline_labels is not None!')
+            else:
+                ds['inline_x'] = (
+                    DIMS['base'], self._adapt_input(inline_xs))
+                ds['inline_y'] = (
+                    DIMS['base'], self._adapt_input(inline_ys))
+
+        grid_vars = list(ds.data_vars) + ['x', 'y', 'item']
         ds = ds.rename({
-            var: f'grid_{var}' for var in list(ds.data_vars) + ['item']
+            var: f'grid_{var}' for var in grid_vars
             if ds[var].dims != ('state',)})
+
         self.data = {self.rowcol: ds}
 
 
@@ -732,19 +764,8 @@ class DataFrame(Array):
 
 
 class Dataset(Array2D):
-
-    ds = param.ObjectSelector(objects=(xr.Dataset,))
-
-    inline_locs = param.ClassSelector(class_=(Iterable, int, float))
-
-    def __init__(self, ds, xs, ys, cs, **kwds):
-        num_states = len(cs)
-        super().__init__(ds[xs], ds[ys], cs=ds[cs], **kwds)
-        # ds = self.data[self.rowcol]
-        # ds = ds.assign_coords(**{'xc': xs, 'yc': ys})
-        # ds = ds.assign({'cs': (DIMS['grid'], cs)})
-        # self.data = {self.rowcol: ds}
-        # super().__init__(ds['xs'], ds['ys'], ds['cs'], **kwds)
+    def __init__(self):
+        pass
 
 
 class Reference(Data):
@@ -759,16 +780,14 @@ class Reference(Data):
 
     def __init__(self, x0s=None, x1s=None, y0s=None, y1s=None, **kwds):
         ref_kwds = {
-            'ref_x0': x0s,
-            'ref_x1': x1s,
-            'ref_y0': y0s,
-            'ref_y1': y1s,
+            'x0': x0s,
+            'x1': x1s,
+            'y0': y0s,
+            'y1': y1s,
         }
         has_kwds = {key: val is not None for key, val in ref_kwds.items()}
         if not any(has_kwds.values()):
             raise ValueError('Must provide either x0s, x1s, y0s, y1s!')
-        elif sum(has_kwds.values()) > 2:
-            raise ValueError('At most two values can be provided!')
 
         for key in list(ref_kwds):
             val = ref_kwds[key]
@@ -777,28 +796,33 @@ class Reference(Data):
             else:
                 ref_kwds.pop(key)
 
-        if has_kwds['ref_x0'] and has_kwds['ref_x1']:
+        has_xs = has_kwds['x0'] and has_kwds['x1']
+        has_ys = has_kwds['y0'] and has_kwds['y1']
+        if has_xs and has_ys:
+            kwds['chart'] = 'rectangle'
+        elif has_kwds['x0'] and has_kwds['y0']:
+            kwds['chart'] = 'scatter'
+        elif has_kwds['x0'] and has_kwds['x1']:
             kwds['chart'] = 'axvspan'
-        elif has_kwds['ref_y0'] and has_kwds['ref_y1']:
+        elif has_kwds['y0'] and has_kwds['y1']:
             kwds['chart'] = 'axhspan'
-        elif has_kwds['ref_x0']:
+        elif has_kwds['x0']:
             kwds['chart'] = 'axvline'
-        elif has_kwds['ref_y0']:
+        elif has_kwds['y0']:
             kwds['chart'] = 'axhline'
         else:
             raise NotImplementedError(
                 'One of the following combinations must be provided: '
-                'x0+x1, y0+y1, x0, y0')
+                'x0+x1, y0+y1, x0+y0, x0, y0')
 
         super().__init__(num_states, **kwds)
+
         ds = self.data[self.rowcol]
-        ds = ds.rename({
-            var: f'ref_{var}' for var in list(ds.data_vars) + ['item']
-            if ds[var].dims != ('state',)})
 
         for key, val in ref_kwds.items():
             val = self._adapt_input(val)
-            ds[key] = DIMS['refs'], val
+            if val is not None:
+                ds[key] = DIMS['refs'], val
 
         inline_labels = self.inline_labels
         if isinstance(inline_labels, str):
@@ -806,15 +830,17 @@ class Reference(Data):
                 inline_labels = ds[inline_labels].isel(item=[0])
 
         if inline_labels is not None:
-            inline_labels = self._adapt_input(inline_labels)
-            ds['ref_inline_label'] = DIMS['refs'], inline_labels
-
-            inline_locs = to_scalar(self.inline_locs)
+            inline_locs = self.inline_locs
             if inline_locs is None:
                 raise ValueError(
                     'Must provide an inline location '
                     'if inline_labels is not None!')
             else:
-                ds['ref_inline_loc'] = 'ref_item', [inline_locs]
+                ds['inline_loc'] = (
+                    DIMS['refs'], self._adapt_input(inline_locs))
+
+        ds = ds.rename({
+            var: f'ref_{var}' for var in list(ds.data_vars) + ['item']
+            if ds[var].dims != ('state',)})
 
         self.data[self.rowcol] = ds

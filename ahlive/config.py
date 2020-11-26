@@ -29,10 +29,6 @@ defaults['spacing'] = {
     'hspace': 0.2
 }
 
-defaults['figure'] = {
-    'figsize': (18, 9)
-}
-
 defaults['label'] = {
     'fontsize': sizes['medium'],
     'replacements': {'_': ' '},
@@ -51,6 +47,13 @@ defaults['chart']['scatter'] = {
 defaults['chart']['barh'] = defaults['chart']['bar'].copy()
 
 defaults['ref_plot'] = {}
+defaults['ref_plot']['rectangle'] = {
+    'facecolor': 'darkgray',
+    'alpha': 0.45
+}
+defaults['ref_plot']['scatter'] = {
+    'color': 'black',
+}
 defaults['ref_plot']['axvline'] = {
     'color': 'darkgray',
     'linestyle': '--'
@@ -61,11 +64,11 @@ defaults['ref_plot']['axhline'] = {
 }
 defaults['ref_plot']['axvspan'] = {
     'color': 'darkgray',
-    'alpha': 0.3
+    'alpha': 0.45
 }
 defaults['ref_plot']['axhspan'] = {
     'color': 'darkgray',
-    'alpha': 0.3
+    'alpha': 0.45
 }
 
 defaults['ref_inline'] = defaults['label'].copy()
@@ -179,7 +182,8 @@ defaults['watermark'] = {
     'alpha': 0.28,
     'ha': 'right',
     'va': 'bottom',
-    'fontsize': sizes['xx-small']
+    'fontsize': sizes['xx-small'],
+    's': 'animated using ahlive'
 }
 
 defaults['frame'] = {
@@ -189,7 +193,7 @@ defaults['frame'] = {
 }
 
 defaults['compute'] = {
-    'num_workers': 2,
+    'num_workers': 4,
     'scheduler': 'processes'
 }
 
@@ -208,19 +212,27 @@ def scale_sizes(scale, keys=None):
 
 
 def load_defaults(default_key, input_kwds=None, **other_kwds):
+    # get default values
     updated_kwds = defaults.get(default_key, {}).copy()
-    if default_key in ['chart', 'ref_plot']:
+
+    # unnest dictionary if need
+    if default_key in ['chart', 'ref_plot', 'grid_plot']:
         updated_kwds = updated_kwds.get(
-            other_kwds.pop('base_chart', None), updated_kwds
+            other_kwds.pop('base_chart', None), {}
         ).copy()
     if isinstance(input_kwds, xr.Dataset):
         input_kwds = input_kwds.attrs[default_key]
+
+    # update with programmatically generated values
     updated_kwds.update(
         {key: val for key, val in other_kwds.items()
-        if val is not None
-    })
+        if val is not None})
+
+    # update with user input values
     if input_kwds is not None:
-        updated_kwds.update(input_kwds)
+        updated_kwds.update({
+            key: val for key, val in input_kwds.items()
+            if val is not None})
     updated_kwds.pop('base_chart', None)
     return updated_kwds
 

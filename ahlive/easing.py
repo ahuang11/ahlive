@@ -60,7 +60,11 @@ class Easing(param.Parameterized):
                 return da
             elif 'item' in da.dims:
                 da = da.transpose('item', 'state', ...)
-            coords = da.drop('state').coords
+
+            if len(da.dims) > 2:  # more than (item, state)
+                da = da.stack({'stacked': ['grid_item', 'grid_y', 'grid_x']})
+                da = da.transpose('stacked', 'state')
+            coords = da.drop('state', errors='ignore').coords
 
         array = np.array(da)
         if array.ndim == 1:
@@ -137,9 +141,8 @@ class Easing(param.Parameterized):
             result = np.array(results)
         else:
             result = np.repeat(array, num_steps, axis=1)
-            if name == 'state_label':
-                num_roll = -int(np.ceil(num_steps / num_states * 2))
-                result = np.roll(result, num_roll, axis=-1)
+            num_roll = -int(np.ceil(num_steps / num_states * 2))
+            result = np.roll(result, num_roll, axis=-1)
             result = result[:, :num_result]
 
         if self.loop in ['traceback', 'rollback']:
@@ -156,10 +159,9 @@ class Easing(param.Parameterized):
             da_result = xr.DataArray(
                 result, dims=da.dims, coords=coords,
                 name=da.name, attrs=da.attrs)
-            if len(da_result['state']) == 0:
-                return da
-            else:
-                return da_result
+            if 'stacked' in da_result.dims:
+                da_result = da_result.unstack()
+            return da_result
         else:
             return result
 

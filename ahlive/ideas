@@ -6,6 +6,10 @@
 # blacken
 # isort
 # optimize
+# ref xy dot
+# rename grid?
+# grid inlline loc
+# grid dataset
 
 ## tests
 datetime
@@ -21,7 +25,6 @@ keywords carried over
 reference alone
 whether original object changes
 lat / lon first
-ref xy dot
 
 ## docs
 - overview
