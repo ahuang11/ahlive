@@ -1,7 +1,6 @@
 import numpy as np
-import xarray as xr
 
-from .config import sizes, defaults
+import xarray as xr
 
 
 def to_1d(value, flat=True):
@@ -16,11 +15,12 @@ def to_pydt(*values):
         return
     array = to_1d(values, flat=False)
     if np.issubdtype(array.dtype, np.datetime64):
-        array = array.astype('M8[ms]').astype('O')
+        array = array.astype("M8[ms]").astype("O")
     if np.size(array) == 1:
         return array.flat[0]
     else:
         return array
+
 
 def to_list(value):
     if not isinstance(value, list):
@@ -82,31 +82,34 @@ def pop(ds, key, dflt=None, get=None, squeeze=False, to_numpy=True):
     return array
 
 
-def srange(length, start=1):
+def srange(length, start=1, stride=1):
     if isinstance(length, xr.DataArray):
         length = np.size(length)
-    return np.arange(start, length + start)
+    return np.arange(start, length + start, stride)
 
 
 def transpose(da, dims=None):
     if dims is None:
-        item = 'item' if 'item' in da.dims else 'ref_item'
-        dims = (item, 'state')
+        item = "item" if "item" in da.dims else "ref_item"
+        dims = (item, "state")
     return da.transpose(*dims)
 
 
 def ffill(da):
     """ds.ffill does not handle datetimes"""
-    if 'state' not in da.dims:
+    if "state" not in da.dims:
         return da
     try:
-        da = da.ffill('state')
+        da = da.ffill("state")
     except TypeError:
-        if 'item' not in da.dims:
+        if "item" not in da.dims:
             da = da.to_series().ffill().to_xarray()
         else:
-            da = xr.concat((
-                da.sel(item=item).to_series().ffill().to_xarray()
-                for item in da['item']
-            ), 'item')
+            da = xr.concat(
+                (
+                    da.sel(item=item).to_series().ffill().to_xarray()
+                    for item in da["item"]
+                ),
+                "item",
+            )
     return da

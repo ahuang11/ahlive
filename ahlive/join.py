@@ -1,6 +1,6 @@
 import xarray as xr
 
-from .util import srange, ffill
+from .util import ffill, srange
 
 
 def _get_rowcols(objs):
@@ -10,17 +10,17 @@ def _get_rowcols(objs):
     return rowcols
 
 
-def _combine(objs, method='concat', concat_dim='state', **kwds):
+def _combine(objs, method="concat", concat_dim="state", **kwds):
     combined_attrs = {}
     for obj in objs:
         for key, val in obj.attrs.items():
             if key not in combined_attrs:
                 combined_attrs[key] = val
-    if method == 'concat':
-        kwds['dim'] = concat_dim
-    elif method == 'combine_nested':
-        kwds['concat_dim'] = concat_dim
-    kwds['combine_attrs'] = 'drop'
+    if method == "concat":
+        kwds["dim"] = concat_dim
+    elif method == "combine_nested":
+        kwds["concat_dim"] = concat_dim
+    kwds["combine_attrs"] = "drop"
     return getattr(xr, method)(objs, **kwds).assign_attrs(**combined_attrs)
 
 
@@ -32,12 +32,14 @@ def cascade(objs, quick=False):
     if quick:
         rowcols = _get_rowcols(objs)
         obj.data = {
-            rowcol: _combine([
-                array.data[rowcol].assign_coords(item=[i])
-                for i, array in enumerate(objs)],
-            ).pipe(
-                lambda ds: ds.assign(state=srange(ds['state']))
-            ).map(ffill, keep_attrs=True)
+            rowcol: _combine(
+                [
+                    array.data[rowcol].assign_coords(item=[i])
+                    for i, array in enumerate(objs)
+                ],
+            )
+            .pipe(lambda ds: ds.assign(state=srange(ds["state"])))
+            .map(ffill, keep_attrs=True)
             for rowcol in rowcols
         }
     else:
@@ -54,10 +56,10 @@ def overlay(objs, quick=False):
     if quick:
         rowcols = _get_rowcols(objs)
         obj.data = {
-            rowcol: _combine([
-                array.data[rowcol] for array in objs
-                if rowcol in array.data], concat_dim='item'
-            ).pipe(lambda ds: ds.assign(item=srange(ds['item'])))
+            rowcol: _combine(
+                [array.data[rowcol] for array in objs if rowcol in array.data],
+                concat_dim="item",
+            ).pipe(lambda ds: ds.assign(item=srange(ds["item"])))
             for rowcol in rowcols
         }
     else:
@@ -74,8 +76,8 @@ def layout(objs, cols=None, quick=False):
     if quick:
         rowcol = list(obj.data.keys())[0]
         obj.data = {
-            (row, 1): array.data[rowcol]
-            for row, array in enumerate(objs, 1)}
+            (row, 1): array.data[rowcol] for row, array in enumerate(objs, 1)
+        }
     else:
         for array in objs[1:]:
             obj += array

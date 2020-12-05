@@ -27,7 +27,7 @@
 # condition = df_sum['date'].isin(
 #     pd.date_range('2020-03-15', '2020-11-15', freq='1MS'))
 # timeseries = timeseries.add_remarks(
-#     remarks='y', delays=1, condition=condition)
+#     remarks='y', durations=1, condition=condition)
 # geomap = ah.DataFrame(
 #     df, 'long', 'lat', state_labels='date', figsize=(24, 9),
 #     xlim0s=-92, xlim1s=-86.5, ylim0s=37, ylim1s=43, clabel='',
@@ -83,7 +83,7 @@
 # storm_df['mslp'] /= 20
 
 # ahdf = ah.DataFrame(
-#     storm_df, 'lon', 'lat', join='cascade', chart_type='trail',
+#     storm_df, 'lon', 'lat', join='cascade', preset='trail',
 #     xlim0s='fixed', ylim0s='fixed', xlim1s='fixed', ylim1s='fixed',
 #     chart='scatter', label='name', c='vmax', s='mslp',
 #     inline_labels='name', state_labels='date', legend=False,
@@ -106,9 +106,12 @@
 # df_sel['USA_RMW'] = df_sel['USA_RMW'].fillna(10)
 
 # caption = """
-# Hurricane Dorian was an extremely powerful and devastating Category 5 Atlantic
-# hurricane, that became the most intense tropical cyclone on record to strike
-# the Bahamas, and is regarded as the worst natural disaster in the country's history.
+# Hurricane Dorian was an extremely powerful and devastating
+# Category 5 Atlantic
+# hurricane, that became the most intense tropical cyclone
+# on record to strike
+# the Bahamas, and is regarded as the worst natural disaster
+# in the country's history.
 # """
 # ahdf = ah.DataFrame(
 #     df_sel, 'USA_LON', 'USA_LAT', s='USA_RMW',
@@ -117,10 +120,10 @@
 #     note='* Size of circle NOT shown to scale!', caption=caption,
 #     xlim0s='fixed_35', xlim1s='fixed_45',
 #     ylim0s='fixed_5', ylim1s='fixed_10',
-#     chart='scatter', chart_type='trail',
+#     chart='scatter', preset='trail',
 #     inline_labels='USA_PRES', state_labels='ISO_TIME',
 #     projection='Moellwide', land=True, ocean=True,
-#     cticks=[0, 64, 83, 96, 113, 137, 200], frames=10, delays=1/30
+#     cticks=[0, 64, 83, 96, 113, 137, 200], frames=10, durations=1/30
 # )
 # ahdf = ahdf.config(
 #     chart={'chart': 'both', 'stride': 6, 'expire': 50},
@@ -129,5 +132,5 @@
 #     remark_inline={'color': 'black', 'suffix': ' kts'}
 # )
 # ahdf = ahdf.remark(
-#     cs=[64, 83, 96, 113, 137], delays=1, remarks='c', first=True)
+#     cs=[64, 83, 96, 113, 137], durations=1, remarks='c', first=True)
 # ahdf.animate()

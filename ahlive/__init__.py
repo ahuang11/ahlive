@@ -1,4 +1,4 @@
-from .data import Array, Array2D, DataFrame, Dataset, Reference
-from .easing import Easing
-from .tutorial import load_data
-from .join import overlay, cascade, layout
+from .data import Array, Array2D, DataFrame, Dataset, Reference  # noqa
+from .easing import Easing  # noqa
+from .join import cascade, layout, overlay  # noqa
+from .tutorial import load_data  # noqa
