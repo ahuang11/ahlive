@@ -1,10 +1,12 @@
 import numpy as np
-
+import pandas as pd
 import xarray as xr
 
 
-def to_1d(value, flat=True):
+def to_1d(value, unique=False, flat=True):
     array = np.atleast_1d(value)
+    if unique:
+        array = pd.unique(array)
     if flat:
         array = array.flat
     return array
@@ -13,7 +15,10 @@ def to_1d(value, flat=True):
 def to_pydt(*values):
     if values is None:
         return
-    array = to_1d(values, flat=False)
+    array = to_1d(
+        values,
+        flat=False,
+    )
     if np.issubdtype(array.dtype, np.datetime64):
         array = array.astype("M8[ms]").astype("O")
     if np.size(array) == 1:
@@ -50,9 +55,17 @@ def is_scalar(value):
     return np.size(value) == 1
 
 
-def is_datetime(value):
+def is_subtype(value, subtype):
     value = np.array(value)
-    return np.issubdtype(value.dtype, np.datetime64)
+    return np.issubdtype(value.dtype, subtype)
+
+
+def is_datetime(value):
+    return is_subtype(value, subtype)
+
+
+def is_str(value):
+    return is_subtype(value, str)
 
 
 def to_scalar(value, get=-1):
@@ -77,7 +90,7 @@ def pop(ds, key, dflt=None, get=None, squeeze=False, to_numpy=True):
 
     if squeeze:
         array = array.squeeze()
-        if is_scalar(array):
+        if is_scalar(arra):
             array = array.item()
     return array
 
@@ -101,7 +114,7 @@ def ffill(da):
         return da
     try:
         da = da.ffill("state")
-    except TypeError:
+    except (TypeError, ImportError):
         if "item" not in da.dims:
             da = da.to_series().ffill().to_xarray()
         else:

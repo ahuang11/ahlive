@@ -1,23 +1,167 @@
-import glob
-import os
-
 import pandas as pd
+import param
 
-import xarray as xr
-
-THIS_DIR = os.path.dirname(os.path.abspath(__file__))
-DATA_DIR = os.path.join(THIS_DIR, "data")
-DATASETS = sorted(glob.glob(os.path.join(DATA_DIR, "*")))
-ALIASES = {os.path.splitext(os.path.basename(fp))[0]: fp for fp in DATASETS}
+from .configuration import ITEMS
 
 
-def load_data(label=None):
-    if label is None:
-        raise ValueError(f"Select a dataset to open: {list(ALIASES)}")
-    fp = ALIASES.get(label, label)
-    if fp.endswith(".pkl"):
-        return pd.read_pickle(fp)
-    elif fp.endswith(".nc"):
-        return xr.open_dataset(fp)
-    else:
-        raise NotImplementedError
+class TutorialData(param.Parameterized):
+
+    label = param.ObjectSelector(objects=ITEMS["datasets"])
+
+    _source = None
+    _base_url = None
+    _data_url = None
+
+    def _load_annual_co2(
+        self,
+        raw,
+    ):
+        self._source = "KNMI Climate Explorer and NOAA/ESRL"
+        self._base_url = "http://climexp.knmi.nl/"
+        self._data_url = "http://climexp.knmi.nl/data/ico2_annual.dat"
+        df = pd.read_csv(
+            self._data_url,
+            comment="#",
+            header=None,
+            sep="\s+",  # noqa
+            names=[
+                "year",
+                "co2_ppm",
+            ],
+        )
+        return df
+
+    def _load_tc_tracks(
+        self,
+        raw,
+    ):
+        self._source = "IBTrACS v04 - USA"
+        self._base_url = "https://www.ncdc.noaa.gov/ibtracs/"
+        self._data_url = (
+            "https://www.ncei.noaa.gov/data/"
+            "international-best-track-archive-for-climate-stewardship-ibtracs/"
+            "v04r00/access/csv/ibtracs.last3years.list.v04r00.csv"
+        )
+        df = pd.read_csv(self._data_url)
+        if raw:
+            return df
+        df.columns = df.columns.str.lower()
+        df = df[
+            [
+                "basin",
+                "name",
+                "lat",
+                "lon",
+                "iso_time",
+                "usa_wind",
+                "usa_pres",
+                "usa_sshs",
+                "usa_rmw",
+            ]
+        ]
+        df = df.iloc[1:]
+        df = df.set_index("iso_time")
+        df.index = pd.to_datetime(df.index)
+        df.apply(
+            pd.to_numeric,
+            errors="ignore",
+        )
+        return df
+
+    def _load_covid19_us_cases(
+        self,
+        raw,
+    ):
+        self._source = "JHU CSSE COVID-19"
+        self._base_url = "https://github.com/CSSEGISandData/COVID-19"
+        self._data_url = (
+            "https://github.com/CSSEGISandData/COVID-19/raw/master/"
+            "csse_covid_19_data/csse_covid_19_time_series/"
+            "time_series_covid19_confirmed_US.csv"
+        )
+        df = pd.read_csv(self._data_url)
+        if raw:
+            return df
+        df = df.drop(
+            [
+                "UID",
+                "iso2",
+                "iso3",
+                "code3",
+                "FIPS",
+                "Admin2",
+                "Country_Region",
+            ],
+            axis=1,
+        )
+        df.columns = df.columns.str.lower().str.rstrip("_")
+        df = df.melt(
+            id_vars=[
+                "lat",
+                "long",
+                "combined_key",
+                "province_state",
+            ],
+            var_name="date",
+            value_name="cases",
+        )
+        df["date"] = pd.to_datetime(df["date"])
+        return df
+
+    def _load_covid19_global_cases(
+        self,
+        raw,
+    ):
+        self._source = "JHU CSSE COVID-19"
+        self._base_url = "https://github.com/CSSEGISandData/COVID-19"
+        self._data_url = (
+            "https://github.com/CSSEGISandData/COVID-19/raw/master/"
+            "csse_covid_19_data/csse_covid_19_time_series/"
+            "time_series_covid19_confirmed_global.csv"
+        )
+        df = pd.read_csv(self._data_url)
+        if raw:
+            return df
+        df.columns = df.columns.str.lower().str.rstrip("_")
+        df = df.melt(
+            id_vars=[
+                "province/state",
+                "country/region",
+                "lat",
+                "long",
+            ],
+            var_name="date",
+            value_name="cases",
+        )
+        df.columns = df.columns.str.replace(
+            "/",
+            "_",
+        )
+        df["date"] = pd.to_datetime(df["date"])
+        return df
+
+    def open_dataset(
+        self,
+        raw,
+        verbose,
+    ):
+        data = getattr(
+            self,
+            f"_load_{self.label}",
+        )(raw=raw)
+        attr = f"Source: {self._source} | {self._base_url}"
+        if verbose:
+            attr = f"{attr}\nData: {self._data_url}"
+        print(attr)
+        return data
+
+
+def open_dataset(
+    label=None,
+    raw=False,
+    verbose=False,
+):
+    return TutorialData(label=label).open_dataset(
+        raw,
+        verbose,
+    )

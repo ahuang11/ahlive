@@ -1,19 +1,30 @@
 import xarray as xr
 
+from .configuration import ITEMS
 from .util import ffill, srange
 
 
-def _get_rowcols(objs):
+def _get_rowcols(
+    objs,
+):
     rowcols = set([])
     for array in objs:
         rowcols |= set(array.data)
     return rowcols
 
 
-def _combine(objs, method="concat", concat_dim="state", **kwds):
+def _combine(
+    objs,
+    method="concat",
+    concat_dim="state",
+    **kwds,
+):
     combined_attrs = {}
     for obj in objs:
-        for key, val in obj.attrs.items():
+        for (
+            key,
+            val,
+        ) in obj.attrs.items():
             if key not in combined_attrs:
                 combined_attrs[key] = val
     if method == "concat":
@@ -21,10 +32,16 @@ def _combine(objs, method="concat", concat_dim="state", **kwds):
     elif method == "combine_nested":
         kwds["concat_dim"] = concat_dim
     kwds["combine_attrs"] = "drop"
-    return getattr(xr, method)(objs, **kwds).assign_attrs(**combined_attrs)
+    return getattr(xr, method,)(
+        objs,
+        **kwds,
+    ).assign_attrs(**combined_attrs)
 
 
-def cascade(objs, quick=False):
+def cascade(
+    objs,
+    quick=False,
+):
     if len(objs) == 1:
         return objs[0]
 
@@ -39,7 +56,10 @@ def cascade(objs, quick=False):
                 ],
             )
             .pipe(lambda ds: ds.assign(state=srange(ds["state"])))
-            .map(ffill, keep_attrs=True)
+            .map(
+                ffill,
+                keep_attrs=True,
+            )
             for rowcol in rowcols
         }
     else:
@@ -48,7 +68,10 @@ def cascade(objs, quick=False):
     return obj
 
 
-def overlay(objs, quick=False):
+def overlay(
+    objs,
+    quick=False,
+):
     if len(objs) == 1:
         return objs[0]
 
@@ -68,7 +91,11 @@ def overlay(objs, quick=False):
     return obj
 
 
-def layout(objs, cols=None, quick=False):
+def layout(
+    objs,
+    cols=None,
+    quick=False,
+):
     if len(objs) == 1:
         return objs[0]
 
@@ -76,7 +103,14 @@ def layout(objs, cols=None, quick=False):
     if quick:
         rowcol = list(obj.data.keys())[0]
         obj.data = {
-            (row, 1): array.data[rowcol] for row, array in enumerate(objs, 1)
+            (
+                row,
+                1,
+            ): array.data[rowcol]
+            for row, array in enumerate(
+                objs,
+                1,
+            )
         }
     else:
         for array in objs[1:]:
@@ -84,4 +118,31 @@ def layout(objs, cols=None, quick=False):
 
     if cols is not None:
         obj = obj.cols(cols)
+    return obj
+
+
+def merge(
+    objs,
+    join="overlay",
+    quick=False,
+):
+    if join == "overlay":
+        obj = overlay(
+            objs,
+            quick=quick,
+        )
+    elif join == "layout":
+        obj = layout(
+            objs,
+            quick=quick,
+        )
+    elif join == "cascade":
+        obj = cascade(
+            objs,
+            quick=quick,
+        )
+    else:
+        raise NotImplementedError(
+            f'Only {ITEMS["join"]} are implemented for merge; got {join}'
+        )
     return obj
