@@ -1069,6 +1069,7 @@ class Animation(param.Parameterized):
         xformat = xticks_kwds.pop("format", "g")
         xticks_labels = xticks_kwds.pop("labels")
         x_is_datetime = xticks_kwds.pop("is_datetime", False)
+        x_is_str = xticks_kwds.pop("is_str", False)
 
         yticks_base = state_ds.attrs["base_kwds"].get("yticks")
         yticks_kwds = load_defaults("yticks_kwds", state_ds, labels=tick_labels)
@@ -1079,6 +1080,7 @@ class Animation(param.Parameterized):
         yformat = yticks_kwds.pop("format", "g")
         yticks_labels = yticks_kwds.pop("labels")
         y_is_datetime = yticks_kwds.pop("is_datetime", False)
+        y_is_str = yticks_kwds.pop("is_str", False)
 
         if gridlines is not None:  # geoaxes
             from cartopy.mpl.gridliner import (
@@ -1120,19 +1122,19 @@ class Animation(param.Parameterized):
                     ax.set_yticks(xs)
                     ax.set_yticklabels(yticks_labels)
             else:
-                if not x_is_datetime:
+                if not x_is_datetime and not x_is_str:
                     xformatter = FormatStrFormatter(f"%{xformat}")
                     ax.xaxis.set_major_formatter(xformatter)
-                else:
+                elif not x_is_str:
                     xlocator = AutoDateLocator(minticks=5, maxticks=10)
                     xformatter = ConciseDateFormatter(xlocator)
                     ax.xaxis.set_major_locator(xlocator)
                     ax.xaxis.set_major_formatter(xformatter)
 
-                if not y_is_datetime:
+                if not y_is_datetime and not y_is_str:
                     yformatter = FormatStrFormatter(f"%{yformat}")
                     ax.yaxis.set_major_formatter(yformatter)
-                else:
+                elif not y_is_str:
                     ylocator = AutoDateLocator(minticks=5, maxticks=10)
                     yformatter = ConciseDateFormatter(ylocator)
                     ax.yaxis.set_major_locator(ylocator)

@@ -29,7 +29,7 @@ from .configuration import (
 )
 from .easing import Easing
 from .join import _combine, _get_rowcols, merge
-from .util import ffill, is_datetime, is_scalar, pop, srange, to_1d, to_scalar
+from .util import ffill, is_datetime, is_scalar, is_str, pop, srange, to_1d, to_scalar
 
 
 class Data(Easing, Animation, Configuration):
@@ -409,6 +409,8 @@ class Data(Easing, Animation, Configuration):
             da = da.map(self._compress_vars)
             da.attrs = attrs
             return da
+        elif da.name in ['x', 'y']:
+            return da
 
         for dim in DIMS["item"]:
             if dim in da.dims:
@@ -627,10 +629,17 @@ class Data(Easing, Animation, Configuration):
         base_kwds = {}
         for xyc in ITEMS["axes"]:
             if xyc in ds:
+                if is_str(ds[xyc]):
+                    ds.attrs[f"{xyc}ticks_kwds"]["is_str"] = True
+                    continue
+                else:
+                    ds.attrs[f"{xyc}ticks_kwds"]["is_str"] = False
+
                 try:
                     base_kwds[f"{xyc}ticks"] = np.nanquantile(ds[xyc], 0.5) / 10
                 except TypeError:
                     base_kwds[f"{xyc}ticks"] = np.nanmin(ds[xyc])
+
                 if "c" in xyc:
                     continue
                 ds.attrs[f"{xyc}ticks_kwds"]["is_datetime"] = is_datetime(
@@ -665,9 +674,12 @@ class Data(Easing, Animation, Configuration):
                 key for key in [f"{axis}lim0s", f"{axis}lim1s"] if key in ds
             ]
             if keys:
-                margins[axis] = np.abs(ds[keys].to_array()).max(
-                    "variable"
-                ) * margins_kwds.get(axis, 0)
+                try:
+                    margins[axis] = np.abs(ds[keys].to_array()).max(
+                        "variable"
+                    ) * margins_kwds.get(axis, 0)
+                except TypeError:
+                    pass
 
         for key in ["xlim0s", "xlim1s", "ylim0s", "ylim1s"]:
             if key in ds.data_vars:  # TODO: test str / dt
@@ -686,11 +698,11 @@ class Data(Easing, Animation, Configuration):
         return ds
 
     def _interp_dataset(self, ds):
-        if len(ds["state"]) <= 1:  # nothing to interpolate
-            return ds
-
         subgroup_ds_list = []
         interpolate_kwds = ds.attrs["interpolate_kwds"]
+
+        ds['interp'] = ffill(ds['interp'])
+        ds['ease'] = ffill(ds['ease'])
         for kind in ["", "ref_", "grid_"]:
             interp_var = f"{kind}interp"
             ease_var = f"{kind}ease"
@@ -698,32 +710,41 @@ class Data(Easing, Animation, Configuration):
                 continue
 
             vars_seen = set([])
-            for _, group_ds in ds.groupby(interp_var):
-                interpolate_kwds["interp"] = pop(group_ds, interp_var, get=-1)
-                for _, subgroup_ds in group_ds.groupby(ease_var):
+            for _, interp_ds in ds.groupby(interp_var):
+                interpolate_kwds["interp"] = pop(interp_ds, interp_var, get=-1)
+                for _, ease_ds in interp_ds.groupby(ease_var):
+                    if not ease_ds:
+                        continue
+                    if 'stacked_item_state' in ease_ds.dims:
+                        ease_ds = self._drop_state(ease_ds.unstack())
+                        ease_ds['duration'] = ease_ds['duration'].isel(item=0)
                     interpolate_kwds["ease"] = pop(
-                        subgroup_ds, ease_var, get=-1
+                        ease_ds, ease_var, get=-1
                     )
                     var_list = []
-                    for var in subgroup_ds.data_vars:
+                    for var in ease_ds.data_vars:
                         item_dim = f"{kind}item"
-                        has_item = item_dim in subgroup_ds[var].dims
-                        is_stateless = subgroup_ds[var].dims == ("state",)
-                        is_scalar = subgroup_ds[var].dims == ()
+                        has_item = item_dim in ease_ds[var].dims
+                        is_stateless = ease_ds[var].dims == ("state",)
+                        is_scalar = ease_ds[var].dims == ()
                         var_seen = var in vars_seen
                         if has_item:
-                            subgroup_ds[var].attrs.update(interpolate_kwds)
+                            ease_ds[var].attrs.update(interpolate_kwds)
                             var_list.append(var)
                             vars_seen.add(var)
                         elif (is_stateless or is_scalar) and not var_seen:
-                            subgroup_ds[var].attrs.update(interpolate_kwds)
+                            ease_ds[var].attrs.update(interpolate_kwds)
                             var_list.append(var)
                             vars_seen.add(var)
-                    subgroup_ds = subgroup_ds[var_list]
-                    subgroup_ds = subgroup_ds.map(
-                        self.interpolate, keep_attrs=True
-                    )
-                    subgroup_ds_list.append(subgroup_ds)
+                    ease_ds = ease_ds[var_list]
+                    try:
+                        ease_ds = ease_ds.map(
+                            self.interpolate, keep_attrs=True
+                        )
+                    except IndexError as e:
+                        if self.debug:
+                            warnings.warn(str(e))
+                    subgroup_ds_list.append(ease_ds)
 
         ds = xr.combine_by_coords(subgroup_ds_list)
         ds = ds.drop_vars(

@@ -131,7 +131,8 @@ class Easing(param.Parameterized):
                 num_items,
                 new_shape,
             )
-            result = pd.to_datetime(result[0]).values
+            result = pd.to_datetime(result.ravel()).values
+            result = result.reshape(new_shape)
         elif np.issubdtype(array.dtype, np.number):
             result = self._interp(
                 array,
@@ -207,12 +208,16 @@ class Easing(param.Parameterized):
         new_shape,
     ):
         init = np.repeat(array[:, :-1], num_steps, axis=1)
+        init_nans = np.where(np.isnan(init))
+        init[init_nans] = 0  # temporarily fill the nans
         stop = np.repeat(array[:, 1:], num_steps, axis=1)
+        stop_nans = np.where(np.isnan(stop))
         tiled_steps = np.tile(steps, (num_states - 1) * num_items).reshape(
             *new_shape
         )
         weights = getattr(self, f"_{interp.lower()}")(tiled_steps, ease)
         result = stop * weights + init * (1 - weights)
+        result[init_nans + stop_nans] = np.nan  # replace nans
         return result
 
     def _linear(self, ts, ease):

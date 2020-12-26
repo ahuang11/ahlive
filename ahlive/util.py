@@ -61,7 +61,7 @@ def is_subtype(value, subtype):
 
 
 def is_datetime(value):
-    return is_subtype(value, subtype)
+    return is_subtype(value, np.datetime64)
 
 
 def is_str(value):
@@ -120,7 +120,7 @@ def ffill(da):
         else:
             da = xr.concat(
                 (
-                    da.sel(item=item).to_series().ffill().to_xarray()
+                    da.sel(item=item).to_series().ffill().bfill().to_xarray()
                     for item in da["item"]
                 ),
                 "item",
