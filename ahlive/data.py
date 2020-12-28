@@ -63,8 +63,8 @@ class Data(Easing, Animation, Configuration):
     xticks = param.ClassSelector(class_=(Iterable,))
     yticks = param.ClassSelector(class_=(Iterable,))
 
-    legend = param.Boolean(default=None)
-    grid = param.Boolean(default=None)
+    legend = param.ObjectSelector(objects=OPTIONS["legend"])
+    grid = param.ObjectSelector(objects=OPTIONS["grid"])
 
     rowcol = param.NumericTuple(default=(1, 1), length=2)
 
@@ -225,13 +225,17 @@ class Data(Easing, Animation, Configuration):
                 ds.attrs["preset_kwds"]["preset"] = "series"
                 return ds
 
-        bar_label = ds.attrs["preset_kwds"].get("bar_label", True)
+        preset_kwds = load_defaults("preset_kwds", ds, base_chart=preset)
+        bar_label = preset_kwds.get("bar_label", True)
         ds["tick_label"] = ds["x"]
         if bar_label:
             ds["bar_label"] = ds["x"]
 
         if preset == "race":
+            # want to count NaNs so highest number is consistent
+            ds["y"] = ds["y"].fillna(-np.inf)
             ds["x"] = ds["y"].rank("item")
+            ds["y"] = ds["y"].where(np.isfinite(ds["y"]))
         else:
             ds["x"] = ds["x"].rank("item")
             if preset == "delta":
@@ -299,8 +303,8 @@ class Data(Easing, Animation, Configuration):
         scan_stride = ds.attrs["preset_kwds"].pop("stride", 1)
         states = srange(ds["state"])[:-1]
         for state in states:
-            curr_state_ds = ds.sel(state=state).drop(stateless_vars)
-            next_state_ds = ds.sel(state=state + 1).drop(stateless_vars)
+            curr_state_ds = ds.sel(state=state).drop_vars(stateless_vars)
+            next_state_ds = ds.sel(state=state + 1).drop_vars(stateless_vars)
             for i in srange(curr_state_ds[grid_axis], stride=scan_stride):
                 scan_ds = curr_state_ds.where(
                     ~curr_state_ds[grid_axis].isin(
@@ -354,7 +358,7 @@ class Data(Easing, Animation, Configuration):
 
     def _config_chart(self, ds, chart):
         preset = ds.attrs["preset_kwds"].get("preset", "")
-        if chart.startswith("bar"):
+        if chart.startswith('bar'):
             ds = self._config_bar_chart(ds, preset)
         elif preset == "trail":
             ds = self._config_trail_chart(ds)
@@ -457,9 +461,15 @@ class Data(Easing, Animation, Configuration):
             if num_colors < 3:
                 raise ValueError("There must be at least 3 colors!")
 
-            ds.attrs[plot_key]["cmap"] = plt.get_cmap(
-                ds.attrs[plot_key].get("cmap", "plasma"), num_colors
-            )
+            if 'cmap' in ds.data_vars:
+                cmap = pop(ds, 'cmap', get=-1)
+            elif 'ref_cmap' in ds.data_vars:
+                cmap = pop(ds, 'ref_cmap', get=-1)
+            elif 'grid_cmap' in ds.data_vars:
+                cmap = pop(ds, 'grid_cmap', get=-1)
+            else:
+                cmap = ds.attrs[plot_key].get("cmap", "plasma")
+            ds.attrs[plot_key]["cmap"] = plt.get_cmap(cmap, num_colors)
 
             if cticks is None:
                 vmin = ds.attrs[plot_key].get("vmin")
@@ -471,9 +481,7 @@ class Data(Easing, Animation, Configuration):
                     vmax = np.nanmax(ds[c_var].values)
                 indices = np.round(
                     np.linspace(0, num_colors - 1, num_ticks)
-                ).astype(
-                    int
-                )  # select 10 values equally
+                ).astype(int)  # select 10 values equally
                 cticks = np.linspace(vmin, vmax, num_colors)[indices]
                 ds.attrs["cticks_kwds"]["ticks"] = cticks
                 ds.attrs[plot_key]["vmin"] = vmin
@@ -603,7 +611,7 @@ class Data(Easing, Animation, Configuration):
                     )().values
                 elif limit == "follow":
                     # follow latest state, da.min('item')
-                    stat = "max" if is_lower_limit else "min"
+                    stat = "min" if is_lower_limit else "max"
                     limit = getattr(ds[var], stat)(item_dim).values
 
                 if limit is not None and offset != 0:  # TODO: test str / dt
@@ -632,7 +640,7 @@ class Data(Easing, Animation, Configuration):
                 if is_str(ds[xyc]):
                     ds.attrs[f"{xyc}ticks_kwds"]["is_str"] = True
                     continue
-                else:
+                elif "c" not in xyc:
                     ds.attrs[f"{xyc}ticks_kwds"]["is_str"] = False
 
                 try:
@@ -642,21 +650,24 @@ class Data(Easing, Animation, Configuration):
 
                 if "c" in xyc:
                     continue
+
                 ds.attrs[f"{xyc}ticks_kwds"]["is_datetime"] = is_datetime(
                     ds[xyc]
                 )
 
         for key in ITEMS["base"]:
             key_label = f"{key}_label"
-
             if key_label in ds:
                 try:
                     if is_scalar(ds[key_label]):
                         base = np.nanmin(ds[key_label]) / 10
-                    elif is_datetime(ds[key_label]):
-                        base = abs(np.diff(np.unique(ds[key_label])).min() / 5)
                     else:
-                        base = np.nanmin(np.diff(np.unique(ds[key_label])))
+                        key_values = ds[key_label].values.ravel()
+                        base_diff = np.diff(pd.unique(key_values))
+                        if is_datetime(ds[key_label]):
+                            base = abs(base_diff.min() / 5)
+                        else:
+                            base = np.nanmin(base_diff)
                     if not np.isnan(base):
                         base_kwds[key] = base
                 except Exception as e:
@@ -665,7 +676,7 @@ class Data(Easing, Animation, Configuration):
 
         for key in ["s"]:  # for the legend
             if key in ds:
-                base_kwds[key] = np.nanquantile(ds[key], 0.5) / 10
+                base_kwds[key] = np.nanmedian(ds[key])
 
         margins_kwds = load_defaults("margins_kwds", ds)
         margins = {}
@@ -674,12 +685,10 @@ class Data(Easing, Animation, Configuration):
                 key for key in [f"{axis}lim0s", f"{axis}lim1s"] if key in ds
             ]
             if keys:
-                try:
+                if not is_str(ds[keys[0]]) and not is_datetime(ds[keys[0]]):
                     margins[axis] = np.abs(ds[keys].to_array()).max(
                         "variable"
                     ) * margins_kwds.get(axis, 0)
-                except TypeError:
-                    pass
 
         for key in ["xlim0s", "xlim1s", "ylim0s", "ylim1s"]:
             if key in ds.data_vars:  # TODO: test str / dt
@@ -687,8 +696,11 @@ class Data(Easing, Animation, Configuration):
                 num = int(key[-2])  # 0
                 is_lower_limit = num == 0
                 margin = margins.get(axis)
-                if margin is None:
+                if margin is None or to_scalar(ds[key]) == 0:
                     continue
+                # it means the limit is set to "fixed"
+                if len(to_1d(ds[key], unique=True)) == 1:
+                    margin = margin.mean()
                 if is_lower_limit:
                     ds[key] = ds[key] - margin
                 else:
@@ -701,13 +713,15 @@ class Data(Easing, Animation, Configuration):
         subgroup_ds_list = []
         interpolate_kwds = ds.attrs["interpolate_kwds"]
 
-        ds['interp'] = ffill(ds['interp'])
-        ds['ease'] = ffill(ds['ease'])
         for kind in ["", "ref_", "grid_"]:
+            item_dim = f"{kind}item"
             interp_var = f"{kind}interp"
             ease_var = f"{kind}ease"
             if interp_var not in ds:
                 continue
+
+            ds[interp_var] = ffill(ds[interp_var])
+            ds[ease_var] = ffill(ds[ease_var])
 
             vars_seen = set([])
             for _, interp_ds in ds.groupby(interp_var):
@@ -715,15 +729,15 @@ class Data(Easing, Animation, Configuration):
                 for _, ease_ds in interp_ds.groupby(ease_var):
                     if not ease_ds:
                         continue
-                    if 'stacked_item_state' in ease_ds.dims:
+                    if f'stacked_{kind}item_state' in ease_ds.dims:
                         ease_ds = self._drop_state(ease_ds.unstack())
-                        ease_ds['duration'] = ease_ds['duration'].isel(item=0)
+                        ease_ds['duration'] = ease_ds['duration'].isel(**{
+                            item_dim: 0})
                     interpolate_kwds["ease"] = pop(
                         ease_ds, ease_var, get=-1
                     )
                     var_list = []
                     for var in ease_ds.data_vars:
-                        item_dim = f"{kind}item"
                         has_item = item_dim in ease_ds[var].dims
                         is_stateless = ease_ds[var].dims == ("state",)
                         is_scalar = ease_ds[var].dims == ()
@@ -743,7 +757,7 @@ class Data(Easing, Animation, Configuration):
                         )
                     except IndexError as e:
                         if self.debug:
-                            warnings.warn(str(e))
+                            raise IndexError(e)
                     subgroup_ds_list.append(ease_ds)
 
         ds = xr.combine_by_coords(subgroup_ds_list)
@@ -1056,6 +1070,11 @@ class Data(Easing, Animation, Configuration):
             break
         self._data = self._config_data(data)
 
+    @property
+    def attrs(self):
+        rowcol = list(self._data)[0]
+        return self._data[rowcol].attrs
+
     def cols(self, ncols):
         self_copy = deepcopy(self)
         data = {}
@@ -1340,6 +1359,7 @@ class Array2D(GeographicData, ReferenceArray, ColorArray, RemarkArray):
     inline_ys = param.ClassSelector(class_=(Iterable, int, float))
 
     def __init__(self, xs, ys, cs, **kwds):
+        cs = np.array(cs)
         shape = cs.shape[-2:]
         if cs.ndim > 2:
             num_states = len(cs)
@@ -1416,6 +1436,10 @@ class DataStructure(param.Parameterized):
             kwds_updated["clabel"] = cs.title()
         if "title" not in kwds and join == "layout":
             kwds_updated["title"] = label
+
+        if kwds_updated.get('chart') == 'barh':
+            kwds_updated['xlabel'], kwds_updated['ylabel'] = (
+                kwds_updated['ylabel'], kwds_updated['xlabel'])
 
         for key, val in kwds.items():
             if isinstance(val, dict):

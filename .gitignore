@@ -3,6 +3,7 @@ __pycache__
 *.egg*
 *.ipynb_checkpoints/
 *.jpg
+*.png
 *.gif
 *.mp4
 *.ipynb

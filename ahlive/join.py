@@ -11,10 +11,17 @@ def _get_rowcols(objs):
     return rowcols
 
 
-def _combine(objs, method="concat", concat_dim="state", **kwds):
+def _get_item_dim(ds):
+    for item_dim in ds.dims:
+        if item_dim.endswith('item'):
+            return item_dim
+
+
+def _combine(ds_list, method="concat", concat_dim="state", **kwds):
     combined_attrs = {}
-    for obj in objs:
-        for (key, val) in obj.attrs.items():
+    for ds in ds_list:
+        item_dim = _get_item_dim(ds)
+        for (key, val) in ds.attrs.items():
             if key not in combined_attrs:
                 combined_attrs[key] = val
     if method == "concat":
@@ -22,10 +29,11 @@ def _combine(objs, method="concat", concat_dim="state", **kwds):
     elif method == "combine_nested":
         kwds["concat_dim"] = concat_dim
     kwds["combine_attrs"] = "drop"
-    return getattr(xr, method,)(
-        objs,
-        **kwds,
-    ).assign_attrs(**combined_attrs)
+    ds = getattr(xr, method)(ds_list, **kwds).assign_attrs(**combined_attrs)
+    ds[item_dim] = srange(ds[item_dim])
+    ds['state'] = srange(ds['state'])
+    ds = ds.transpose(item_dim, 'state', ...)
+    return ds
 
 
 def cascade(objs, quick=False):
@@ -38,11 +46,12 @@ def cascade(objs, quick=False):
         obj.data = {
             rowcol: _combine(
                 [
-                    array.data[rowcol].assign_coords(item=[i])
+                    array.data[rowcol].assign_coords(**{
+                        _get_item_dim(array.data[rowcol]): [i]})
                     for i, array in enumerate(objs)
+                    if rowcol in array.data
                 ],
             )
-            .pipe(lambda ds: ds.assign(state=srange(ds["state"])))
             .map(
                 ffill,
                 keep_attrs=True,
@@ -65,9 +74,8 @@ def overlay(objs, quick=False):
         obj.data = {
             rowcol: _combine(
                 [array.data[rowcol] for array in objs if rowcol in array.data],
-                concat_dim="item",
-            ).pipe(lambda ds: ds.assign(item=srange(ds["item"])))
-            for rowcol in rowcols
+                concat_dim=_get_item_dim(objs[0].data[rowcol])
+            ) for rowcol in rowcols
         }
     else:
         for array in objs[1:]:

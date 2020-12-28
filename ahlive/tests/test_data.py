@@ -1,10 +1,12 @@
 import pytest
 import numpy as np
 import pandas as pd
+import xarray as xr
 
 import ahlive as ah
 from ahlive.tests.test_util import assert_types, assert_values, assert_attrs
-from ahlive.tests.test_configuration import TYPES, XS, YS, LABELS
+from ahlive.tests.test_configuration import (
+    TYPES, XS, YS, LABELS, GRID_XS, GRID_YS, GRID_CS, GRID_LABELS)
 
 
 @pytest.mark.parametrize("type_", TYPES)
@@ -73,5 +75,63 @@ def test_ah_dataframe(x, y, label, join):
         configurables.pop("grid")
         assert_attrs(ds, configurables)
 
-
     ah_df.finalize()
+
+
+@pytest.mark.parametrize("grid_x", GRID_XS)
+@pytest.mark.parametrize("grid_y", GRID_YS)
+@pytest.mark.parametrize("grid_c", GRID_CS)
+def test_ah_array2d(grid_x, grid_y, grid_c):
+    ah_array2d = ah.Array2D(grid_x, grid_y, grid_c, label="test", frames=2)
+    assert_types(ah_array2d)
+
+    for ds in ah_array2d.data.values():
+        var_dict = {
+            "grid_x": grid_x,
+            "grid_y": grid_y,
+            "grid_c": grid_c,
+            "grid_label": "test",
+        }
+
+        assert 1 == len(ds['grid_item'])
+        assert_values(ds, var_dict)
+
+        configurables = ah.CONFIGURABLES.copy()
+        assert_attrs(ds, configurables)
+
+    ah_array2d.finalize()
+
+
+@pytest.mark.parametrize("grid_x", GRID_XS)
+@pytest.mark.parametrize("grid_y", GRID_YS)
+@pytest.mark.parametrize("grid_c", GRID_CS)
+@pytest.mark.parametrize("grid_label", GRID_LABELS)
+@pytest.mark.parametrize("join", ah.configuration.ITEMS['join'])
+def test_ah_array2d(grid_x, grid_y, grid_c, grid_label, join):
+    base_ds = xr.Dataset()
+    base_ds['c'] = xr.DataArray(
+        grid_c, dims=('label', 'y', 'x'),
+        coords={'y': grid_y, 'x': grid_x, 'label': grid_label},
+    )
+    ah_dataset = ah.Dataset(
+        base_ds, 'x', 'y', 'c', label='label', join=join)
+    assert_types(ah_dataset)
+
+    for ds in ah_dataset.data.values():
+        sub_ds = base_ds.where(
+            base_ds['label'] == np.unique(ds['grid_label']), drop=True)
+        var_dict = {
+            "grid_x": sub_ds['x'],
+            "grid_y": sub_ds['y'],
+            "grid_c": sub_ds['c'],
+            "grid_label": sub_ds['label'],
+        }
+
+        assert len(np.unique(sub_ds['label'])) == len(ds['grid_item'])
+        if join != 'cascade':
+            assert_values(ds, var_dict)
+
+        configurables = ah.CONFIGURABLES.copy()
+        assert_attrs(ds, configurables)
+
+    ah_dataset.finalize()

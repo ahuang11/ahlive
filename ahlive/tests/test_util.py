@@ -21,7 +21,7 @@ def assert_values(ds, var_dict):
         if isinstance(expect[0], (datetime, pd.Timestamp)):
             expect = pd.to_datetime(expect).values
 
-        if len(actual) != len(expect):
+        if actual.shape != expect.shape:
             actual = np.unique(actual)
             expect = np.unique(expect)
             actual = actual[:-1]

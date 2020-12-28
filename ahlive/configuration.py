@@ -8,7 +8,7 @@ NULL_VALS = [(), {}, [], None, ""]
 
 CONFIGURABLES = {
     "canvas": ["figure", "suptitle", "watermark", "spacing"],
-    "subplot": ["axes", "plot", "preset", "legend", "grid", "xticks", "yticks"],
+    "subplot": ["axes", "plot", "preset", "legend", "grid", "xticks", "yticks", "margins"],
     "label": [
         "state",
         "inline",
@@ -72,6 +72,7 @@ VARS = {
     "ref": ["ref_x0", "ref_x1", "ref_y0", "ref_y1"],
     "stateless": [
         "chart",
+        "group",
         "interp",
         "ease",
         "ref_label",
@@ -143,6 +144,10 @@ ITEMS = {
         "tc_tracks",
         "covid19_us_cases",
         "covid19_global_cases",
+        "gapminder_life_expectancy",
+        "gapminder_income",
+        "gapminder_population",
+        "gapminder_country"
     ],
     "join": ["overlay", "layout", "cascade"],
 }
@@ -150,6 +155,27 @@ ITEMS = {
 OPTIONS = {
     "fmt": ["gif", "mp4", "jpg", "png"],
     "style": ["graph", "minimal", "bare"],
+    "legend": [
+        'upper left',
+        'upper right',
+        'lower left',
+        'lower right',
+        'right',
+        'center left',
+        'center right',
+        'lower center',
+        'upper center',
+        'center',
+        True,
+        False
+    ],
+    "grid": [
+        'x',
+        'y',
+        'both',
+        True,
+        False
+    ],
     "limit": ["zero", "fixed", "follow", "explore"],
     "scheduler": ["processes", "single-threaded"],
 }
@@ -180,17 +206,13 @@ DEFAULTS["label_kwds"] = {
 }
 
 DEFAULTS["preset_kwds"] = {}
-DEFAULTS["preset_kwds"]["bar_kwds"] = {"bar_label": True}
-DEFAULTS["preset_kwds"]["barh_kwds"] = DEFAULTS["preset_kwds"][
-    "bar_kwds"
-].copy()
-
 DEFAULTS["preset_kwds"]["trail_kwds"] = {
-    "chart": "both",
+    "chart": "scatter",
     "expire": 100,
     "stride": 1,
 }
-DEFAULTS["preset_kwds"]["delta_kwds"] = {"capsize": 6}
+DEFAULTS["preset_kwds"]["race_kwds"] = {"bar_label": True, 'limit': 8}
+DEFAULTS["preset_kwds"]["delta_kwds"] = {"bar_label": True, "capsize": 6}
 DEFAULTS["preset_kwds"]["scan_kwds"] = {"color": "black", "stride": 1}
 
 DEFAULTS["ref_plot_kwds"] = {}
@@ -208,7 +230,7 @@ DEFAULTS["ref_plot_kwds"]["axhspan"] = {"color": "darkgray", "alpha": 0.45}
 
 DEFAULTS["inline_kwds"] = DEFAULTS["label_kwds"].copy()
 DEFAULTS["inline_kwds"].update(
-    {"color": "darkgray", "textcoords": "offset points"}
+    {"color": "darkgray", "textcoords": "offset pixels"}
 )
 DEFAULTS["ref_inline_kwds"] = DEFAULTS["inline_kwds"].copy()
 DEFAULTS["grid_inline_kwds"] = DEFAULTS["inline_kwds"].copy()
@@ -219,7 +241,7 @@ DEFAULTS["remark_inline_kwds"].update(
     {
         "fontsize": SIZES["small"],
         "textcoords": "offset points",
-        "xytext": (0, 1.5),
+        "xytext": (1, -1),
         "ha": "left",
         "va": "top",
     }
@@ -238,7 +260,7 @@ DEFAULTS["title_kwds"] = DEFAULTS["label_kwds"].copy()
 DEFAULTS["title_kwds"].update({"fontsize": SIZES["large"], "loc": "left"})
 
 DEFAULTS["subtitle_kwds"] = DEFAULTS["label_kwds"].copy()
-DEFAULTS["subtitle_kwds"].update({"fontsize": SIZES["medium"], "loc": "right"})
+DEFAULTS["subtitle_kwds"].update({"fontsize": SIZES["small"], "loc": "right"})
 
 DEFAULTS["note_kwds"] = {
     "x": 0.05,
@@ -291,8 +313,6 @@ DEFAULTS["ticks_kwds"].pop("fontsize")
 DEFAULTS["ticks_kwds"].update(
     {"length": 0, "which": "both", "labelsize": SIZES["small"]}
 )
-
-DEFAULTS["grid_kwds"] = {"grid": True}
 
 DEFAULTS["xticks_kwds"] = DEFAULTS["ticks_kwds"].copy()
 DEFAULTS["xticks_kwds"].update({"axis": "x"})
@@ -372,6 +392,8 @@ class Configuration(param.Parameterized):
         elif obj_label == "watermark":
             self._set_config(attrs, obj_label, mpl_key="s")
         elif obj_label == "legend":
+            self._set_config(attrs, obj_label, mpl_key="show")
+        elif obj_label == "grid":
             self._set_config(attrs, obj_label, mpl_key="show")
         elif obj_label == "xticks":
             self._set_config(attrs, obj_label, mpl_key="ticks")

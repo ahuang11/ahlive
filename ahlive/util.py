@@ -56,7 +56,7 @@ def is_scalar(value):
 
 
 def is_subtype(value, subtype):
-    value = np.array(value)
+    value = np.array(value).ravel()
     return np.issubdtype(value.dtype, subtype)
 
 
@@ -65,7 +65,11 @@ def is_datetime(value):
 
 
 def is_str(value):
-    return is_subtype(value, str)
+    return (
+        is_subtype(value, np.string_) or
+        is_subtype(value, np.unicode) or
+        is_subtype(value, np.object)
+    )
 
 
 def to_scalar(value, get=-1):
@@ -90,7 +94,7 @@ def pop(ds, key, dflt=None, get=None, squeeze=False, to_numpy=True):
 
     if squeeze:
         array = array.squeeze()
-        if is_scalar(arra):
+        if is_scalar(array):
             array = array.item()
     return array
 

@@ -55,7 +55,9 @@ class Easing(param.Parameterized):
         super().__init__(**kwds)
 
     def interpolate(self, da, name=""):
-        interp = self.interp or "cubic"
+        interp = self.interp
+        if interp is None:
+            interp = 'cubic'
         ease = self.ease
         frames = self.frames
         revert = self.revert
@@ -79,7 +81,7 @@ class Easing(param.Parameterized):
             if len(da.dims) > 2:  # more than (item, state)
                 da = da.stack({"stacked": ["grid_item", "grid_y", "grid_x"]})
                 da = da.transpose("stacked", "state")
-            coords = da.drop("state", errors="ignore").coords
+            coords = da.drop_vars("state", errors="ignore").coords
 
         array = np.array(da)
         if array.ndim == 1:
@@ -208,16 +210,16 @@ class Easing(param.Parameterized):
         new_shape,
     ):
         init = np.repeat(array[:, :-1], num_steps, axis=1)
-        init_nans = np.where(np.isnan(init))
+        init_nans = np.isnan(init)
         init[init_nans] = 0  # temporarily fill the nans
         stop = np.repeat(array[:, 1:], num_steps, axis=1)
-        stop_nans = np.where(np.isnan(stop))
+        stop_nans = np.isnan(stop)
         tiled_steps = np.tile(steps, (num_states - 1) * num_items).reshape(
             *new_shape
         )
         weights = getattr(self, f"_{interp.lower()}")(tiled_steps, ease)
         result = stop * weights + init * (1 - weights)
-        result[init_nans + stop_nans] = np.nan  # replace nans
+        result[init_nans | stop_nans] = np.nan  # replace nans
         return result
 
     def _linear(self, ts, ease):

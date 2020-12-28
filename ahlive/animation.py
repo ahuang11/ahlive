@@ -218,6 +218,12 @@ class Animation(param.Parameterized):
                 except AttributeError:
                     color = plot[0].get_facecolor()
 
+                if len(to_1d(color)) < 1:
+                    try:
+                        color = plot.get_edgecolor()
+                    except AttributeError:
+                        color = plot[0].get_edgecolor()
+
             if isinstance(color, np.ndarray):
                 color = color[0]
         return color
@@ -482,17 +488,7 @@ class Animation(param.Parameterized):
         elif ha is None:
             ha = "center"
 
-        inline_labels = to_scalar(inline_labels)
-        xs = to_scalar(xs)
-        ys = to_scalar(ys)
-        if str(inline_labels) == "nan":
-            inline_labels = "?"
-
-        if str(inline_labels) == "" or pd.isnull(xs) or pd.isnull(ys):
-            return
         inline_kwds = dict(
-            text=inline_labels,
-            xy=(xs, ys),
             ha=ha,
             va=va,
             color=color,
@@ -502,14 +498,26 @@ class Animation(param.Parameterized):
         if clip:
             inline_kwds["annotation_clip"] = True
         inline_kwds = load_defaults(inline_key, overlay_ds, **inline_kwds)
-        inline_kwds = self._update_text(inline_kwds, "text", base=inline_base)
 
         # https://stackoverflow.com/questions/25416600/
         # transform is mangled in matplotlib for annotate
         transform = inline_kwds.pop("transform", None)
         if transform is not None:
             inline_kwds["xycoords"] = transform._as_mpl_transform(ax)
-        ax.annotate(**inline_kwds)
+
+        xs = to_1d(xs)
+        ys = to_1d(ys)
+        inline_labels = to_1d(inline_labels)
+        for x, y, inline_label in zip(xs, ys, inline_labels):
+            if str(inline_label) == "nan":
+                inline_label = "?"
+
+            if str(inline_label) == "" or pd.isnull(x) or pd.isnull(y):
+                continue
+            inline_kwds['text'] = inline_label
+            inline_kwds = self._update_text(
+                inline_kwds, "text", base=inline_base)
+            ax.annotate(xy=(x, y), **inline_kwds)
 
     @staticmethod
     def _reshape_batch(array, chart, get=-1):
@@ -541,15 +549,17 @@ class Animation(param.Parameterized):
 
     def _get_iter_ds(self, state_ds):
         if len(state_ds.data_vars) == 0:
-            return zip([], [])
+            return zip([], []), None
         elif any(group for group in to_1d(state_ds["group"])):
-            state_ds = state_ds.drop("label").rename({"group": "label"})
+            state_ds = state_ds.drop_vars("label").rename({"group": "label"})
+            get = None
             key = "label"
         else:
-            state_ds = state_ds.drop("group", errors="ignore")
+            state_ds = state_ds.drop_vars("group", errors="ignore")
+            get = -1
             key = "item"
         iter_ds = self._groupby_key(state_ds, key)
-        return iter_ds
+        return iter_ds, get
 
     def _update_colorbar(self, state_ds, ax, mappable):
         if "colorbar_kwds" not in state_ds.attrs:
@@ -647,7 +657,7 @@ class Animation(param.Parameterized):
 
     def _process_base_vars(self, state_ds, ax):
         base_state_ds = self._subset_vars(state_ds)
-        iter_ds = self._get_iter_ds(base_state_ds)
+        iter_ds, get = self._get_iter_ds(base_state_ds)
         mappable = None
         for _, overlay_ds in iter_ds:
             overlay_ds = overlay_ds.where(overlay_ds["chart"] != "", drop=True)
@@ -657,11 +667,12 @@ class Animation(param.Parameterized):
             if pd.isnull(chart):
                 chart = str(chart)
                 continue
-            xs = self._reshape_batch(pop(overlay_ds, "x"), chart)
-            ys = self._reshape_batch(pop(overlay_ds, "y"), chart)
+
+            xs = self._reshape_batch(pop(overlay_ds, "x"), chart, get=get)
+            ys = self._reshape_batch(pop(overlay_ds, "y"), chart, get=get)
 
             inline_labels = self._reshape_batch(
-                pop(overlay_ds, "inline_label"), chart
+                pop(overlay_ds, "inline_label"), chart, get=get
             )
 
             x_trails = self._reshape_batch(
@@ -699,6 +710,8 @@ class Animation(param.Parameterized):
             trail_plot_kwds = self._strip_dict(
                 load_defaults("plot_kwds", overlay_ds, **trail_plot_kwds)
             )
+            if "alpha" in trail_plot_kwds:
+                trail_plot_kwds["alpha"] = to_scalar(trail_plot_kwds["alpha"])
 
             plot_kwds = self._strip_dict(
                 {key: to_scalar(val) for key, val in trail_plot_kwds.items()}
@@ -754,7 +767,7 @@ class Animation(param.Parameterized):
                 "black",
                 base_key="preset",
                 inline_key="preset_inline_kwds",
-                xytext=(0, -25) if chart == "bar" else (0, -20),
+                xytext=(0, -50),
             )
 
             self._add_remarks(overlay_ds, ax, chart, xs, ys, remarks, color)
@@ -763,7 +776,7 @@ class Animation(param.Parameterized):
 
     def _process_grid_vars(self, state_ds, ax):
         grid_state_ds = self._subset_vars(state_ds, "grid")
-        grid_iter_ds = self._get_iter_ds(grid_state_ds)
+        grid_iter_ds, _ = self._get_iter_ds(grid_state_ds)
         mappable = None
         for _, overlay_ds in grid_iter_ds:
             label = pop(overlay_ds, "label", get=0) or "_nolegend_"
@@ -878,15 +891,15 @@ class Animation(param.Parameterized):
 
     def _process_ref_vars(self, state_ds, ax):
         ref_state_ds = self._subset_vars(state_ds, "ref")
-        ref_iter_ds = self._get_iter_ds(ref_state_ds)
+        ref_iter_ds, get = self._get_iter_ds(ref_state_ds)
         for _, overlay_ds in ref_iter_ds:
             label = pop(overlay_ds, "label", get=-1) or "_nolegend_"
             chart = pop(overlay_ds, "chart", get=-1)
 
-            x0s = pop(overlay_ds, "x0", get=-1)
-            x1s = pop(overlay_ds, "x1", get=-1)
-            y0s = pop(overlay_ds, "y0", get=-1)
-            y1s = pop(overlay_ds, "y1", get=-1)
+            x0s = pop(overlay_ds, "x0", get=get)
+            x1s = pop(overlay_ds, "x1", get=get)
+            y0s = pop(overlay_ds, "y0", get=get)
+            y1s = pop(overlay_ds, "y1", get=get)
 
             inline_loc = pop(overlay_ds, "inline_loc", get=0)
             inline_labels = pop(overlay_ds, "inline_label", get=0)
@@ -984,12 +997,18 @@ class Animation(param.Parameterized):
         ax = plt.subplot(rows, cols, irowcol, **axes_kwds)
 
         if style == "bare":
+            plt.subplots_adjust(left=0, right=1, bottom=0, top=1)
             ax.set_frame_on(False)
         return ax
 
     def _update_grid(self, state_ds, ax):
+        show = state_ds.attrs['grid_kwds'].get('show')
+        if isinstance(show, str):
+            state_ds.attrs['grid_kwds']['show'] = True
+            state_ds.attrs['grid_kwds']['axis'] = show
+
         grid_kwds = load_defaults("grid_kwds", state_ds)
-        grid = grid_kwds.pop("grid", False)
+        grid = grid_kwds.pop("show", False)
         if not grid:
             return
         if "transform" in grid_kwds:
@@ -1109,18 +1128,25 @@ class Animation(param.Parameterized):
             if yticks is not None:
                 gridlines.ylocator = FixedLocator(yticks)
         else:
-            is_not_series = (
-                state_ds.attrs["preset_kwds"].get("preset", "series")
-                != "series"
-            )
+            preset = state_ds.attrs["preset_kwds"].get("preset", "series")
+            is_not_series = preset != "series"
             if chart.startswith("bar") and is_not_series:
+                preset_kwds = load_defaults(
+                    'preset_kwds', state_ds, base_chart=preset)
                 xs = pop(state_ds, "x")
+                limit = preset_kwds.get('limit', None)
+                limit1 = len(xs) + 0.5
+                limit0 = limit1 - limit if limit is not None else None
                 if chart == "bar":
                     ax.set_xticks(xs)
                     ax.set_xticklabels(xticks_labels)
+                    if limit0 >= 0:
+                        ax.set_xlim(limit0, limit1)
                 elif chart == "barh":
                     ax.set_yticks(xs)
                     ax.set_yticklabels(yticks_labels)
+                    if limit0 >= 0:
+                        ax.set_ylim(limit0, limit1)
             else:
                 if not x_is_datetime and not x_is_str:
                     xformatter = FormatStrFormatter(f"%{xformat}")
@@ -1154,6 +1180,10 @@ class Animation(param.Parameterized):
         legend_kwds = dict(
             handles=legend_items.values(), labels=legend_items.keys(), ncol=ncol
         )
+        show = state_ds.attrs['legend_kwds'].get('show')
+        if isinstance(show, str):
+            state_ds.attrs['legend_kwds']['show'] = True
+            state_ds.attrs['legend_kwds']['loc'] = show
         legend_kwds = load_defaults("legend_kwds", state_ds, **legend_kwds)
 
         if not legend_labels or not legend_kwds.pop("show"):
@@ -1463,7 +1493,7 @@ class Animation(param.Parameterized):
         data = self.data
 
         if self.debug:
-            warnings.warn(data)
+            print(data)
 
         # unrecognized durations keyword if not popped
         if self.fps is None:
