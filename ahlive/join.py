@@ -1,7 +1,7 @@
 import xarray as xr
 
 from .configuration import ITEMS
-from .util import ffill, srange
+from .util import fillna, srange
 
 
 def _get_rowcols(objs):
@@ -13,7 +13,7 @@ def _get_rowcols(objs):
 
 def _get_item_dim(ds):
     for item_dim in ds.dims:
-        if item_dim.endswith('item'):
+        if item_dim.endswith("item"):
             return item_dim
 
 
@@ -31,8 +31,8 @@ def _combine(ds_list, method="concat", concat_dim="state", **kwds):
     kwds["combine_attrs"] = "drop"
     ds = getattr(xr, method)(ds_list, **kwds).assign_attrs(**combined_attrs)
     ds[item_dim] = srange(ds[item_dim])
-    ds['state'] = srange(ds['state'])
-    ds = ds.transpose(item_dim, 'state', ...)
+    ds["state"] = srange(ds["state"])
+    ds = ds.transpose(item_dim, "state", ...)
     return ds
 
 
@@ -46,14 +46,14 @@ def cascade(objs, quick=False):
         obj.data = {
             rowcol: _combine(
                 [
-                    array.data[rowcol].assign_coords(**{
-                        _get_item_dim(array.data[rowcol]): [i]})
+                    array.data[rowcol].assign_coords(
+                        **{_get_item_dim(array.data[rowcol]): [i]}
+                    )
                     for i, array in enumerate(objs)
                     if rowcol in array.data
                 ],
-            )
-            .map(
-                ffill,
+            ).map(
+                fillna,
                 keep_attrs=True,
             )
             for rowcol in rowcols
@@ -74,8 +74,9 @@ def overlay(objs, quick=False):
         obj.data = {
             rowcol: _combine(
                 [array.data[rowcol] for array in objs if rowcol in array.data],
-                concat_dim=_get_item_dim(objs[0].data[rowcol])
-            ) for rowcol in rowcols
+                concat_dim=_get_item_dim(objs[0].data[rowcol]),
+            )
+            for rowcol in rowcols
         }
     else:
         for array in objs[1:]:

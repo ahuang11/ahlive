@@ -43,13 +43,12 @@ class Easing(param.Parameterized):
     revert = param.ObjectSelector(
         default=None,
         objects=REVERTS,
-        doc="boomerang finds the shortest path to the initial state, "
+        doc="Method for reverting to the initial state; "
+        "boomerang finds the shortest path to the initial state, "
         "traceback backtracks the original path to the initial state, and "
         "rollback is like traceback, but disregards the "
         "original's path durations",
     )
-
-    _num_steps = None
 
     def __init__(self, **kwds):
         super().__init__(**kwds)
@@ -57,7 +56,7 @@ class Easing(param.Parameterized):
     def interpolate(self, da, name=""):
         interp = self.interp
         if interp is None:
-            interp = 'cubic'
+            interp = "cubic"
         ease = self.ease
         frames = self.frames
         revert = self.revert
@@ -135,7 +134,23 @@ class Easing(param.Parameterized):
             )
             result = pd.to_datetime(result.ravel()).values
             result = result.reshape(new_shape)
+        elif np.issubdtype(array.dtype, np.timedelta64):
+            array = array.astype(float)
+            result = self._interp(
+                array,
+                steps,
+                interp,
+                ease,
+                num_states,
+                num_steps,
+                num_items,
+                new_shape,
+            )
+            result = pd.to_timedelta(result.ravel()).values
+            result = result.reshape(new_shape)
         elif np.issubdtype(array.dtype, np.number):
+            if name == "central_longitude":
+                interp = "linear"
             result = self._interp(
                 array,
                 steps,

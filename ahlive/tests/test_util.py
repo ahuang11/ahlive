@@ -18,13 +18,18 @@ def assert_values(ds, var_dict):
         actual = np.array(ds[var]).ravel()
         expect = np.array(var_dict[var]).ravel()
 
+        actual = actual[~pd.isnull(actual)]
+        expect = expect[~pd.isnull(expect)]
+
+        if len(actual) == 0 and len(expect) == 0:
+            return
+
         if isinstance(expect[0], (datetime, pd.Timestamp)):
             expect = pd.to_datetime(expect).values
 
         if actual.shape != expect.shape:
             actual = np.unique(actual)
             expect = np.unique(expect)
-            actual = actual[:-1]
 
         try:
             assert np.allclose(actual, expect, equal_nan=True)

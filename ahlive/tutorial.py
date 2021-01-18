@@ -36,7 +36,7 @@ class TutorialData(param.Parameterized):
             "international-best-track-archive-for-climate-stewardship-ibtracs/"
             "v04r00/access/csv/ibtracs.last3years.list.v04r00.csv"
         )
-        df = pd.read_csv(self._data_url)
+        df = pd.read_csv(self._data_url, keep_default_na=False)
         if raw:
             return df
         df.columns = df.columns.str.lower()
@@ -56,7 +56,7 @@ class TutorialData(param.Parameterized):
         df = df.iloc[1:]
         df = df.set_index("iso_time")
         df.index = pd.to_datetime(df.index)
-        df.apply(pd.to_numeric, errors="ignore")
+        df = df.apply(pd.to_numeric, errors="ignore")
         return df
 
     def _load_covid19_us_cases(self, raw):
@@ -122,10 +122,25 @@ class TutorialData(param.Parameterized):
         df["date"] = pd.to_datetime(df["date"])
         return df
 
+    def _load_covid19_population(self, raw):
+        self._source = "JHU CSSE COVID-19"
+        self._base_url = "https://github.com/CSSEGISandData/COVID-19"
+        self._data_url = (
+            "https://raw.githubusercontent.com/"
+            "CSSEGISandData/COVID-19/master/"
+            "csse_covid_19_data/UID_ISO_FIPS_LookUp_Table.csv"
+        )
+        df = pd.read_csv(self._data_url)
+        if raw:
+            return df
+        df.columns = df.columns.str.lower().str.rstrip("_")
+        return df
+
     def _load_gapminder_life_expectancy(self, raw):
         self._source = "World Bank Gapminder"
         self._base_url = (
-            "https://github.com/open-numbers/ddf--gapminder--systema_globalis")
+            "https://github.com/open-numbers/ddf--gapminder--systema_globalis"
+        )
         self._data_url = (
             "https://raw.githubusercontent.com/open-numbers/"
             "ddf--gapminder--systema_globalis/master/"
@@ -135,14 +150,14 @@ class TutorialData(param.Parameterized):
         df = pd.read_csv(self._data_url)
         if raw:
             return df
-        df = df.rename(columns={
-            'life_expectancy_years': 'life_expectancy'})
+        df = df.rename(columns={"life_expectancy_years": "life_expectancy"})
         return df
 
     def _load_gapminder_income(self, raw):
         self._source = "World Bank Gapminder"
         self._base_url = (
-            "https://github.com/open-numbers/ddf--gapminder--systema_globalis")
+            "https://github.com/open-numbers/ddf--gapminder--systema_globalis"
+        )
         self._data_url = (
             "https://raw.githubusercontent.com/open-numbers/"
             "ddf--gapminder--systema_globalis/master/"
@@ -153,14 +168,18 @@ class TutorialData(param.Parameterized):
         df = pd.read_csv(self._data_url)
         if raw:
             return df
-        df = df.rename(columns={
-            'income_per_person_gdppercapita_ppp_inflation_adjusted': 'income'})
+        df = df.rename(
+            columns={
+                "income_per_person_gdppercapita_ppp_inflation_adjusted": "income"
+            }
+        )
         return df
 
     def _load_gapminder_population(self, raw):
         self._source = "World Bank Gapminder"
         self._base_url = (
-            "https://github.com/open-numbers/ddf--gapminder--systema_globalis")
+            "https://github.com/open-numbers/ddf--gapminder--systema_globalis"
+        )
         self._data_url = (
             "https://raw.githubusercontent.com/open-numbers/"
             "ddf--gapminder--systema_globalis/master/"
@@ -170,13 +189,14 @@ class TutorialData(param.Parameterized):
         df = pd.read_csv(self._data_url)
         if raw:
             return df
-        df = df.rename(columns={'population_total': 'population'})
+        df = df.rename(columns={"population_total": "population"})
         return df
 
     def _load_gapminder_country(self, raw):
         self._source = "World Bank Gapminder"
         self._base_url = (
-            "https://github.com/open-numbers/ddf--gapminder--systema_globalis")
+            "https://github.com/open-numbers/ddf--gapminder--systema_globalis"
+        )
         self._data_url = (
             "https://raw.githubusercontent.com/open-numbers/"
             "ddf--gapminder--systema_globalis/master/"
@@ -185,14 +205,16 @@ class TutorialData(param.Parameterized):
         df = pd.read_csv(self._data_url)
         if raw:
             return df
-        df = df[['country', 'name', 'world_6region']].rename(
-            columns={'world_6region': 'region'})
-        df['region'] = df['region'].str.replace('_', ' ').str.title()
+        df = df[["country", "name", "world_6region"]].rename(
+            columns={"world_6region": "region"}
+        )
+        df["region"] = df["region"].str.replace("_", " ").str.title()
         return df
 
     def open_dataset(self, raw, verbose):
         data = getattr(self, f"_load_{self.label}")(raw=raw)
-        attr = f"Source: {self._source} | {self._base_url}"
+        label = self.label.replace("_", " ").upper()
+        attr = f"{label} | Source: {self._source} | {self._base_url}"
         if verbose:
             attr = f"{attr}\nData: {self._data_url}"
         print(attr)
@@ -204,6 +226,7 @@ def open_dataset(
     raw=False,
     verbose=False,
 ):
-    return TutorialData(label=label).open_dataset( raw,
+    return TutorialData(label=label).open_dataset(
+        raw,
         verbose,
     )

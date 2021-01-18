@@ -1,7 +1,6 @@
 from .configuration import (  # noqa
     CONFIGURABLES,
     PRESETS,
-    scale_sizes,
     update_defaults,
 )
 from .data import Array, Array2D, DataFrame, Dataset, Reference  # noqa

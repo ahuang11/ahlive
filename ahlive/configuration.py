@@ -6,9 +6,30 @@ import xarray as xr
 
 NULL_VALS = [(), {}, [], None, ""]
 
-CONFIGURABLES = {
-    "canvas": ["figure", "suptitle", "watermark", "spacing"],
-    "subplot": ["axes", "plot", "preset", "legend", "grid", "xticks", "yticks", "margins"],
+CONFIGURABLES = {  # used for like .config('figure', **kwds)
+    "canvas": [
+        "figure",
+        "suptitle",
+        "compute",
+        "animate",
+        "durations",
+        "frame",
+        "watermark",
+        "spacing",
+        "fontscale",
+        "interpolate",
+        "output",
+    ],
+    "subplot": [
+        "axes",
+        "plot",
+        "preset",
+        "legend",
+        "grid",
+        "xticks",
+        "yticks",
+        "margins",
+    ],
     "label": [
         "state",
         "inline",
@@ -19,14 +40,6 @@ CONFIGURABLES = {
         "caption",
         "note",
         "preset_inline",
-    ],
-    "meta": [
-        "output",
-        "frame",
-        "interpolate",
-        "animate",
-        "compute",
-        "durations",
     ],
     "geo": [
         "crs",
@@ -43,6 +56,60 @@ CONFIGURABLES = {
     "remark": ["remark_plot", "remark_inline"],
     "grid": ["grid_plot", "grid_inline"],
     "ref": ["ref_plot", "ref_inline"],
+}
+
+GROUPS = {  # for each config group, maps param alias to function key
+    "figure": [{"param": "figsize", "fn_key": "figsize"}],
+    "axes": [{"param": "style", "fn_key": "style"}],
+    "title": [{"param": "title", "fn_key": "label"}],
+    "subtitle": [{"param": "subtitle", "fn_key": "label"}],
+    "suptitle": [{"param": "suptitle", "fn_key": "t"}],
+    "note": [{"param": "note", "fn_key": "s"}],
+    "caption": [{"param": "caption", "fn_key": "s"}],
+    "watermark": [{"param": "watermark", "fn_key": "s"}],
+    "legend": [{"param": "legend", "fn_key": "show"}],
+    "grid": [{"param": "grid", "fn_key": "show"}],
+    "xticks": [{"param": "xticks", "fn_key": "ticks"}],
+    "yticks": [{"param": "yticks", "fn_key": "ticks"}],
+    "projection": [
+        {"param": "projection", "fn_key": "projection"},
+        {"param": "central_lon", "fn_key": "central_longitude"},
+    ],
+    "clabel": [
+        {"param": "clabel", "fn_key": "text"},
+    ],
+    "colorbar": [{"param": "colorbar", "fn_key": "show"}],
+    "cticks": [
+        {"param": "cticks", "fn_key": "ticks"},
+        {"param": "ctick_labels", "fn_key": "tick_labels"},
+    ],
+    "compute": [
+        {"param": "workers", "fn_key": "num_workers"},
+        {"param": "scheduler", "fn_key": "scheduler"},
+    ],
+    "interpolate": [
+        {"param": "revert", "fn_key": "revert"},
+        {"param": "frames", "fn_key": "frames"},
+    ],
+    "animate": [
+        {"param": "fps", "fn_key": "fps"},
+        {"param": "fmt", "fn_key": "format"},
+        {"param": "loop", "fn_key": "loop"},
+    ],
+    "output": [
+        {"param": "save", "fn_key": "save"},
+        {"param": "show", "fn_key": "show"},
+    ],
+    "margins": [
+        {"param": "xmargins", "fn_key": "x"},
+        {"param": "ymargins", "fn_key": "y"},
+    ],
+}
+
+POINTERS = {
+    param["param"]: configurable
+    for configurable in GROUPS
+    for param in GROUPS[configurable]
 }
 
 CHARTS = {
@@ -72,6 +139,7 @@ VARS = {
     "ref": ["ref_x0", "ref_x1", "ref_y0", "ref_y1"],
     "stateless": [
         "chart",
+        "label",
         "group",
         "interp",
         "ease",
@@ -80,42 +148,6 @@ VARS = {
         "grid_label",
         "grid_chart",
     ],
-}
-
-KWDS = {
-    "canvas": [
-        "figure_kwds",
-        "suptitle_kwds",
-        "watermark_kwds",
-        "compute_kwds",
-        "animate_kwds",
-        "durations_kwds",
-        "frame_kwds",
-        "margins_kwds",
-        "spacing_kwds",
-        "output_kwds",
-    ],  # figure-wide
-    "geo": [
-        "borders_kwds",
-        "coastline_kwds",
-        "land_kwds",
-        "lakes_kwds",
-        "ocean_kwds",
-        "rivers_kwds",
-        "states_kwds",
-    ],  # geographic features
-    "transform": [
-        "plot_kwds",
-        "inline_kwds",
-        "ref_plot_kwds",
-        "ref_inline_kwds",
-        "grid_plot_kwds",
-        "grid_inline_kwds",
-        "preset_kwds",
-        "preset_inline_kwds",
-        "grid_kwds",
-        "margins_kwds",
-    ],  # transform
 }
 
 ITEMS = {
@@ -135,8 +167,8 @@ ITEMS = {
         "delta",
         "ref_inline",
         "grid_inline",
-        "grid_scan_x_0_inline",
-        "grid_scan_y_0_inline",
+        "grid_scan_x_diff_inline",
+        "grid_scan_y_diff_inline",
     ],  # base magnitude
     "interpolate": ["interp", "ease"],
     "datasets": [
@@ -144,38 +176,45 @@ ITEMS = {
         "tc_tracks",
         "covid19_us_cases",
         "covid19_global_cases",
+        "covid19_population",
         "gapminder_life_expectancy",
         "gapminder_income",
         "gapminder_population",
-        "gapminder_country"
+        "gapminder_country",
     ],
     "join": ["overlay", "layout", "cascade"],
+    "transformables": [
+        "plot_kwds",
+        "inline_kwds",
+        "ref_plot_kwds",
+        "ref_inline_kwds",
+        "grid_plot_kwds",
+        "grid_inline_kwds",
+        "preset_kwds",
+        "preset_inline_kwds",
+        "grid_kwds",
+        "margins_kwds",
+    ],
 }
 
 OPTIONS = {
     "fmt": ["gif", "mp4", "jpg", "png"],
     "style": ["graph", "minimal", "bare"],
     "legend": [
-        'upper left',
-        'upper right',
-        'lower left',
-        'lower right',
-        'right',
-        'center left',
-        'center right',
-        'lower center',
-        'upper center',
-        'center',
+        "upper left",
+        "upper right",
+        "lower left",
+        "lower right",
+        "right",
+        "center left",
+        "center right",
+        "lower center",
+        "upper center",
+        "center",
         True,
-        False
+        False,
     ],
-    "grid": [
-        'x',
-        'y',
-        'both',
-        True,
-        False
-    ],
+    "grid": ["x", "y", "both", True, False],
     "limit": ["zero", "fixed", "follow", "explore"],
     "scheduler": ["processes", "single-threaded"],
 }
@@ -185,7 +224,7 @@ SIZES = {
     "x-small": 11,
     "small": 13,
     "medium": 16,
-    "large": 20,
+    "large": 19,
     "x-large": 28,
     "xx-large": 36,
     "xxx-large": 48,
@@ -206,23 +245,21 @@ DEFAULTS["label_kwds"] = {
 }
 
 DEFAULTS["preset_kwds"] = {}
-DEFAULTS["preset_kwds"]["trail_kwds"] = {
+DEFAULTS["preset_kwds"]["trail"] = {
     "chart": "scatter",
     "expire": 100,
     "stride": 1,
 }
-DEFAULTS["preset_kwds"]["race_kwds"] = {"bar_label": True, 'limit': 8}
-DEFAULTS["preset_kwds"]["delta_kwds"] = {"bar_label": True, "capsize": 6}
-DEFAULTS["preset_kwds"]["scan_kwds"] = {"color": "black", "stride": 1}
+DEFAULTS["preset_kwds"]["race"] = {"bar_label": True, "limit": 5}
+DEFAULTS["preset_kwds"]["delta"] = {"bar_label": True, "capsize": 6}
+DEFAULTS["preset_kwds"]["scan"] = {"color": "black", "stride": 1}
 
 DEFAULTS["ref_plot_kwds"] = {}
 DEFAULTS["ref_plot_kwds"]["rectangle"] = {
     "facecolor": "darkgray",
     "alpha": 0.45,
 }
-DEFAULTS["ref_plot_kwds"]["scatter"] = {
-    "color": "black",
-}
+DEFAULTS["ref_plot_kwds"]["scatter"] = {"color": "darkgray", "marker": "x"}
 DEFAULTS["ref_plot_kwds"]["axvline"] = {"color": "darkgray", "linestyle": "--"}
 DEFAULTS["ref_plot_kwds"]["axhline"] = {"color": "darkgray", "linestyle": "--"}
 DEFAULTS["ref_plot_kwds"]["axvspan"] = {"color": "darkgray", "alpha": 0.45}
@@ -230,7 +267,11 @@ DEFAULTS["ref_plot_kwds"]["axhspan"] = {"color": "darkgray", "alpha": 0.45}
 
 DEFAULTS["inline_kwds"] = DEFAULTS["label_kwds"].copy()
 DEFAULTS["inline_kwds"].update(
-    {"color": "darkgray", "textcoords": "offset pixels"}
+    {
+        "color": "darkgray",
+        "textcoords": "offset points",
+        "fontsize": SIZES["small"],
+    }
 )
 DEFAULTS["ref_inline_kwds"] = DEFAULTS["inline_kwds"].copy()
 DEFAULTS["grid_inline_kwds"] = DEFAULTS["inline_kwds"].copy()
@@ -302,9 +343,7 @@ DEFAULTS["inline_kwds"] = DEFAULTS["label_kwds"].copy()
 DEFAULTS["inline_kwds"].update({"textcoords": "offset points"})
 
 DEFAULTS["legend_kwds"] = DEFAULTS["label_kwds"].copy()
-DEFAULTS["legend_kwds"].update(
-    {"show": True, "framealpha": 0, "loc": "upper left"}
-)
+DEFAULTS["legend_kwds"].update({"framealpha": 0, "loc": "upper left"})
 
 DEFAULTS["colorbar_kwds"] = {"orientation": "vertical", "extend": "both"}
 
@@ -321,7 +360,7 @@ DEFAULTS["yticks_kwds"] = DEFAULTS["ticks_kwds"].copy()
 DEFAULTS["yticks_kwds"].update({"axis": "y"})
 
 DEFAULTS["cticks_kwds"] = DEFAULTS["ticks_kwds"].copy()
-DEFAULTS["cticks_kwds"].update({"num_colors": 11, "num_ticks": 12})
+DEFAULTS["cticks_kwds"].update({"num_colors": 11})
 
 DEFAULTS["coastline_kwds"] = {"coastline": True}  # TODO: change to show
 
@@ -347,7 +386,6 @@ DEFAULTS["compute_kwds"] = {"num_workers": 4, "scheduler": "processes"}
 
 DEFAULTS["animate_kwds"] = {"mode": "I", "loop": 0}
 
-sizes = SIZES.copy()
 defaults = DEFAULTS.copy()
 
 
@@ -358,88 +396,25 @@ class Configuration(param.Parameterized):
     def __init__(self, **kwds):
         super().__init__(**kwds)
 
-    def _set_config(self, attrs, obj_label, val_key=None, mpl_key=None):
-        if val_key is None:
-            val_key = obj_label
-        value = getattr(self, val_key)
+    def _set_config(self, attrs, obj_label, param=None, fn_key=None):
+        if param is None:
+            param = obj_label
+        value = getattr(self, param)
         if value in NULL_VALS:
             return
 
-        if mpl_key is None:
-            mpl_key = obj_label
+        if fn_key is None:
+            fn_key = obj_label
         obj_key = f"{obj_label}_kwds"
-        if mpl_key not in attrs[obj_key]:
-            attrs[obj_key][mpl_key] = value
+        if fn_key not in attrs[obj_key]:
+            attrs[obj_key][fn_key] = value
         return attrs
 
     def _initial_config(self, attrs, obj_label):
-        if obj_label == "figure":
-            self._set_config(
-                attrs, obj_label, val_key="figsize", mpl_key="figsize"
-            )
-        elif obj_label == "axes":
-            self._set_config(attrs, obj_label, val_key="style", mpl_key="style")
-        elif obj_label == "title":
-            self._set_config(attrs, obj_label, mpl_key="label")
-        elif obj_label == "subtitle":
-            self._set_config(attrs, obj_label, mpl_key="label")
-        elif obj_label == "suptitle":
-            self._set_config(attrs, obj_label, mpl_key="t")
-        elif obj_label == "note":
-            self._set_config(attrs, obj_label, mpl_key="s")
-        elif obj_label == "caption":
-            self._set_config(attrs, obj_label, mpl_key="s")
-        elif obj_label == "watermark":
-            self._set_config(attrs, obj_label, mpl_key="s")
-        elif obj_label == "legend":
-            self._set_config(attrs, obj_label, mpl_key="show")
-        elif obj_label == "grid":
-            self._set_config(attrs, obj_label, mpl_key="show")
-        elif obj_label == "xticks":
-            self._set_config(attrs, obj_label, mpl_key="ticks")
-        elif obj_label == "yticks":
-            self._set_config(attrs, obj_label, mpl_key="ticks")
-        elif obj_label == "projection":
-            self._set_config(attrs, obj_label)
-            self._set_config(
-                attrs,
-                obj_label,
-                mpl_key="central_longitude",
-                val_key="central_lon",
-            )
-        elif obj_label == "clabel":
-            self._set_config(attrs, obj_label, mpl_key="text")
-        elif obj_label == "colorbar":
-            self._set_config(attrs, obj_label, mpl_key="show")
-        elif obj_label == "cticks":
-            self._set_config(attrs, obj_label, mpl_key="ticks")
-            self._set_config(
-                attrs, obj_label, val_key="ctick_labels", mpl_key="tick_labels"
-            )
-        elif obj_label == "compute":
-            self._set_config(
-                attrs, obj_label, val_key="workers", mpl_key="num_workers"
-            )
-            self._set_config(
-                attrs, obj_label, val_key="scheduler", mpl_key="scheduler"
-            )
-        elif obj_label == "interpolate":
-            self._set_config(
-                attrs, obj_label, val_key="revert", mpl_key="revert"
-            )
-            self._set_config(
-                attrs, obj_label, val_key="frames", mpl_key="frames"
-            )
-        elif obj_label == "animate":
-            self._set_config(attrs, obj_label, val_key="fps", mpl_key="fps")
-            self._set_config(attrs, obj_label, val_key="fmt", mpl_key="format")
-            self._set_config(attrs, obj_label, val_key="loop", mpl_key="loop")
-        elif obj_label == "output":
-            self._set_config(attrs, obj_label, val_key="save", mpl_key="save")
-            self._set_config(attrs, obj_label, val_key="show", mpl_key="show")
-        elif obj_label == "margins":
-            self._set_config(attrs, obj_label, val_key="xmargins", mpl_key="x")
-            self._set_config(attrs, obj_label, val_key="ymargins", mpl_key="y")
+        groups_list = GROUPS.get(obj_label)
+        if groups_list is not None:
+            for config_kwds in groups_list:
+                self._set_config(attrs, obj_label, **config_kwds)
         elif hasattr(self, obj_label):
             self._set_config(attrs, obj_label)
         return attrs
@@ -506,7 +481,7 @@ class Configuration(param.Parameterized):
                     attrs[obj_key].update(**obj_vals)
 
                 is_configured = attrs["configured"].get(obj_label, False)
-                if is_configured or obj_label in obj_labels:
+                if not is_configured or obj_label in obj_labels:
                     attrs = self._initial_config(attrs, obj_label)
                 attrs["configured"][obj_label] = True
 
@@ -532,14 +507,6 @@ class Configuration(param.Parameterized):
         return self_copy
 
 
-def scale_sizes(scale, keys=None):
-    if keys is None:
-        keys = sizes.keys()
-
-    for key in keys:
-        sizes[key] = sizes[key] * scale
-
-
 def load_defaults(default_key, input_kwds=None, **other_kwds):
     # get default values
     updated_kwds = DEFAULTS.get(default_key, {}).copy()
@@ -552,7 +519,7 @@ def load_defaults(default_key, input_kwds=None, **other_kwds):
         "grid_plot_kwds",
     ]:
         updated_kwds = updated_kwds.get(
-            f'{other_kwds.pop("base_chart", "")}_kwds', {}
+            f'{other_kwds.pop("base_chart", "")}', {}
         ).copy()
     if isinstance(input_kwds, xr.Dataset):
         input_kwds = input_kwds.attrs.get(default_key, {})

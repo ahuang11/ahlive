@@ -56,7 +56,7 @@ def is_scalar(value):
 
 
 def is_subtype(value, subtype):
-    value = np.array(value).ravel()
+    value = np.array(to_1d(value)).ravel()
     return np.issubdtype(value.dtype, subtype)
 
 
@@ -64,11 +64,15 @@ def is_datetime(value):
     return is_subtype(value, np.datetime64)
 
 
+def is_timedelta(value):
+    return is_subtype(value, np.timedelta64)
+
+
 def is_str(value):
     return (
-        is_subtype(value, np.string_) or
-        is_subtype(value, np.unicode) or
-        is_subtype(value, np.object)
+        is_subtype(value, np.string_)
+        or is_subtype(value, np.unicode)
+        or is_subtype(value, np.object)
     )
 
 
@@ -112,7 +116,17 @@ def transpose(da, dims=None):
     return da.transpose(*dims)
 
 
-def ffill(da):
+def _fillna(da, how):
+    if how == "both":
+        da = da.bfill().ffill()
+    elif how == "ffill":
+        da = da.ffill()
+    elif how == "bfill":
+        da = da.bfill()
+    return da
+
+
+def fillna(da, how="ffill"):
     """ds.ffill does not handle datetimes"""
     if "state" not in da.dims:
         return da
@@ -120,11 +134,11 @@ def ffill(da):
         da = da.ffill("state")
     except (TypeError, ImportError):
         if "item" not in da.dims:
-            da = da.to_series().ffill().to_xarray()
+            da = _fillna(da.to_series(), how).to_xarray()
         else:
             da = xr.concat(
                 (
-                    da.sel(item=item).to_series().ffill().bfill().to_xarray()
+                    _fillna(da.sel(item=item).to_series(), how=how).to_xarray()
                     for item in da["item"]
                 ),
                 "item",

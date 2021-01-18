@@ -23,7 +23,21 @@
    customizations/animating.ipynb
    customizations/interpolating.ipynb
    customizations/configuring.ipynb
+   customizations/presetting.ipynb
 
-.. .. toctree::
-..    :maxdepth: 2
-..    :caption: TUTORIALS
+.. toctree::
+   :maxdepth: 3
+   :caption: TUTORIALS
+
+   tutorials/covid_19_time_series.ipynb
+   tutorials/covid_19_bar_chart_race.ipynb
+   tutorials/covid_19_geographic_map.ipynb
+
+.. toctree::
+   :maxdepth: 3
+   :caption: EXAMPLES
+
+   examples/gapminder.ipynb
+   examples/rain_simulation.ipynb
+   examples/hurricane_tracks.ipynb
+
