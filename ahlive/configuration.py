@@ -6,6 +6,7 @@ import xarray as xr
 
 NULL_VALS = [(), {}, [], None, ""]
 
+# a kind of grouping by intuition; doesn't really help code though
 CONFIGURABLES = {  # used for like .config('figure', **kwds)
     "canvas": [
         "figure",
@@ -13,10 +14,9 @@ CONFIGURABLES = {  # used for like .config('figure', **kwds)
         "compute",
         "animate",
         "durations",
-        "frame",
+        "savefig",
         "watermark",
         "spacing",
-        "fontscale",
         "interpolate",
         "output",
     ],
@@ -28,6 +28,7 @@ CONFIGURABLES = {  # used for like .config('figure', **kwds)
         "grid",
         "xticks",
         "yticks",
+        "limits",
         "margins",
     ],
     "label": [
@@ -58,58 +59,80 @@ CONFIGURABLES = {  # used for like .config('figure', **kwds)
     "ref": ["ref_plot", "ref_inline"],
 }
 
-GROUPS = {  # for each config group, maps param alias to function key
-    "figure": [{"param": "figsize", "fn_key": "figsize"}],
-    "axes": [{"param": "style", "fn_key": "style"}],
-    "title": [{"param": "title", "fn_key": "label"}],
-    "subtitle": [{"param": "subtitle", "fn_key": "label"}],
-    "suptitle": [{"param": "suptitle", "fn_key": "t"}],
-    "note": [{"param": "note", "fn_key": "s"}],
-    "caption": [{"param": "caption", "fn_key": "s"}],
-    "watermark": [{"param": "watermark", "fn_key": "s"}],
-    "legend": [{"param": "legend", "fn_key": "show"}],
-    "grid": [{"param": "grid", "fn_key": "show"}],
-    "xticks": [{"param": "xticks", "fn_key": "ticks"}],
-    "yticks": [{"param": "yticks", "fn_key": "ticks"}],
-    "projection": [
-        {"param": "projection", "fn_key": "projection"},
-        {"param": "central_lon", "fn_key": "central_longitude"},
-    ],
-    "clabel": [
-        {"param": "clabel", "fn_key": "text"},
-    ],
-    "colorbar": [{"param": "colorbar", "fn_key": "show"}],
-    "cticks": [
-        {"param": "cticks", "fn_key": "ticks"},
-        {"param": "ctick_labels", "fn_key": "tick_labels"},
-    ],
-    "compute": [
-        {"param": "workers", "fn_key": "num_workers"},
-        {"param": "scheduler", "fn_key": "scheduler"},
-    ],
-    "interpolate": [
-        {"param": "revert", "fn_key": "revert"},
-        {"param": "frames", "fn_key": "frames"},
-    ],
-    "animate": [
-        {"param": "fps", "fn_key": "fps"},
-        {"param": "fmt", "fn_key": "format"},
-        {"param": "loop", "fn_key": "loop"},
-    ],
-    "output": [
-        {"param": "save", "fn_key": "save"},
-        {"param": "show", "fn_key": "show"},
-    ],
-    "margins": [
-        {"param": "xmargins", "fn_key": "x"},
-        {"param": "ymargins", "fn_key": "y"},
-    ],
+# a kind of grouping by how the code is structured
+# each group's key is the key ahlive uses in its method call
+# for example, figure is suffixed with _kwds to become figure_kwds
+# and is used in `plt.figure(**figure_kwds)`
+CONFIGURABLES_KWDS = {
+    configurable: {configurable: configurable}
+    for configurable in list(chain(*CONFIGURABLES.values()))
 }
+# outer key is configurable
+# inner key is param
+# inner value is method_key
+CONFIGURABLES_KWDS.update(
+    {
+        "figure": {"figsize": "figsize"},
+        "axes": {"style": "style"},
+        "title": {"title": "label"},
+        "subtitle": {"subtitle": "label"},
+        "suptitle": {"suptitle": "t"},
+        "note": {"note": "s"},
+        "caption": {"caption": "s"},
+        "watermark": {"watermark": "s"},
+        "legend": {"legend": "show"},
+        "grid": {"grid": "show"},
+        "xticks": {"xticks": "ticks"},
+        "yticks": {"yticks": "ticks"},
+        "limits": {
+            "worldwide": "worldwide",
+            "xlims": "xlims",
+            "ylims": "ylims",
+            "xlim0s": "xlim0s",
+            "ylim0s": "ylim0s",
+            "xlim1s": "xlim1s",
+            "ylim1s": "ylim1s",
+        },
+        "projection": {
+            "projection": "projection",
+            "central_lon": "central_longitude",
+        },
+        "clabel": {
+            "clabel": "text",
+        },
+        "colorbar": {"colorbar": "show"},
+        "cticks": {
+            "cticks": "ticks",
+            "ctick_labels": "tick_labels",
+        },
+        "compute": {
+            "workers": "num_workers",
+            "scheduler": "scheduler",
+        },
+        "interpolate": {
+            "revert": "revert",
+            "frames": "frames",
+        },
+        "animate": {
+            "fps": "fps",
+            "fmt": "format",
+            "loop": "loop",
+        },
+        "output": {
+            "save": "save",
+            "show": "show",
+        },
+        "margins": {
+            "xmargins": "x",
+            "ymargins": "y",
+        },
+    }
+)
 
-POINTERS = {
-    param["param"]: configurable
-    for configurable in GROUPS
-    for param in GROUPS[configurable]
+PARAMS = {
+    param_: configurable
+    for configurable in CONFIGURABLES_KWDS
+    for param_ in CONFIGURABLES_KWDS[configurable]
 }
 
 CHARTS = {
@@ -120,10 +143,12 @@ CHARTS = {
 CHARTS["all"] = CHARTS["basic"] + CHARTS["grid"] + CHARTS["ref"]
 
 PRESETS = {
+    "none": [None],
     "scatter": ["trail"],
     **{chart: ["race", "delta", "series"] for chart in ["bar", "barh"]},
     **{chart: ["rotate", "scan_x", "scan_y"] for chart in CHARTS["grid"]},
 }
+PRESETS["all"] = PRESETS["scatter"] + PRESETS["bar"] + PRESETS["pcolormesh"]
 
 DIMS = {
     "basic": (
@@ -200,6 +225,7 @@ ITEMS = {
 OPTIONS = {
     "fmt": ["gif", "mp4", "jpg", "png"],
     "style": ["graph", "minimal", "bare"],
+    "spacing": ["left", "right", "bottom", "top", "wspace", "hspace"],
     "legend": [
         "upper left",
         "upper right",
@@ -236,7 +262,7 @@ DEFAULTS = {}
 DEFAULTS["durations_kwds"] = {
     "aggregate": "max",
     "transition_frames": 1 / 60,
-    "final_frame": 0.54,
+    "final_frame": 0.55,
 }
 
 DEFAULTS["label_kwds"] = {
@@ -396,38 +422,44 @@ class Configuration(param.Parameterized):
     def __init__(self, **kwds):
         super().__init__(**kwds)
 
-    def _set_config(self, attrs, obj_label, param=None, fn_key=None):
-        if param is None:
-            param = obj_label
-        value = getattr(self, param)
+    def _set_config(self, attrs, configurable, param_=None, method_key=None):
+        if param_ is None:
+            param_ = configurable
+        elif not hasattr(self, param_):
+            return
+
+        value = getattr(self, param_)
         if value in NULL_VALS:
             return
 
-        if fn_key is None:
-            fn_key = obj_label
-        obj_key = f"{obj_label}_kwds"
-        if fn_key not in attrs[obj_key]:
-            attrs[obj_key][fn_key] = value
+        if method_key is None:
+            method_key = configurable
+        configurable_key = f"{configurable}_kwds"
+        if method_key not in attrs[configurable_key]:
+            attrs[configurable_key][method_key] = value
         return attrs
 
-    def _initial_config(self, attrs, obj_label):
-        groups_list = GROUPS.get(obj_label)
-        if groups_list is not None:
-            for config_kwds in groups_list:
-                self._set_config(attrs, obj_label, **config_kwds)
-        elif hasattr(self, obj_label):
-            self._set_config(attrs, obj_label)
+    def _initial_config(self, attrs, configurable):
+        for param_, method_key in CONFIGURABLES_KWDS[configurable].items():
+            self._set_config(
+                attrs, configurable, param_=param_, method_key=method_key
+            )
         return attrs
 
     def _config_data(
-        self, input_data, *obj_labels, rowcols=None, reset=False, **config_kwds
+        self,
+        input_data,
+        *configurables,
+        rowcols=None,
+        reset=False,
+        **configurable_kwds,
     ):
         if rowcols is None:
             rowcols = input_data.keys()
 
         all_configurables = list(chain(*self.configurables.values()))
-        if obj_labels:
-            if len(obj_labels) > 1:
+        if configurables:
+            if len(configurables) > 1:
                 raise ValueError(
                     "Cannot support multiple positional args! "
                     "Use one of the following structures:\n\n"
@@ -440,11 +472,11 @@ class Configuration(param.Parameterized):
                     '"obj1": {"key": "value"}, '
                     '"obj2": {"key": "value"}})\n'
                 )
-            configurables = obj_labels
-        elif config_kwds.keys():
-            configurables = list(config_kwds.keys())
+            select_configurables = configurables
+        elif configurable_kwds.keys():
+            select_configurables = list(configurable_kwds.keys())
         else:
-            configurables = all_configurables
+            select_configurables = all_configurables
 
         data = {}
         for rowcol, ds in input_data.items():
@@ -452,38 +484,40 @@ class Configuration(param.Parameterized):
                 continue
 
             attrs = ds.attrs or {}
-            for obj_label in configurables:
-                if obj_label not in all_configurables:
-                    if obj_label == "chart":
+            for configurable in select_configurables:
+                if configurable not in all_configurables:
+                    if configurable == "chart":
                         continue
                     raise KeyError(
-                        f"{obj_label} is invalid; select from the following: "
-                        f'{", ".join(all_configurables)}'
+                        f"{configurable} is invalid; select from the "
+                        f'following: {", ".join(all_configurables)}'
                     )
 
-                obj_key = f"{obj_label}_kwds"
+                configurable_key = f"{configurable}_kwds"
                 if "configured" not in attrs:
                     attrs["configured"] = {}
 
-                if obj_key not in attrs or reset:
-                    attrs["configured"][obj_label] = False
-                    attrs[obj_key] = {}
+                if configurable_key not in attrs or reset:
+                    attrs["configured"][configurable] = False
+                    attrs[configurable_key] = {}
 
-                if obj_labels:  # e.g. config('inline', format='%.0f')
-                    obj_vals = config_kwds
+                if configurables:  # e.g. config('inline', format='%.0f')
+                    obj_vals = configurable_kwds
                 else:  # e.g. config(inline={'format': '%.0f'})
-                    obj_vals = config_kwds.get(obj_label, attrs[obj_key])
+                    obj_vals = configurable_kwds.get(
+                        configurable, attrs[configurable_key]
+                    )
 
                 if not isinstance(obj_vals, dict):
                     raise ValueError(f"{obj_vals} must be a dict!")
 
                 if len(obj_vals) > 0:
-                    attrs[obj_key].update(**obj_vals)
+                    attrs[configurable_key].update(**obj_vals)
 
-                is_configured = attrs["configured"].get(obj_label, False)
-                if not is_configured or obj_label in obj_labels:
-                    attrs = self._initial_config(attrs, obj_label)
-                attrs["configured"][obj_label] = True
+                is_configured = attrs["configured"].get(configurable, False)
+                if not is_configured or configurable in configurables:
+                    attrs = self._initial_config(attrs, configurable)
+                attrs["configured"][configurable] = True
 
             ds.attrs.update(**attrs)
             data[rowcol] = ds
@@ -493,14 +527,16 @@ class Configuration(param.Parameterized):
         else:
             return input_data
 
-    def config(self, *obj_labels, rowcols=None, reset=False, **config_kwds):
+    def config(
+        self, *configurables, rowcols=None, reset=False, **configurable_kwds
+    ):
         self_copy = deepcopy(self)
         data = self._config_data(
             self_copy.data,
             rowcols=rowcols,
             reset=reset,
-            *obj_labels,
-            **config_kwds,
+            *configurables,
+            **configurable_kwds,
         )
 
         self_copy.data = data

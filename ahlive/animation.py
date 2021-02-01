@@ -21,7 +21,6 @@ from matplotlib.ticker import FixedLocator, FormatStrFormatter
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 
 from .configuration import (
-    CHARTS,
     CONFIGURABLES,
     ITEMS,
     OPTIONS,
@@ -50,21 +49,23 @@ class Animation(param.Parameterized):
     )
     spacing = param.Dict(
         default=None,
-        doc="Subplot spacing; left, right, bottom, top, wspace, and hspace",
+        doc=f"Subplot spacing; {OPTIONS['spacing']}",
     )
-    suptitle = param.String(allow_None=True, doc="Figure's super title")
-    watermark = param.String(allow_None=True, doc="Figure's watermark")
+    suptitle = param.String(
+        allow_None=True, doc="Figure's super title (outer top center)")
+    watermark = param.String(
+        allow_None=True, doc="Figure's watermark (outer bottom right)")
 
     # compute kwds
     workers = param.Integer(
         default=None,
         bounds=(1, None),
-        doc="Number of workers used to render each static state",
+        doc="Number of workers used to render separate static states",
     )
     scheduler = param.ObjectSelector(
         default=None,
         objects=OPTIONS["scheduler"],
-        doc="Type of workers; threads, processes, and single-threaded",
+        doc=f"Type of workers; {OPTIONS['scheduler']}",
     )
 
     # animate kwds
@@ -1107,7 +1108,7 @@ class Animation(param.Parameterized):
             from cartopy import feature as cfeature
 
             unset_limits = all(limit is None for limit in limits)
-            if state_ds.attrs["limits"]["worldwide"]:
+            if state_ds.attrs["limits_kwds"].get("worldwide"):
                 ax.set_global()
             elif not unset_limits:
                 ax.set_extent(
@@ -1188,7 +1189,7 @@ class Animation(param.Parameterized):
             if yticks is not None:
                 gridlines.ylocator = FixedLocator(yticks)
         else:
-            preset = state_ds.attrs["preset_kwds"].get("preset", "series")
+            preset = state_ds.attrs["preset_kwds"].get("preset")
             is_not_series = preset != "series"
             if chart.startswith("bar") and is_not_series:
                 preset_kwds = load_defaults(
@@ -1335,11 +1336,11 @@ class Animation(param.Parameterized):
 
     def _buffer_frame(self, state):
         buf = BytesIO()
-        frame_kwds = load_defaults(
-            "frame_kwds", self._canvas_kwds["frame_kwds"]
+        savefig_kwds = load_defaults(
+            "savefig_kwds", self._canvas_kwds["savefig_kwds"]
         )
         try:
-            plt.savefig(buf, **frame_kwds)
+            plt.savefig(buf, **savefig_kwds)
             buf.seek(0)
             plt.close()
             return buf

@@ -30,15 +30,15 @@ class Easing(param.Parameterized):
     interp = param.ClassSelector(
         default=None,
         class_=Iterable,
-        doc="Interpolation method",
+        doc=f"Interpolation method; {INTERPS}",
     )
     ease = param.ClassSelector(
-        default="in_out", class_=Iterable, doc="Type of easing"
+        default="in_out", class_=Iterable, doc=f"Type of easing; {EASES}"
     )
     frames = param.Integer(
         default=None,
         bounds=(1, None),
-        doc="Number of frames per transition to next state",
+        doc="Number of frames between each base state",
     )
     revert = param.ObjectSelector(
         default=None,

@@ -17,10 +17,9 @@ from .configuration import (
     CONFIGURABLES,
     DIMS,
     ITEMS,
-    GROUPS,
-    POINTERS,
     NULL_VALS,
     OPTIONS,
+    PARAMS,
     PRESETS,
     VARS,
     Configuration,
@@ -31,10 +30,10 @@ from .easing import Easing
 from .join import _combine, _get_rowcols, merge
 from .util import (
     fillna,
-    is_timedelta,
     is_datetime,
     is_scalar,
     is_str,
+    is_timedelta,
     pop,
     srange,
     to_1d,
@@ -45,38 +44,54 @@ from .util import (
 class Data(Easing, Animation, Configuration):
 
     chart = param.ClassSelector(class_=Iterable)
-    preset = param.ObjectSelector(objects=list(chain(*PRESETS.values())))
-    style = param.ObjectSelector(objects=OPTIONS["style"])
-    label = param.String(allow_None=True)
-    group = param.String()
+    preset = param.ObjectSelector(
+        objects=list(chain(*PRESETS.values())),
+        doc=f"Chart preset; {PRESETS}"
+    )
+    style = param.ObjectSelector(
+        objects=OPTIONS["style"],
+        doc=f"Chart style; {OPTIONS['style']}"
+    )
+    label = param.String(allow_None=True, doc=f"Legend label for each item")
+    group = param.String(doc="Group label for multiple items")
 
-    state_labels = param.ClassSelector(class_=(Iterable,))
-    inline_labels = param.ClassSelector(class_=(Iterable,))
+    state_labels = param.ClassSelector(
+        class_=(Iterable,), doc="Dynamic label per state (bottom right)")
+    inline_labels = param.ClassSelector(class_=(Iterable,),
+        doc="Dynamic label per item per state (item location)")
 
-    xmargins = param.Number()
-    ymargins = param.Number()
-    xlims = param.ClassSelector(class_=Iterable)
-    ylims = param.ClassSelector(class_=Iterable)
-    xlim0s = param.ClassSelector(class_=(Iterable, int, float))
-    xlim1s = param.ClassSelector(class_=(Iterable, int, float))
-    ylim0s = param.ClassSelector(class_=(Iterable, int, float))
-    ylim1s = param.ClassSelector(class_=(Iterable, int, float))
-    hooks = param.HookList()
+    xmargins = param.Number(doc="Margins on the x-axis; ranges from 0-1")
+    ymargins = param.Number(doc="Margins on the y-axis; ranges from 0-1")
+    xlims = param.ClassSelector(
+        class_=Iterable, doc="Limits for the x-axis")
+    ylims = param.ClassSelector(
+        class_=Iterable, doc="Limits for the y-axis")
+    xlim0s = param.ClassSelector(
+        class_=(Iterable, int, float), doc="Limits for the left bounds of the x-axis")
+    xlim1s = param.ClassSelector(
+        class_=(Iterable, int, float), doc="Limits for the right bounds of the x-axis")
+    ylim0s = param.ClassSelector(
+        class_=(Iterable, int, float), doc="Limits for the bottom bounds of the y-axis")
+    ylim1s = param.ClassSelector(
+        class_=(Iterable, int, float), doc="Limits for the top bounds of the y-axis")
+    hooks = param.HookList(
+        doc="List of customization functions to apply; "
+        "function must contain fig and ax as arguments")
 
-    title = param.String(allow_None=True)
-    subtitle = param.String(allow_None=True)
-    xlabel = param.String(allow_None=True)
-    ylabel = param.String(allow_None=True)
-    note = param.String(allow_None=True)
-    caption = param.String(allow_None=True)
+    title = param.String(allow_None=True, doc="Title label (outer top left)")
+    subtitle = param.String(allow_None=True, doc="Subtitle label (outer top right)")
+    xlabel = param.String(allow_None=True, doc="X-axis label (bottom center)")
+    ylabel = param.String(allow_None=True, doc="Y-axis label (left center")
+    note = param.String(allow_None=True, doc="Note label (bottom left)")
+    caption = param.String(allow_None=True, doc="Caption label (outer left)")
 
-    xticks = param.ClassSelector(class_=(Iterable,))
-    yticks = param.ClassSelector(class_=(Iterable,))
+    xticks = param.ClassSelector(class_=(Iterable,), doc="X-axis tick locations")
+    yticks = param.ClassSelector(class_=(Iterable,), doc="Y-axis tick locations")
 
-    legend = param.ObjectSelector(objects=OPTIONS["legend"])
-    grid = param.ObjectSelector(default=True, objects=OPTIONS["grid"])
+    legend = param.ObjectSelector(objects=OPTIONS["legend"], doc="Legend location")
+    grid = param.ObjectSelector(default=True, objects=OPTIONS["grid"], doc="Grid type")
 
-    rowcol = param.NumericTuple(default=(1, 1), length=2)
+    rowcol = param.NumericTuple(default=(1, 1), length=2, doc="Subplot location as (row, column)")
 
     _crs_names = None
     _parameters = None
@@ -99,10 +114,49 @@ class Data(Easing, Animation, Configuration):
         input_vars = self._amend_input_vars(input_vars)
         data_vars, num_items = self._load_data_vars(input_vars, num_states)
         coords = {"item": srange(num_items), "state": srange(num_states)}
-        attrs = self._load_attrs()
-        ds = xr.Dataset(coords=coords, data_vars=data_vars, attrs=attrs)
+        ds = xr.Dataset(coords=coords, data_vars=data_vars)
         ds = self._drop_state(ds)
         self.data = {self.rowcol: ds}
+
+    def keys(self):
+        return self.data.keys()
+
+    def values(self):
+        return self.data.values()
+
+    def items(self):
+        return self.data.items()
+
+    @property
+    def data(self):
+        return self._data
+
+    @data.setter
+    def data(self, data):
+        self._data = self._config_data(data)
+
+    @property
+    def attrs(self):
+        rowcol = list(self._data)[0]
+        return self._data[rowcol].attrs
+
+    def cols(self, num_cols):
+        if num_cols == 0:
+            raise ValueError(f"Number of columns must be > 1!")
+        self_copy = deepcopy(self)
+        data = {}
+        for iplot, rowcol in enumerate(self_copy.data.copy()):
+            row = (iplot) // num_cols + 1
+            col = (iplot) % num_cols + 1
+            data[(row, col)] = self_copy.data.pop(rowcol)
+        self_copy.data = data
+        return self_copy
+
+    def _init_join(self, other):
+        self_copy = deepcopy(self)
+        other_copy = deepcopy(other)
+        rowcols = _get_rowcols([self_copy, other_copy])
+        return self_copy, other_copy, rowcols
 
     def __getitem__(self, key):
         return self.data[key]
@@ -121,12 +175,6 @@ class Data(Easing, Animation, Configuration):
 
     def __repr__(self):
         return self.__str__()
-
-    def _init_join(self, other):
-        self_copy = deepcopy(self)
-        other_copy = deepcopy(other)
-        rowcols = _get_rowcols([self_copy, other_copy])
-        return self_copy, other_copy, rowcols
 
     def __mul__(self, other):
         self_copy, other_copy, rowcols = self._init_join(other)
@@ -231,6 +279,9 @@ class Data(Easing, Animation, Configuration):
     def __rsub__(self, other):
         return self - other
 
+    def __iter__(self):
+        return self.data.__iter__()
+
     @staticmethod
     def _config_bar_chart(ds, preset):
         if preset is None or preset == "series":
@@ -251,6 +302,7 @@ class Data(Easing, Animation, Configuration):
             ds["y"] = ds["y"].fillna(-np.inf)
             ranks = ds["y"].rank("item")
             # only keep items that are show at least once above the limit
+            # to optimize and keep a smaller dataset
             ds = ds.sel(
                 item=ds.where(ranks >= len(ds["item"]) - limit, drop=True)[
                     "item"
@@ -386,7 +438,7 @@ class Data(Easing, Animation, Configuration):
 
     def _config_grid_axes(self, ds, chart):
         if self.style == "bare":
-            ds.attrs["grid_kwds"]["b"] = False
+            ds.attrs["grid_kwds"]["b"] = ds.attrs["grid_kwds"].get("b", False)
         elif chart == "barh":
             ds.attrs["grid_kwds"]["axis"] = ds.attrs["grid_kwds"].get(
                 "axis", "x"
@@ -403,7 +455,7 @@ class Data(Easing, Animation, Configuration):
 
     def _config_chart(self, ds, chart):
         preset = ds.attrs["preset_kwds"].get("preset", "")
-        if chart.startswith("bar"):
+        if chart.startswith("bar") or preset in PRESETS["bar"]:
             ds = self._config_bar_chart(ds, preset)
         elif preset == "trail":
             ds = self._config_trail_chart(ds)
@@ -416,33 +468,6 @@ class Data(Easing, Animation, Configuration):
         ds = self._config_grid_axes(ds, chart)
         return ds
 
-    def _add_durations(self, ds):
-        if "fps" in ds.attrs["animate_kwds"]:
-            return ds
-
-        num_states = len(ds["state"])
-        durations_kwds = load_defaults("durations_kwds", ds)
-        transition_frames = durations_kwds.pop("transition_frames")
-        aggregate = durations_kwds.pop("aggregate")
-
-        durations = durations_kwds.get(
-            "durations", 0.5 if num_states < 8 else 1 / 60
-        )
-        if isinstance(durations, (int, float)):
-            durations = np.repeat(durations, num_states)
-
-        if np.isnan(durations[-1]):
-            durations[-1] = 0
-        durations[-1] += durations_kwds["final_frame"]
-
-        if "duration" in ds:
-            ds["duration"] = ("state", durations + ds["duration"].values)
-        else:
-            ds["duration"] = ("state", durations)
-        ds["duration"].attrs["transition_frames"] = transition_frames
-        ds["duration"].attrs["aggregate"] = aggregate
-        return ds
-
     @staticmethod
     def _fill_null(ds):
         for var in ds.data_vars:
@@ -451,100 +476,6 @@ class Data(Easing, Animation, Configuration):
                     ds[var] = ds[var].astype(float)
                 except ValueError:
                     ds[var] = fillna(ds[var], how="both")
-        return ds
-
-    def _compress_vars(self, da):
-        if isinstance(da, xr.Dataset):
-            attrs = da.attrs  # keep_attrs raises an error
-            da = da.map(self._compress_vars)
-            da.attrs = attrs
-            return da
-        elif da.name in ["x", "y"]:
-            return da
-
-        for dim in DIMS["item"]:
-            if dim in da.dims:
-                if len(da[dim]) > 1:
-                    return da
-
-        vals = da.values
-        unique_vals = np.unique(vals[~pd.isnull(vals)])
-        if len(unique_vals) == 1:
-            dim = da.dims[0]
-            if dim != "state":
-                item = da[dim][0]
-                return xr.DataArray(
-                    unique_vals[0], dims=(dim,), coords={dim: [item]}
-                )
-            else:
-                return unique_vals[0]
-        else:
-            return da
-
-    @staticmethod
-    def _add_color_kwds(ds, chart):
-        if chart is not None:
-            if chart.startswith("bar"):
-                if set(np.unique(ds["label"])) == set(np.unique(ds["x"])):
-                    ds.attrs["legend_kwds"]["show"] = False
-
-        if "c" in ds:
-            c_var = "c"
-            plot_key = "plot_kwds"
-        else:
-            c_var = "grid_c"
-            plot_key = "grid_plot_kwds"
-
-        cticks_kwds = load_defaults("cticks_kwds", ds)
-        if c_var in ds:
-            cticks = cticks_kwds.get("ticks")
-            if cticks is None:
-                num_colors = defaults["cticks_kwds"]["num_colors"]
-            else:
-                num_colors = len(cticks) - 1
-            if "num_colors" in cticks_kwds and chart == "contourf":
-                warnings.warn("num_colors is ignored for contourf!")
-            num_colors = cticks_kwds.pop("num_colors", num_colors)
-            if num_colors < 3:
-                raise ValueError("There must be at least 3 colors!")
-
-            if "cmap" in ds.data_vars:
-                cmap = pop(ds, "cmap", get=-1)
-            elif "ref_cmap" in ds.data_vars:
-                cmap = pop(ds, "ref_cmap", get=-1)
-            elif "grid_cmap" in ds.data_vars:
-                cmap = pop(ds, "grid_cmap", get=-1)
-            else:
-                cmap = ds.attrs[plot_key].get("cmap", "plasma")
-            ds.attrs[plot_key]["cmap"] = plt.get_cmap(cmap, num_colors)
-
-            vmin = pop(ds, "vmin", get=-1)
-            vmax = pop(ds, "vmax", get=-1)
-            if cticks is None:
-                num_ticks = cticks_kwds.get("num_ticks", num_colors + 1)
-                if vmin is None:
-                    vmin = np.nanmin(ds[c_var].values)
-                if vmax is None:
-                    vmax = np.nanmax(ds[c_var].values)
-                indices = np.round(
-                    np.linspace(0, num_ticks - 1, num_ticks)
-                ).astype(
-                    int
-                )  # select 10 values equally
-                cticks = np.linspace(vmin, vmax, num_ticks)[indices]
-                ds.attrs["cticks_kwds"]["ticks"] = cticks
-                ds.attrs[plot_key]["vmin"] = vmin
-                ds.attrs[plot_key]["vmax"] = vmax
-            else:
-                ds.attrs[plot_key]["norm"] = ds.attrs[plot_key].get(
-                    "norm", BoundaryNorm(cticks, num_colors)
-                )
-
-            ds.attrs["colorbar_kwds"]["show"] = ds.attrs[plot_key].get(
-                "colorbar", True
-            )
-        elif "colorbar_kwds" in ds.attrs:
-            ds.attrs["colorbar_kwds"]["show"] = False
         return ds
 
     def _compute_limit_offset(self, limit, margin):
@@ -575,7 +506,8 @@ class Data(Easing, Animation, Configuration):
     def _add_xy01_limits(self, ds, chart):
         # TODO: breakdown function
         limits = {
-            key: ds.attrs["limits"].pop(key, None) for key in ITEMS["limit"]
+            key: ds.attrs["limits_kwds"].pop(key, None)
+            for key in ITEMS["limit"]
         }
 
         for axis in ["x", "y"]:
@@ -606,11 +538,11 @@ class Data(Easing, Animation, Configuration):
                 limits[axis_lim0] = axis_lim[0]
                 limits[axis_lim1] = axis_lim[1]
 
-        if ds.attrs["limits"].get("worldwide") is None:
+        if ds.attrs["limits_kwds"].get("worldwide") is None:
             if any(limit is not None for limit in limits.values()):
-                ds.attrs["limits"]["worldwide"] = False
+                ds.attrs["limits_kwds"]["worldwide"] = False
 
-        if ds.attrs["limits"].get("worldwide"):
+        if ds.attrs["limits_kwds"].get("worldwide"):
             return ds  # ax.set_global() will be called in animation.py
 
         axes_kwds = load_defaults("axes_kwds", ds)
@@ -668,14 +600,24 @@ class Data(Easing, Animation, Configuration):
                     var = axis
                     item_dim = "item"
                 else:
-                    ref_vars = ["ref_x0", "ref_x1", "ref_y0", "ref_y1"]
-                    if is_lower_limit:
-                        ref_vars = ref_vars[::-1]
-                    for var in ref_vars:
-                        if var in ds and axis in var:
-                            break
-                    else:
-                        continue
+                    if axis == "x":
+                        if "ref_x0" in ds and "ref_x1" in ds:
+                            var = "ref_x0" if num == 0 else "ref_x1"
+                        elif "ref_x0" in ds:
+                            var = "ref_x0"
+                        elif "ref_x1" in ds:
+                            var = "ref_x1"
+                        else:
+                            continue
+                    elif axis == "y":
+                        if "ref_y0" in ds and "ref_y1" in ds:
+                            var = "ref_y0" if num == 0 else "ref_y1"
+                        elif "ref_y0" in ds:
+                            var = "ref_y0"
+                        elif "ref_y1" in ds:
+                            var = "ref_y1"
+                        else:
+                            continue
                     item_dim = "ref_item"
 
                 if limit == "zero":
@@ -718,12 +660,108 @@ class Data(Easing, Animation, Configuration):
 
             if limit is not None:
                 if is_scalar(limit) == 1:
-                    limit = [limit] * len(ds["state"])
+                    limit = np.repeat(limit, len(ds["state"]))
                 ds[key] = ("state", limit)
         return ds
 
-    def _precompute_base(self, ds, chart):
-        base_kwds = {}
+    def _compress_vars(self, da):
+        if isinstance(da, xr.Dataset):
+            attrs = da.attrs  # keep_attrs raises an error
+            da = da.map(self._compress_vars)
+            da.attrs = attrs
+            if "state" not in da.dims:
+                da = da.expand_dims("state").transpose(..., "state")
+            return da
+        elif da.name in ["x", "y"]:
+            return da
+
+        for dim in DIMS["item"]:
+            if dim in da.dims:
+                if len(da[dim]) > 1:
+                    return da
+
+        vals = da.values
+        unique_vals = np.unique(vals[~pd.isnull(vals)])
+        if len(unique_vals) == 1:
+            dim = da.dims[0]
+            if dim != "state":
+                item = da[dim][0]
+                return xr.DataArray(
+                    unique_vals[0], dims=(dim,), coords={dim: [item]}
+                )
+            else:
+                return unique_vals[0]
+        else:
+            return da
+
+    @staticmethod
+    def _add_color_kwds(ds, chart):
+        if chart is not None:
+            if chart.startswith("bar"):
+                if set(np.unique(ds["label"])) == set(np.unique(ds["x"])):
+                    ds.attrs["legend_kwds"]["show"] = False
+
+        if "c" in ds:
+            c_var = "c"
+            plot_key = "plot_kwds"
+        else:
+            c_var = "grid_c"
+            plot_key = "grid_plot_kwds"
+
+        cticks_kwds = load_defaults("cticks_kwds", ds)
+        if c_var in ds:
+            cticks = cticks_kwds.get("ticks")
+            if cticks is None:
+                num_colors = defaults["cticks_kwds"]["num_colors"]
+            else:
+                num_colors = len(cticks) - 1
+            if "num_colors" in cticks_kwds and chart == "contourf":
+                warnings.warn("num_colors is ignored for contourf!")
+            num_colors = cticks_kwds.pop("num_colors", num_colors)
+            if num_colors < 2:
+                raise ValueError("There must be at least 2 colors!")
+
+            if "cmap" in ds.data_vars:
+                cmap = pop(ds, "cmap", get=-1)
+            elif "ref_cmap" in ds.data_vars:
+                cmap = pop(ds, "ref_cmap", get=-1)
+            elif "grid_cmap" in ds.data_vars:
+                cmap = pop(ds, "grid_cmap", get=-1)
+            else:
+                cmap = ds.attrs[plot_key].get("cmap", "plasma")
+            ds.attrs[plot_key]["cmap"] = plt.get_cmap(cmap, num_colors)
+
+            vmin = pop(ds, "vmin", get=-1)
+            vmax = pop(ds, "vmax", get=-1)
+            if cticks is None:
+                num_ticks = cticks_kwds.get("num_ticks", num_colors + 1)
+                if vmin is None:
+                    vmin = np.nanmin(ds[c_var].values)
+                if vmax is None:
+                    vmax = np.nanmax(ds[c_var].values)
+                indices = np.round(
+                    np.linspace(0, num_ticks - 1, num_ticks)
+                ).astype(
+                    int
+                )  # select 10 values equally
+                cticks = np.linspace(vmin, vmax, num_ticks)[indices]
+                ds.attrs["cticks_kwds"]["ticks"] = cticks
+                ds.attrs[plot_key]["vmin"] = vmin
+                ds.attrs[plot_key]["vmax"] = vmax
+            else:
+                ds.attrs[plot_key]["norm"] = ds.attrs[plot_key].get(
+                    "norm", BoundaryNorm(cticks, num_colors)
+                )
+
+            ds.attrs["colorbar_kwds"]["show"] = ds.attrs[plot_key].get(
+                "colorbar", True
+            )
+        elif "colorbar_kwds" in ds.attrs:
+            ds.attrs["colorbar_kwds"]["show"] = False
+        return ds
+
+    @staticmethod
+    def _precompute_base_ticks(ds, base_kwds):
         for xyc in ITEMS["axes"]:
             if xyc in ds:
                 if is_str(ds[xyc]):
@@ -743,7 +781,9 @@ class Data(Easing, Animation, Configuration):
                 ds.attrs[f"{xyc}ticks_kwds"]["is_datetime"] = is_datetime(
                     ds[xyc]
                 )
+        return ds, base_kwds
 
+    def _precompute_base_labels(self, ds, base_kwds):
         for key in ITEMS["base"]:
             key_label = f"{key}_label"
             if key_label in ds:
@@ -765,11 +805,20 @@ class Data(Easing, Animation, Configuration):
                 except Exception as e:
                     if self.debug:
                         warnings.warn(str(e))
+        return ds, base_kwds
 
+    def _precompute_base(self, ds):
+        base_kwds = {}
+        ds, base_kwds = self._precompute_base_ticks(ds, base_kwds)
+        ds, base_kwds = self._precompute_base_labels(ds, base_kwds)
         for key in ["s"]:  # for the legend
             if key in ds:
                 base_kwds[key] = np.nanmedian(ds[key])
 
+        ds.attrs["base_kwds"] = base_kwds
+        return ds
+
+    def _add_margins(self, ds):
         margins_kwds = load_defaults("margins_kwds", ds)
         margins = {}
         for axis in ["x", "y"]:
@@ -795,7 +844,33 @@ class Data(Easing, Animation, Configuration):
                 else:
                     ds[key] = ds[key] + margin
 
-        ds.attrs["base_kwds"] = base_kwds
+        return ds
+
+    def _add_durations(self, ds):
+        if "fps" in ds.attrs["animate_kwds"]:
+            return ds
+
+        num_states = len(ds["state"])
+        durations_kwds = load_defaults("durations_kwds", ds)
+        transition_frames = durations_kwds.pop("transition_frames")
+        aggregate = durations_kwds.pop("aggregate")
+
+        durations = durations_kwds.get(
+            "durations", 0.5 if num_states < 8 else 1 / 60
+        )
+        if isinstance(durations, (int, float)):
+            durations = np.repeat(durations, num_states)
+
+        if np.isnan(durations[-1]):
+            durations[-1] = 0
+        durations[-1] += durations_kwds["final_frame"]
+
+        if "duration" in ds:
+            ds["duration"] = ("state", durations + ds["duration"].values)
+        else:
+            ds["duration"] = ("state", durations)
+        ds["duration"].attrs["transition_frames"] = transition_frames
+        ds["duration"].attrs["aggregate"] = aggregate
         return ds
 
     def _interp_dataset(self, ds):
@@ -851,6 +926,9 @@ class Data(Easing, Animation, Configuration):
         ds = ds.drop_vars(
             var for var in ds.data_vars if "interp" in var or "ease" in var
         )
+
+        if "state" not in ds.dims:
+            ds = ds.expand_dims("state").transpose(..., "state")
         ds["state"] = srange(len(ds["state"]))
         return ds
 
@@ -934,12 +1012,14 @@ class Data(Easing, Animation, Configuration):
                 animate_kwds["states"] = None
             elif animate in ["head", "ini", "start"]:
                 animate_kwds["states"] = np.arange(1, value)
-                animate_kwds["fps"] = 3
+                animate_kwds["fps"] = 1
             elif animate in ["tail", "end", "value"]:
                 animate_kwds["states"] = np.arange(-value, 0, 1)
-                animate_kwds["fps"] = 3
+                animate_kwds["fps"] = 1
             else:
-                animate_kwds["states"] = np.linspace(1, num_states, value)
+                animate_kwds["states"] = np.linspace(
+                    1, num_states, value
+                ).astype(int)
                 animate_kwds["fps"] = 1
 
             animate_kwds["stitch"] = True
@@ -986,7 +1066,8 @@ class Data(Easing, Animation, Configuration):
             ds = self._compress_vars(ds)
             ds = self._add_color_kwds(ds, chart)
             ds = self._config_chart(ds, chart)
-            ds = self._precompute_base(ds, chart)
+            ds = self._precompute_base(ds)
+            ds = self._add_margins(ds)
             ds = self._add_durations(ds)
             ds = self._interp_dataset(ds)
             ds = self._add_geo_transforms(ds)
@@ -1000,6 +1081,7 @@ class Data(Easing, Animation, Configuration):
     def _adapt_input(
         self, val, num_states, num_items=None, reshape=True, shape=None
     ):
+        # TODO: add test
         val = np.array(val)
         if is_scalar(val):
             val = np.repeat(val, num_states)
@@ -1013,7 +1095,11 @@ class Data(Easing, Animation, Configuration):
         return val
 
     def _amend_input_vars(self, input_vars):
+        # TODO: add test
         for key in list(input_vars.keys()):
+            if key == "c":
+                # won't show up if
+                continue
             key_and_s = key + "s"
             key_strip = key.rstrip("s")
             expected_key = None
@@ -1042,6 +1128,7 @@ class Data(Easing, Animation, Configuration):
         return input_vars
 
     def _load_data_vars(self, input_vars, num_states):
+        # TODO: add test
         if self.chart is None:
             if num_states < 8 or "s" in input_vars:
                 chart = "scatter"
@@ -1099,20 +1186,6 @@ class Data(Easing, Animation, Configuration):
 
         return data_vars, num_items
 
-    def _load_attrs(self):
-        attrs = {
-            "limits": {
-                "xlims": self.xlims,
-                "ylims": self.ylims,
-                "xlim0s": self.xlim0s,
-                "xlim1s": self.xlim1s,
-                "ylim0s": self.ylim0s,
-                "ylim1s": self.ylim1s,
-            },
-            "hooks": self.hooks,
-        }
-        return attrs
-
     @staticmethod
     def _match_states(self_ds, other_ds):
         other_num_states = len(other_ds["state"])
@@ -1121,7 +1194,7 @@ class Data(Easing, Animation, Configuration):
             warnings.warn(
                 f"The latter dataset has {other_num_states} state(s) while "
                 f"the former has {self_num_states} state(s); "
-                f"reindexing the latter dataset to match the former."
+                f"reindexing the latter to match the former."
             )
             other_ds = other_ds.reindex(state=self_ds["state"]).map(
                 fillna, keep_attrs=True
@@ -1152,7 +1225,7 @@ class Data(Easing, Animation, Configuration):
     def _propagate_params(self, self_copy, other, layout=False):
         canvas_params = [
             param
-            for param, configurable in POINTERS.items()
+            for param, configurable in PARAMS.items()
             if configurable in CONFIGURABLES["canvas"]
         ]
         self_copy.configurables.update(**other.configurables)
@@ -1177,61 +1250,34 @@ class Data(Easing, Animation, Configuration):
             except ValueError:
                 other_null = False
 
-            if param_ in POINTERS:  # TODO: FIX
+            if param_ in PARAMS:
                 if self_null and not other_null:
                     setattr(self_copy, param_, other_param)
-                    self_copy = self_copy.config(POINTERS[param_])
+                    self_copy = self_copy.config(PARAMS[param_])
                 elif not self_null and other_null:
-                    self_copy = self_copy.config(POINTERS[param_])
-        return self_copy
-
-    @property
-    def data(self):
-        return self._data
-
-    @data.setter
-    def data(self, data):
-        self._data = self._config_data(data)
-
-    @property
-    def attrs(self):
-        rowcol = list(self._data)[0]
-        return self._data[rowcol].attrs
-
-    def cols(self, ncols):
-        self_copy = deepcopy(self)
-        data = {}
-        for iplot, rowcol in enumerate(self_copy.data.copy()):
-            row = (iplot) // ncols + 1
-            col = (iplot) % ncols + 1
-            data[(row, col)] = self_copy.data.pop(rowcol)
-        self_copy.data = data
+                    self_copy = self_copy.config(PARAMS[param_])
         return self_copy
 
 
 class GeographicData(Data):
 
-    crs = param.String()
-    projection = param.String()
-    central_lon = param.ClassSelector(class_=(Iterable, int, float))
+    crs = param.String(doc="The coordinate reference system to project from")
+    projection = param.String(doc="The coordinate reference system to project to")
+    central_lon = param.ClassSelector(
+        class_=(Iterable, int, float), doc="Longitude to center the map on")
 
-    borders = param.Boolean(default=None)
-    coastline = param.Boolean(default=None)
-    land = param.Boolean(default=None)
-    ocean = param.Boolean(default=None)
-    lakes = param.Boolean(default=None)
-    rivers = param.Boolean(default=None)
-    states = param.Boolean(default=None)
-    worldwide = param.Boolean(default=None)
+    borders = param.Boolean(default=None, doc="Whether to show borders")
+    coastline = param.Boolean(default=None, doc="Whether to show coastlines")
+    land = param.Boolean(default=None, doc="Whether to show land surfaces")
+    ocean = param.Boolean(default=None, doc="Whether to show ocean surfaces")
+    lakes = param.Boolean(default=None, doc="Whether to show lakes")
+    rivers = param.Boolean(default=None, doc="Whether to show rivers")
+    states = param.Boolean(default=None, doc="Whether to show states")
+    worldwide = param.Boolean(default=None, doc="Whether to view globally")
 
     def __init__(self, num_states, **kwds):
         super().__init__(num_states, **kwds)
         self.configurables["geo"] = CONFIGURABLES["geo"]
-
-    def _load_attrs(self):
-        attrs = super()._load_attrs()
-        attrs["limits"]["worldwide"] = self.worldwide
-        return attrs
 
 
 class ReferenceArray(param.Parameterized):
@@ -1292,12 +1338,15 @@ class ReferenceArray(param.Parameterized):
 
 class ColorArray(param.Parameterized):
 
-    cs = param.ClassSelector(class_=(Iterable,))
+    cs = param.ClassSelector(
+        class_=(Iterable,), doc="Array to be mapped to the colorbar")
 
-    cticks = param.ClassSelector(class_=(Iterable,))
-    ctick_labels = param.ClassSelector(class_=(Iterable,))
-    colorbar = param.Boolean(default=None)
-    clabel = param.String()
+    cticks = param.ClassSelector(
+        class_=(Iterable,), doc="Colorbar tick locations")
+    ctick_labels = param.ClassSelector(
+        class_=(Iterable,), doc="Colorbar tick labels")
+    colorbar = param.Boolean(default=None, doc="Whether to show colorbar")
+    clabel = param.String(doc="Colorbar label")
 
     def __init__(self, **kwds):
         self.configurables["color"] = CONFIGURABLES["color"]
@@ -1436,8 +1485,8 @@ class RemarkArray(param.Parameterized):
 
 class Array(GeographicData, ReferenceArray, ColorArray, RemarkArray):
 
-    xs = param.ClassSelector(class_=(Iterable,))
-    ys = param.ClassSelector(class_=(Iterable,))
+    xs = param.ClassSelector(class_=(Iterable,), doc="Array to be mapped to the x-axis")
+    ys = param.ClassSelector(class_=(Iterable,), doc="Array to be mapped to the y-axis")
 
     def __init__(self, xs, ys, **kwds):
         for xys, xys_arr in {"xs": xs, "ys": ys}.items():
@@ -1484,11 +1533,14 @@ class Array(GeographicData, ReferenceArray, ColorArray, RemarkArray):
 class Array2D(GeographicData, ReferenceArray, ColorArray, RemarkArray):
 
     chart = param.ObjectSelector(
-        default=CHARTS["grid"][0], objects=CHARTS["grid"]
+        default=CHARTS["grid"][0], objects=CHARTS["grid"],
+        doc=f"Type of chart; {CHARTS['grid']}"
     )
 
-    inline_xs = param.ClassSelector(class_=(Iterable, int, float))
-    inline_ys = param.ClassSelector(class_=(Iterable, int, float))
+    inline_xs = param.ClassSelector(
+        class_=(Iterable, int, float), doc="Inline label's x locations")
+    inline_ys = param.ClassSelector(
+        class_=(Iterable, int, float), doc="Inline label's y locations")
 
     def __init__(self, xs, ys, cs, **kwds):
         cs = np.array(cs)
@@ -1548,7 +1600,8 @@ class Array2D(GeographicData, ReferenceArray, ColorArray, RemarkArray):
 
 class DataStructure(param.Parameterized):
 
-    join = param.ObjectSelector(objects=ITEMS["join"])
+    join = param.ObjectSelector(
+        objects=ITEMS["join"], doc=f"Method to join; {ITEMS['join']}")
 
     def __init__(self, **kwds):
         super().__init__(**kwds)
@@ -1595,7 +1648,7 @@ class DataStructure(param.Parameterized):
 
 class DataFrame(Array, DataStructure):
 
-    df = param.DataFrame()
+    df = param.DataFrame(doc='Pandas DataFrame')
 
     def __init__(self, df, xs, ys, join="overlay", **kwds):
         df = df.reset_index()
@@ -1636,7 +1689,7 @@ class DataFrame(Array, DataStructure):
 
 class Dataset(Array2D, DataStructure):
 
-    ds = param.ClassSelector(class_=(xr.Dataset,))
+    ds = param.ClassSelector(class_=(xr.Dataset,), doc='Xarray Dataset')
 
     def __init__(self, ds, xs, ys, cs, join="overlay", **kwds):
         group_key, label_key = self._validate_keys(xs, ys, kwds, ds)
@@ -1669,13 +1722,19 @@ class Dataset(Array2D, DataStructure):
 
 class Reference(GeographicData):
 
-    chart = param.ObjectSelector(objects=CHARTS["ref"])
+    chart = param.ObjectSelector(
+        objects=CHARTS["ref"], doc=f"Type of chart; {CHARTS['ref']}")
 
-    x0s = param.ClassSelector(class_=(Iterable,))
-    x1s = param.ClassSelector(class_=(Iterable,))
-    y0s = param.ClassSelector(class_=(Iterable,))
-    y1s = param.ClassSelector(class_=(Iterable,))
-    inline_locs = param.ClassSelector(class_=(Iterable, int, float))
+    x0s = param.ClassSelector(
+        class_=(Iterable,), doc="Array to be mapped to lower x-axis")
+    x1s = param.ClassSelector(
+        class_=(Iterable,), doc="Array to be mapped to upper x-axis")
+    y0s = param.ClassSelector(
+        class_=(Iterable,), doc="Array to be mapped to lower y-axis")
+    y1s = param.ClassSelector(
+        class_=(Iterable,), doc="Array to be mapped to lower y-axis")
+    inline_locs = param.ClassSelector(
+        class_=(Iterable, int, float), doc="Inline label's other axis' location")
 
     def __init__(self, x0s=None, x1s=None, y0s=None, y1s=None, **kwds):
         ref_kwds = {
@@ -1687,13 +1746,6 @@ class Reference(GeographicData):
         has_kwds = {key: val is not None for key, val in ref_kwds.items()}
         if not any(has_kwds.values()):
             raise ValueError("Must provide either x0s, x1s, y0s, y1s!")
-
-        for key in list(ref_kwds):
-            val = ref_kwds[key]
-            if val is not None:
-                num_states = to_1d(val, flat=False).shape[-1]
-            else:
-                ref_kwds.pop(key)
 
         has_xs = has_kwds["x0"] and has_kwds["x1"]
         has_ys = has_kwds["y0"] and has_kwds["y1"]
@@ -1707,13 +1759,32 @@ class Reference(GeographicData):
             kwds["chart"] = "axhspan"
         elif has_kwds["x0"]:
             kwds["chart"] = "axvline"
+        elif has_kwds["x1"]:
+            kwds["chart"] = "axvline"
+            ref_kwds["x0"], ref_kwds["x1"] = ref_kwds["x1"], ref_kwds["x0"]
         elif has_kwds["y0"]:
             kwds["chart"] = "axhline"
+        elif has_kwds["y1"]:
+            kwds["chart"] = "axhline"
+            ref_kwds["y0"], ref_kwds["y1"] = ref_kwds["y1"], ref_kwds["y0"]
         else:
             raise NotImplementedError(
                 "One of the following combinations must be provided: "
-                "x0+x1, y0+y1, x0+y0, x0, y0"
+                "x0s, x1s, y0s, y1s"
             )
+
+        for key in list(ref_kwds):
+            val = ref_kwds[key]
+            if val is not None:
+                num_states = to_1d(val, flat=False).shape[-1]
+            else:
+                ref_kwds.pop(key)
+
+        max_len = max(len(to_1d(val)) for val in ref_kwds.values())
+        if max_len > 1:
+            for key, val in ref_kwds.items():
+                if is_scalar(val):
+                    ref_kwds[key] = np.repeat(val, max_len)
 
         super().__init__(num_states, **kwds)
         self.configurables["ref"] = CONFIGURABLES["ref"]
@@ -1755,5 +1826,6 @@ class Reference(GeographicData):
             elif ds[var].dims != ("state",):
                 ds = ds.rename({var: ref_var})
 
+        ds["ref_item"] = srange(len(ds["ref_item"]))
         ds = ds.drop_vars("item")
-        self.data[self.rowcol] = ds
+        self.data = {self.rowcol: ds}
