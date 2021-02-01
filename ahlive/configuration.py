@@ -242,7 +242,7 @@ OPTIONS = {
     ],
     "grid": ["x", "y", "both", True, False],
     "limit": ["zero", "fixed", "follow", "explore"],
-    "scheduler": ["processes", "single-threaded"],
+    "scheduler": ["single-threaded", "processes"],
 }
 
 SIZES = {
@@ -408,7 +408,7 @@ DEFAULTS["frame_kwds"] = {
     "transparent": False,
 }
 
-DEFAULTS["compute_kwds"] = {"num_workers": 4, "scheduler": "processes"}
+DEFAULTS["compute_kwds"] = {"num_workers": 1, "scheduler": "single-threaded"}
 
 DEFAULTS["animate_kwds"] = {"mode": "I", "loop": 0}
 
