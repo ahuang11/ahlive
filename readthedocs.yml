@@ -14,6 +14,9 @@ conda:
     environment: docs/environment_rtd.yml
 python:
     version: 3.7
+    install:
+      - method: setuptools
+        path: .
     system_packages: true
 
 formats: []

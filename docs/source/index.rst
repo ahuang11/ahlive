@@ -13,7 +13,10 @@
 
    essentials/serializing.ipynb
    essentials/merging.ipynb
-   essentials/annotating.ipynb
+   essentials/labeling.ipynb
+   essentials/remarking.ipynb
+   essentials/referencing.ipynb
+   essentials/mapping.ipynb
    essentials/exporting.ipynb
 
 .. toctree::
