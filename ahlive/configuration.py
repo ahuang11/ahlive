@@ -402,9 +402,10 @@ DEFAULTS["watermark_kwds"] = {
     "s": "animated using ahlive",
 }
 
-DEFAULTS["frame_kwds"] = {
-    "format": "jpg",
+DEFAULTS["savefig_kwds"] = {
+    "format": "png",
     "backend": "agg",
+    "facecolor": "white",
     "transparent": False,
 }
 
