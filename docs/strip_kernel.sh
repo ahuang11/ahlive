@@ -9,4 +9,4 @@ jq --indent 1 \
 cat /tmp/$(basename $1) > $1
 
 # https://github.com/holoviz/holoviews/pull/2507
-# for f in *.ipynb; do  strip_kernel.sh $f; done
+# for f in **/**/*.ipynb; do ./strip_kernel.sh $f; done
