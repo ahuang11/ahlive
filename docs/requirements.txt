@@ -1,7 +1,0 @@
-sphinx
-nbsphinx
-sphinx-book-theme
-ipykernel
-panel
-cartopy
-Cython
