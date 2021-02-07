@@ -786,6 +786,7 @@ class Data(Easing, Animation, Configuration):
     def _precompute_base_labels(self, ds, base_kwds):
         for key in ITEMS["base"]:
             key_label = f"{key}_label"
+            base = None
             if key_label in ds:
                 try:
                     if is_scalar(ds[key_label]):
@@ -794,13 +795,13 @@ class Data(Easing, Animation, Configuration):
                         key_values = ds[key_label].values
                         if is_timedelta(key_values):
                             base = key_values[0]
-                        else:
+                        elif not is_str(key_values):
                             base_diff = self._get_median_diff(key_values)
                             if is_datetime(base_diff):
                                 base = np.nanmin(base_diff) / 5
                             else:
                                 base = np.nanquantile(base_diff, 0.25)
-                    if not np.isnan(base):
+                    if not pd.isnull(base):
                         base_kwds[key] = base
                 except Exception as e:
                     if self.debug:
@@ -930,6 +931,9 @@ class Data(Easing, Animation, Configuration):
         if "state" not in ds.dims:
             ds = ds.expand_dims("state").transpose(..., "state")
         ds["state"] = srange(len(ds["state"]))
+
+        if 's' in ds:
+            ds['s'] = fillna(ds['s'].where(ds['s'] > 0), how='both')
         return ds
 
     def _get_crs(self, crs_name, crs_kwds, central_longitude=None):
@@ -1012,16 +1016,15 @@ class Data(Easing, Animation, Configuration):
                 animate_kwds["states"] = None
             elif animate in ["head", "ini", "start"]:
                 animate_kwds["states"] = np.arange(1, value)
-                animate_kwds["fps"] = 1
             elif animate in ["tail", "end", "value"]:
                 animate_kwds["states"] = np.arange(-value, 0, 1)
-                animate_kwds["fps"] = 1
             else:
                 animate_kwds["states"] = np.linspace(
                     1, num_states, value
                 ).astype(int)
-                animate_kwds["fps"] = 1
 
+            if 'fps' not in ds.attrs['animate_kwds']:
+                animate_kwds["fps"] = 1
             animate_kwds["stitch"] = True
             animate_kwds["static"] = False
         elif isinstance(self.animate, slice):

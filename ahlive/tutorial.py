@@ -27,6 +27,9 @@ class TutorialData(param.Parameterized):
             ],
             **kwds
         )
+        if raw:
+            return df
+        df = df.loc[df['year'] > 1725][::2]
         return df
 
     def _load_tc_tracks(self, raw, **kwds):

@@ -91,9 +91,9 @@ class Easing(param.Parameterized):
         num_items, num_states = array.shape
         if frames is None:
             if num_states < 10:
-                num_steps = int(np.ceil(80 / num_states))
+                num_steps = int(np.ceil(60 / num_states))
             else:
-                num_steps = int(np.ceil(350 / num_states))
+                num_steps = int(np.ceil(100 / num_states))
         else:
             num_steps = frames
         self._num_steps = num_steps
@@ -172,8 +172,14 @@ class Easing(param.Parameterized):
         else:
             result = np.repeat(array, num_steps, axis=1)
             num_roll = -int(np.ceil(num_steps / num_states * 2))
-            result = np.roll(result, num_roll, axis=-1)
-            result = result[:, :num_result]
+            if num_states > 2:
+                result = np.roll(result, num_roll, axis=-1)
+                result = result[:, :num_result]
+            else:
+                half_way = int(num_result / 2)
+                result = result[:, half_way:-half_way]
+                if num_steps % 2 != 0:
+                    result = result[:, :-1]
 
         if revert in ["traceback", "rollback"]:
             if result.ndim == 1:

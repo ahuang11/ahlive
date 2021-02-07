@@ -4,6 +4,7 @@ from itertools import chain
 import param
 import xarray as xr
 
+TEMP_FILE = "TEMP_AHLIVE_PYGIFSICLE_OUTPUT.gif"
 NULL_VALS = [(), {}, [], None, ""]
 
 # a kind of grouping by intuition; doesn't really help code though
@@ -30,6 +31,7 @@ CONFIGURABLES = {  # used for like .config('figure', **kwds)
         "yticks",
         "limits",
         "margins",
+        "hooks",
     ],
     "label": [
         "state",
@@ -117,6 +119,7 @@ CONFIGURABLES_KWDS.update(
             "fps": "fps",
             "fmt": "format",
             "loop": "loop",
+            "pygifsicle": "pygifsicle",
         },
         "output": {
             "save": "save",
@@ -411,7 +414,7 @@ DEFAULTS["savefig_kwds"] = {
 
 DEFAULTS["compute_kwds"] = {"num_workers": 1, "scheduler": "single-threaded"}
 
-DEFAULTS["animate_kwds"] = {"mode": "I", "loop": 0}
+DEFAULTS["animate_kwds"] = {"mode": "I", "loop": 0, "pygifsicle": True}
 
 defaults = DEFAULTS.copy()
 

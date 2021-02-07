@@ -24,6 +24,7 @@ from .configuration import (
     CONFIGURABLES,
     ITEMS,
     OPTIONS,
+    TEMP_FILE,
     defaults,
     load_defaults,
 )
@@ -95,6 +96,10 @@ class Animation(param.Parameterized):
         doc="Seconds to delay per state; "
         "Iterables must match number of states",
     )
+    pygifsicle = param.Boolean(
+        default=None, doc="Whether to use pygifsicle to reduce file size. "
+        "If save is not set, will temporarily write file to disk first."
+    )
 
     debug = param.Boolean(
         default=False,
@@ -103,6 +108,7 @@ class Animation(param.Parameterized):
     )
 
     _canvas_kwds = None
+    _temp_file = TEMP_FILE
     _path_effects = [withStroke(linewidth=2, alpha=0.5, foreground="white")]
 
     def __init__(self, **kwds):
@@ -365,7 +371,10 @@ class Animation(param.Parameterized):
             preset_kwds["xerr"] = deltas
 
         preset_kwds.pop("bar_label", None)
-        ax.errorbar(x_centers, y_centers, **preset_kwds)
+        with warnings.catch_warnings():
+            # the last item is NaN which is expected
+            warnings.simplefilter("ignore", UserWarning)
+            ax.errorbar(x_centers, y_centers, **preset_kwds)
         self._add_inline_labels(
             overlay_ds,
             ax,
@@ -1036,7 +1045,9 @@ class Animation(param.Parameterized):
         return figure
 
     def _prep_axes(self, state_ds, rows, cols, irowcol):
-        axes_kwds = state_ds.attrs["axes_kwds"]
+        axes_kwds = load_defaults("axes_kwds", state_ds)
+        axes_kwds["projection"] = pop(state_ds, "projection", squeeze=True)
+
         style = axes_kwds.pop("style", "")
         if style == "minimal":
             for axis in ["x", "y"]:
@@ -1051,8 +1062,6 @@ class Animation(param.Parameterized):
             axes_kwds["xticks"] = []
             axes_kwds["yticks"] = []
 
-        axes_kwds["projection"] = pop(state_ds, "projection", squeeze=True)
-        axes_kwds = load_defaults("axes_kwds", state_ds, **axes_kwds)
         ax = plt.subplot(rows, cols, irowcol, **axes_kwds)
 
         if style == "bare":
@@ -1294,7 +1303,7 @@ class Animation(param.Parameterized):
         self._update_colorbar(state_ds, ax, mappable)
 
     def _apply_hooks(self, state_ds, figure, ax):  # TODO: implement
-        hooks = state_ds.attrs.pop("hooks", [])
+        hooks = state_ds.attrs.get("hooks_kwds", {}).get("hooks", [])
         for hook in hooks:
             if not callable(hook):
                 continue
@@ -1342,7 +1351,6 @@ class Animation(param.Parameterized):
         try:
             plt.savefig(buf, **savefig_kwds)
             buf.seek(0)
-            plt.close()
             return buf
         except Exception as e:
             error_msg = f"Failed to render state={state} due to {e}!"
@@ -1351,6 +1359,8 @@ class Animation(param.Parameterized):
             else:
                 warnings.warn(error_msg)
             return
+        finally:
+            plt.close()
 
     @dask.delayed()
     def _draw_frame(self, state_ds_rowcols, rows, cols):
@@ -1402,18 +1412,29 @@ class Animation(param.Parameterized):
             job = self._draw_frame(state_ds_rowcols, rows, cols)
             jobs.append(job)
 
-        scheduler = "single-threaded" if self.debug else "processes"
+        scheduler = "single-threaded" if self.debug else None
         compute_kwds = load_defaults(
             "compute_kwds",
             self._canvas_kwds["compute_kwds"],
             scheduler=scheduler,
         )
         num_workers = compute_kwds["num_workers"]
-        if num_states <= num_workers:
+        if num_states < num_workers:
+            warnings.warn(
+                f'There is less states to process than the number of workers!'
+                f'Setting workers={num_states} from {num_workers}.'
+            )
             num_workers = num_states
+
         if num_workers == 1:
+            if compute_kwds["scheduler"] != 'single-threaded':
+                warnings.warn(
+                    "Only 1 worker found; setting scheduler='single-threaded'")
             compute_kwds["scheduler"] = "single-threaded"
-        elif num_workers > 1 and compute_kwds["scheduler"] == "single_threaded":
+        elif num_workers > 1 and compute_kwds["scheduler"] != "processes":
+            if compute_kwds["scheduler"] != 'processes':
+                warnings.warn(
+                    "Found multiple workers; setting scheduler='processes'")
             compute_kwds["scheduler"] = "processes"
 
         with dask.diagnostics.ProgressBar(minimum=1):
@@ -1459,7 +1480,7 @@ class Animation(param.Parameterized):
             loop = int(not loop)
         animate_kwds["loop"] = loop
 
-        save = self._canvas_kwds["output_kwds"].get("save")
+        save = self._canvas_kwds["output_kwds"].pop("save", None)
         if save is not None:
             file, ext = os.path.splitext(save)
             fmt = animate_kwds["format"]
@@ -1480,6 +1501,17 @@ class Animation(param.Parameterized):
             ext = f".{fmt}"
 
         ext = ext.lower()
+        pygifsicle = animate_kwds.pop("pygifsicle", None)
+        show = self._canvas_kwds["output_kwds"].get("show")
+        if save is None and pygifsicle and ext == '.gif' and stitch and show:
+            # write temporary file since pygifsicle only accepts file paths
+            for i in np.arange(0, 100):
+                if os.path.exists(self._temp_file):
+                    self._temp_file = f'{i:03d}{self._temp_file}'
+                else:
+                    break
+            out_obj = self._temp_file
+
         if ext != ".gif":
             durations = animate_kwds.pop("duration", None)
             if "fps" not in animate_kwds and not not_animated:
@@ -1510,10 +1542,9 @@ class Animation(param.Parameterized):
                     image = imageio.imread(buf)
                     writer.append_data(image)
                     buf.close()
-            if ext == ".gif" and is_file:
+            if ext == ".gif" and pygifsicle and is_file:
                 try:
                     from pygifsicle import optimize
-
                     optimize(out_obj)
                 except ImportError:
                     warnings.warn(
@@ -1534,7 +1565,6 @@ class Animation(param.Parameterized):
                 out_obj.append(path)
         else:
             out_obj = buf_list
-
         return out_obj, ext
 
     @staticmethod
@@ -1548,15 +1578,17 @@ class Animation(param.Parameterized):
             b64 = base64.b64encode(out_obj.getvalue()).decode()
 
         if ext == ".gif":
-            return display.HTML(f'<img src="data:image/gif;base64,{b64}" />')
+            out_obj = display.HTML(f'<img src="data:image/gif;base64,{b64}" />')
         elif ext == ".mp4":
-            return display.Video(b64, embed=True)
+            out_obj = display.Video(b64, embed=True)
         elif ext in [".jpg", ".png"]:
-            return display.HTML(
+            out_obj = display.HTML(
                 f'<img src="data:image/{ext.lstrip(".")};base64,{b64}" />'
             )
         else:
             raise NotImplementedError(f"No method implemented to show {ext}!")
+
+        return out_obj
 
     def _show_output(self, *args):
         show = self._canvas_kwds["output_kwds"].get("show")
@@ -1600,6 +1632,9 @@ class Animation(param.Parameterized):
         out_obj, ext = self._write_rendered(buf_list, durations)
 
         if self.show and (stitch or static):
-            return self._show_output(out_obj, ext)
-        else:
-            return out_obj
+            out_obj = self._show_output(out_obj, ext)
+
+        if os.path.exists(self._temp_file):
+            os.remove(self._temp_file)
+
+        return out_obj
