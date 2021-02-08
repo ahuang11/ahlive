@@ -13,23 +13,20 @@ class TutorialData(param.Parameterized):
     _data_url = None
 
     def _load_annual_co2(self, raw, **kwds):
-        self._source = "KNMI Climate Explorer and NOAA/ESRL"
-        self._base_url = "http://climexp.knmi.nl/"
-        self._data_url = "http://climexp.knmi.nl/data/ico2_annual.dat"
+        self._source = "NOAA ESRL"
+        self._base_url = "https://www.esrl.noaa.gov/"
+        self._data_url = (
+            "https://www.esrl.noaa.gov/"
+            "gmd/webdata/ccgg/trends/co2/co2_annmean_mlo.txt"
+        )
         df = pd.read_csv(
             self._data_url,
-            comment="#",
             header=None,
-            sep="\s+",  # noqa
-            names=[
-                "year",
-                "co2_ppm",
-            ],
+            comment="#",
+            sep="\s+",
+            names=["year", "co2_ppm", "uncertainty"],
             **kwds
         )
-        if raw:
-            return df
-        df = df.loc[df['year'] > 1725][::2]
         return df
 
     def _load_tc_tracks(self, raw, **kwds):

@@ -576,7 +576,7 @@ class Data(Easing, Animation, Configuration):
                 elif is_fixed:
                     limit = "fixed_0.05"
                 elif num == 1:
-                    limit = "explore_0.05"
+                    limit = "explore_0.005"
                 else:
                     limit = "explore"
 
