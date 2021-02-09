@@ -15,3 +15,5 @@ dependencies:
     - ipykernel
     - panel
     - pygifsicle
+    - pytest
+    - pandoc
