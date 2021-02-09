@@ -21,11 +21,11 @@ jobs:
           auto-update-conda: true
           channels: conda-forge
           mamba-version: '*'
-          activate-environment: rtd
+          activate-environment: ahlive-ci
           python-version: ${{ matrix.python-version }}
       - name: Set up conda environment
         run: |
-          mamba env update -f docs/environment_rtd.yml
+          mamba env update -f ci/environment_ci.yml
       - name: Conda info
         run: conda info
       - name: Conda list
@@ -47,11 +47,11 @@ jobs:
           auto-update-conda: true
           channels: conda-forge
           mamba-version: '*'
-          activate-environment: ahlive-docs
+          activate-environment: ahlive-ci
           python-version: 3.8
       - name: Set up conda environment
         run: |
-          mamba env update -f docs/environment_rtd.yml
+          mamba env update -f ci/environment_ci.yml
       - name: Conda info
         run: conda info
       - name: Conda list
