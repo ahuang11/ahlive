@@ -1413,6 +1413,8 @@ class Animation(param.Parameterized):
             num_workers = num_states
         if num_workers == 1:
             compute_kwds["scheduler"] = "single-threaded"
+        elif num_workers > 1 and compute_kwds["scheduler"] == "single_threaded":
+            compute_kwds["scheduler"] = "processes"
 
         with dask.diagnostics.ProgressBar(minimum=1):
             buf_list = [
