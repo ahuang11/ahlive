@@ -1,0 +1,17 @@
+name: ahlive-docs
+
+channels:
+ - conda-forge
+
+dependencies:
+  - python=3.7
+  - cartopy=0.18.0
+  - gifsicle
+  - pip
+  - pip:
+    - sphinx
+    - nbsphinx
+    - sphinx-book-theme
+    - ipykernel
+    - panel
+    - pygifsicle
