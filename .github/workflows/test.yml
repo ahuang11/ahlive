@@ -25,6 +25,7 @@ jobs:
           python-version: ${{ matrix.python-version }}
       - name: Set up conda environment
         run: |
+          pip install -e .
           mamba env update -f ci/environment_ci.yml
       - name: Conda info
         run: conda info
