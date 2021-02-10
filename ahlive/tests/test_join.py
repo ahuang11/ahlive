@@ -2,9 +2,19 @@ import pytest
 
 import ahlive as ah
 from ahlive.configuration import CONFIGURABLES, CONFIGURABLES_KWDS, PARAMS, VARS
-from ahlive.tests.test_configuration import (
+from ahlive.tests.test_configuration import (  # noqa: F401
     DIRECTIONS,
     JOINS,
+    ah_array1,
+    ah_array2,
+    canvas1_params,
+    canvas2_params,
+    geo1_params,
+    geo2_params,
+    label1_params,
+    label2_params,
+    subplot1_params,
+    subplot2_params,
 )
 
 

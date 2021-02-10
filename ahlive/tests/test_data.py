@@ -8,10 +8,13 @@ import xarray as xr
 import ahlive as ah
 from ahlive.util import is_scalar
 from ahlive.configuration import (
+    CONFIGURABLES,
     ITEMS,
     OPTIONS,
 )
-from ahlive.tests.test_configuration import (
+from ahlive.tests.test_configuration import (  # noqa: F401
+    ah_array1,
+    ah_array2,
     DIRECTIONS,
     GRID_CS,
     GRID_LABELS,
@@ -49,7 +52,7 @@ def test_ah_array(type_, x, y):
         }
         assert_values(ds, var_dict)
 
-        configurables = ah.CONFIGURABLES.copy()
+        configurables = CONFIGURABLES.copy()
         configurables.pop("grid")
         assert_attrs(ds, configurables)
 
@@ -59,7 +62,7 @@ def test_ah_array(type_, x, y):
 @pytest.mark.parametrize("x", XS)
 @pytest.mark.parametrize("y", YS)
 @pytest.mark.parametrize("label", LABELS)
-@pytest.mark.parametrize("join", ah.configuration.ITEMS["join"])
+@pytest.mark.parametrize("join", ITEMS["join"])
 def test_ah_dataframe(x, y, label, join):
     df = pd.DataFrame(
         {"x": np.array(x).squeeze(), "y": np.array(y).squeeze(), "label": label}
@@ -93,7 +96,7 @@ def test_ah_dataframe(x, y, label, join):
         else:
             assert_values(ds, var_dict)
 
-        configurables = ah.CONFIGURABLES.copy()
+        configurables = CONFIGURABLES.copy()
         configurables.pop("grid")
         assert_attrs(ds, configurables)
 
@@ -118,7 +121,7 @@ def test_ah_array2d(grid_x, grid_y, grid_c):
         assert 1 == len(ds["grid_item"])
         assert_values(ds, var_dict)
 
-        configurables = ah.CONFIGURABLES.copy()
+        configurables = CONFIGURABLES.copy()
         assert_attrs(ds, configurables)
 
     ah_array2d.finalize()
@@ -128,7 +131,7 @@ def test_ah_array2d(grid_x, grid_y, grid_c):
 @pytest.mark.parametrize("grid_y", GRID_YS)
 @pytest.mark.parametrize("grid_c", GRID_CS)
 @pytest.mark.parametrize("grid_label", GRID_LABELS)
-@pytest.mark.parametrize("join", ah.configuration.ITEMS["join"])
+@pytest.mark.parametrize("join", ITEMS["join"])
 def test_ah_dataset(grid_x, grid_y, grid_c, grid_label, join):
     base_ds = xr.Dataset()
     base_ds["c"] = xr.DataArray(
@@ -154,7 +157,7 @@ def test_ah_dataset(grid_x, grid_y, grid_c, grid_label, join):
         if join != "cascade":
             assert_values(ds, var_dict)
 
-        configurables = ah.CONFIGURABLES.copy()
+        configurables = CONFIGURABLES.copy()
         assert_attrs(ds, configurables)
 
     ah_dataset.finalize()
