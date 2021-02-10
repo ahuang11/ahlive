@@ -16,5 +16,4 @@ dependencies:
     - pygifsicle
     - pytest
     - pandoc
-    - pip:
-      - -e ..
+    - -e ..
