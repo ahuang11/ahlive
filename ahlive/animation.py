@@ -52,9 +52,11 @@ class Animation(param.Parameterized):
         doc=f"Subplot spacing; {OPTIONS['spacing']}",
     )
     suptitle = param.String(
-        allow_None=True, doc="Figure's super title (outer top center)")
+        allow_None=True, doc="Figure's super title (outer top center)"
+    )
     watermark = param.String(
-        allow_None=True, doc="Figure's watermark (outer bottom right)")
+        allow_None=True, doc="Figure's watermark (outer bottom right)"
+    )
 
     # compute kwds
     workers = param.Integer(

@@ -1,4 +1,3 @@
-import datetime
 from collections.abc import ItemsView, KeysView, ValuesView
 
 import numpy as np
@@ -9,16 +8,10 @@ import xarray as xr
 import ahlive as ah
 from ahlive.util import is_scalar
 from ahlive.configuration import (
-    CONFIGURABLES,
-    CONFIGURABLES_KWDS,
     ITEMS,
     OPTIONS,
-    PARAMS,
-    VARS,
 )
 from ahlive.tests.test_configuration import (
-    ah_array1,
-    ah_array2,
     DIRECTIONS,
     GRID_CS,
     GRID_LABELS,
@@ -338,19 +331,19 @@ def test_config_legend_sortby(ah_array1, ah_array2):
     ah_obj = (ah_array1 * ah_array2).config("legend", sortby="y").finalize()
     ds = ah_obj[1, 1]
     assert (ds["label"] == [2, 1]).all()
-    assert ds.attrs["legend_kwds"]["show"] == True
+    assert ds.attrs["legend_kwds"]["show"]
 
 
 @pytest.mark.parametrize("num_items", [1, 11])
 def test_config_legend_show(num_items, ah_array1):
     ah_obj = ah.merge([ah_array1 for _ in range(num_items)]).finalize()
     ds = ah_obj[1, 1]
-    assert ds.attrs["legend_kwds"]["show"] == False
+    assert not ds.attrs["legend_kwds"]["show"]
 
 
 def test_config_grid_axes_bare():
     ah_obj = ah.Array([0, 1], [2, 3], style="bare").finalize()
-    ah_obj[1, 1].attrs["grid_kwds"]["b"] == False
+    assert not ah_obj[1, 1].attrs["grid_kwds"]["b"]
 
 
 @pytest.mark.parametrize("chart", ["barh", "bar", "line"])
@@ -505,7 +498,7 @@ def test_add_color_kwds_bar():
     x = ["a", "a", "b", "b", "b"]
     y = [4, 5, 3, 8, 10]
     ah_obj = ah.Array(x, y, chart="bar", preset="race").finalize()
-    ah_obj.attrs["legend_kwds"]["show"] == False
+    assert not ah_obj.attrs["legend_kwds"]["show"]
 
 
 def test_add_color_kwds_cticks():
@@ -772,6 +765,6 @@ def test_add_animate_kwds_int():
     num_states = len(ah_obj[1, 1]["state"])
     animate_kwds = attrs["animate_kwds"]
     assert animate_kwds["states"] == 1
-    assert animate_kwds["stitch"] == True
+    assert animate_kwds["stitch"]
     assert animate_kwds["static"]
     assert animate_kwds["num_states"] == num_states

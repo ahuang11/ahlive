@@ -5,16 +5,6 @@ from ahlive.configuration import CONFIGURABLES, CONFIGURABLES_KWDS, PARAMS, VARS
 from ahlive.tests.test_configuration import (
     DIRECTIONS,
     JOINS,
-    ah_array1,
-    ah_array2,
-    canvas1_params,
-    canvas2_params,
-    geo1_params,
-    geo2_params,
-    label1_params,
-    label2_params,
-    subplot1_params,
-    subplot2_params,
 )
 
 

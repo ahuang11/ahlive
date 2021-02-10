@@ -170,7 +170,7 @@ class TutorialData(param.Parameterized):
             return df
         df = df.rename(
             columns={
-                "income_per_person_gdppercapita_ppp_inflation_adjusted": "income"
+                "income_per_person_gdppercapita_ppp_inflation_adjusted": "income"  # noqa
             }
         )
         return df
