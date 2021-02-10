@@ -45,53 +45,73 @@ class Data(Easing, Animation, Configuration):
 
     chart = param.ClassSelector(class_=Iterable)
     preset = param.ObjectSelector(
-        objects=list(chain(*PRESETS.values())),
-        doc=f"Chart preset; {PRESETS}"
+        objects=list(chain(*PRESETS.values())), doc=f"Chart preset; {PRESETS}"
     )
     style = param.ObjectSelector(
-        objects=OPTIONS["style"],
-        doc=f"Chart style; {OPTIONS['style']}"
+        objects=OPTIONS["style"], doc=f"Chart style; {OPTIONS['style']}"
     )
-    label = param.String(allow_None=True, doc=f"Legend label for each item")
+    label = param.String(allow_None=True, doc="Legend label for each item")
     group = param.String(doc="Group label for multiple items")
 
     state_labels = param.ClassSelector(
-        class_=(Iterable,), doc="Dynamic label per state (bottom right)")
-    inline_labels = param.ClassSelector(class_=(Iterable,),
-        doc="Dynamic label per item per state (item location)")
+        class_=(Iterable,), doc="Dynamic label per state (bottom right)"
+    )
+    inline_labels = param.ClassSelector(
+        class_=(Iterable,),
+        doc="Dynamic label per item per state (item location)",
+    )
 
     xmargins = param.Number(doc="Margins on the x-axis; ranges from 0-1")
     ymargins = param.Number(doc="Margins on the y-axis; ranges from 0-1")
-    xlims = param.ClassSelector(
-        class_=Iterable, doc="Limits for the x-axis")
-    ylims = param.ClassSelector(
-        class_=Iterable, doc="Limits for the y-axis")
+    xlims = param.ClassSelector(class_=Iterable, doc="Limits for the x-axis")
+    ylims = param.ClassSelector(class_=Iterable, doc="Limits for the y-axis")
     xlim0s = param.ClassSelector(
-        class_=(Iterable, int, float), doc="Limits for the left bounds of the x-axis")
+        class_=(Iterable, int, float),
+        doc="Limits for the left bounds of the x-axis",
+    )
     xlim1s = param.ClassSelector(
-        class_=(Iterable, int, float), doc="Limits for the right bounds of the x-axis")
+        class_=(Iterable, int, float),
+        doc="Limits for the right bounds of the x-axis",
+    )
     ylim0s = param.ClassSelector(
-        class_=(Iterable, int, float), doc="Limits for the bottom bounds of the y-axis")
+        class_=(Iterable, int, float),
+        doc="Limits for the bottom bounds of the y-axis",
+    )
     ylim1s = param.ClassSelector(
-        class_=(Iterable, int, float), doc="Limits for the top bounds of the y-axis")
+        class_=(Iterable, int, float),
+        doc="Limits for the top bounds of the y-axis",
+    )
     hooks = param.HookList(
         doc="List of customization functions to apply; "
-        "function must contain fig and ax as arguments")
+        "function must contain fig and ax as arguments"
+    )
 
     title = param.String(allow_None=True, doc="Title label (outer top left)")
-    subtitle = param.String(allow_None=True, doc="Subtitle label (outer top right)")
+    subtitle = param.String(
+        allow_None=True, doc="Subtitle label (outer top right)"
+    )
     xlabel = param.String(allow_None=True, doc="X-axis label (bottom center)")
     ylabel = param.String(allow_None=True, doc="Y-axis label (left center")
     note = param.String(allow_None=True, doc="Note label (bottom left)")
     caption = param.String(allow_None=True, doc="Caption label (outer left)")
 
-    xticks = param.ClassSelector(class_=(Iterable,), doc="X-axis tick locations")
-    yticks = param.ClassSelector(class_=(Iterable,), doc="Y-axis tick locations")
+    xticks = param.ClassSelector(
+        class_=(Iterable,), doc="X-axis tick locations"
+    )
+    yticks = param.ClassSelector(
+        class_=(Iterable,), doc="Y-axis tick locations"
+    )
 
-    legend = param.ObjectSelector(objects=OPTIONS["legend"], doc="Legend location")
-    grid = param.ObjectSelector(default=True, objects=OPTIONS["grid"], doc="Grid type")
+    legend = param.ObjectSelector(
+        objects=OPTIONS["legend"], doc="Legend location"
+    )
+    grid = param.ObjectSelector(
+        default=True, objects=OPTIONS["grid"], doc="Grid type"
+    )
 
-    rowcol = param.NumericTuple(default=(1, 1), length=2, doc="Subplot location as (row, column)")
+    rowcol = param.NumericTuple(
+        default=(1, 1), length=2, doc="Subplot location as (row, column)"
+    )
 
     _crs_names = None
     _parameters = None
@@ -142,7 +162,7 @@ class Data(Easing, Animation, Configuration):
 
     def cols(self, num_cols):
         if num_cols == 0:
-            raise ValueError(f"Number of columns must be > 1!")
+            raise ValueError("Number of columns must be > 1!")
         self_copy = deepcopy(self)
         data = {}
         for iplot, rowcol in enumerate(self_copy.data.copy()):
@@ -1085,11 +1105,20 @@ class Data(Easing, Animation, Configuration):
         val = np.array(val)
         if is_scalar(val):
             val = np.repeat(val, num_states)
+
+        if not is_datetime(val):
+            # make string '1' into 1
+            try:
+                val = val.astype(float)
+            except (ValueError, TypeError):
+                pass
+
         if reshape:
             if shape is None:
                 val = val.reshape(-1, num_states)
             else:
                 val = val.reshape(-1, num_states, *shape)
+
         if num_items is not None and val.shape[0] != num_items:
             val = np.tile(val, (num_items, 1))
         return val
@@ -1262,9 +1291,12 @@ class Data(Easing, Animation, Configuration):
 class GeographicData(Data):
 
     crs = param.String(doc="The coordinate reference system to project from")
-    projection = param.String(doc="The coordinate reference system to project to")
+    projection = param.String(
+        doc="The coordinate reference system to project to"
+    )
     central_lon = param.ClassSelector(
-        class_=(Iterable, int, float), doc="Longitude to center the map on")
+        class_=(Iterable, int, float), doc="Longitude to center the map on"
+    )
 
     borders = param.Boolean(default=None, doc="Whether to show borders")
     coastline = param.Boolean(default=None, doc="Whether to show coastlines")
@@ -1339,12 +1371,15 @@ class ReferenceArray(param.Parameterized):
 class ColorArray(param.Parameterized):
 
     cs = param.ClassSelector(
-        class_=(Iterable,), doc="Array to be mapped to the colorbar")
+        class_=(Iterable,), doc="Array to be mapped to the colorbar"
+    )
 
     cticks = param.ClassSelector(
-        class_=(Iterable,), doc="Colorbar tick locations")
+        class_=(Iterable,), doc="Colorbar tick locations"
+    )
     ctick_labels = param.ClassSelector(
-        class_=(Iterable,), doc="Colorbar tick labels")
+        class_=(Iterable,), doc="Colorbar tick labels"
+    )
     colorbar = param.Boolean(default=None, doc="Whether to show colorbar")
     clabel = param.String(doc="Colorbar label")
 
@@ -1485,8 +1520,12 @@ class RemarkArray(param.Parameterized):
 
 class Array(GeographicData, ReferenceArray, ColorArray, RemarkArray):
 
-    xs = param.ClassSelector(class_=(Iterable,), doc="Array to be mapped to the x-axis")
-    ys = param.ClassSelector(class_=(Iterable,), doc="Array to be mapped to the y-axis")
+    xs = param.ClassSelector(
+        class_=(Iterable,), doc="Array to be mapped to the x-axis"
+    )
+    ys = param.ClassSelector(
+        class_=(Iterable,), doc="Array to be mapped to the y-axis"
+    )
 
     def __init__(self, xs, ys, **kwds):
         for xys, xys_arr in {"xs": xs, "ys": ys}.items():
@@ -1533,14 +1572,17 @@ class Array(GeographicData, ReferenceArray, ColorArray, RemarkArray):
 class Array2D(GeographicData, ReferenceArray, ColorArray, RemarkArray):
 
     chart = param.ObjectSelector(
-        default=CHARTS["grid"][0], objects=CHARTS["grid"],
-        doc=f"Type of chart; {CHARTS['grid']}"
+        default=CHARTS["grid"][0],
+        objects=CHARTS["grid"],
+        doc=f"Type of chart; {CHARTS['grid']}",
     )
 
     inline_xs = param.ClassSelector(
-        class_=(Iterable, int, float), doc="Inline label's x locations")
+        class_=(Iterable, int, float), doc="Inline label's x locations"
+    )
     inline_ys = param.ClassSelector(
-        class_=(Iterable, int, float), doc="Inline label's y locations")
+        class_=(Iterable, int, float), doc="Inline label's y locations"
+    )
 
     def __init__(self, xs, ys, cs, **kwds):
         cs = np.array(cs)
@@ -1601,7 +1643,8 @@ class Array2D(GeographicData, ReferenceArray, ColorArray, RemarkArray):
 class DataStructure(param.Parameterized):
 
     join = param.ObjectSelector(
-        objects=ITEMS["join"], doc=f"Method to join; {ITEMS['join']}")
+        objects=ITEMS["join"], doc=f"Method to join; {ITEMS['join']}"
+    )
 
     def __init__(self, **kwds):
         super().__init__(**kwds)
@@ -1648,7 +1691,7 @@ class DataStructure(param.Parameterized):
 
 class DataFrame(Array, DataStructure):
 
-    df = param.DataFrame(doc='Pandas DataFrame')
+    df = param.DataFrame(doc="Pandas DataFrame")
 
     def __init__(self, df, xs, ys, join="overlay", **kwds):
         df = df.reset_index()
@@ -1689,7 +1732,7 @@ class DataFrame(Array, DataStructure):
 
 class Dataset(Array2D, DataStructure):
 
-    ds = param.ClassSelector(class_=(xr.Dataset,), doc='Xarray Dataset')
+    ds = param.ClassSelector(class_=(xr.Dataset,), doc="Xarray Dataset")
 
     def __init__(self, ds, xs, ys, cs, join="overlay", **kwds):
         group_key, label_key = self._validate_keys(xs, ys, kwds, ds)
@@ -1723,18 +1766,24 @@ class Dataset(Array2D, DataStructure):
 class Reference(GeographicData):
 
     chart = param.ObjectSelector(
-        objects=CHARTS["ref"], doc=f"Type of chart; {CHARTS['ref']}")
+        objects=CHARTS["ref"], doc=f"Type of chart; {CHARTS['ref']}"
+    )
 
     x0s = param.ClassSelector(
-        class_=(Iterable,), doc="Array to be mapped to lower x-axis")
+        class_=(Iterable,), doc="Array to be mapped to lower x-axis"
+    )
     x1s = param.ClassSelector(
-        class_=(Iterable,), doc="Array to be mapped to upper x-axis")
+        class_=(Iterable,), doc="Array to be mapped to upper x-axis"
+    )
     y0s = param.ClassSelector(
-        class_=(Iterable,), doc="Array to be mapped to lower y-axis")
+        class_=(Iterable,), doc="Array to be mapped to lower y-axis"
+    )
     y1s = param.ClassSelector(
-        class_=(Iterable,), doc="Array to be mapped to lower y-axis")
+        class_=(Iterable,), doc="Array to be mapped to lower y-axis"
+    )
     inline_locs = param.ClassSelector(
-        class_=(Iterable, int, float), doc="Inline label's other axis' location")
+        class_=(Iterable, int, float), doc="Inline label's other axis' location"
+    )
 
     def __init__(self, x0s=None, x1s=None, y0s=None, y1s=None, **kwds):
         ref_kwds = {

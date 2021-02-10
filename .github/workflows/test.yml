@@ -3,7 +3,7 @@ name: Test
 on: pull_request
 
 jobs:
-  test:  # Runs testing suite on various python versions.
+  tests:  # Runs testing suite on various python versions.
     name: Test ahlive, python ${{ matrix.python-version }}
     runs-on: ubuntu-latest
     defaults:
@@ -21,20 +21,20 @@ jobs:
           auto-update-conda: true
           channels: conda-forge
           mamba-version: '*'
-          activate-environment: rtd
+          activate-environment: ahlive-ci
           python-version: ${{ matrix.python-version }}
       - name: Set up conda environment
         run: |
-          mamba env update -f docs/environment_rtd.yml
+          mamba env update -f ci/environment_ci.yml
       - name: Conda info
         run: conda info
       - name: Conda list
         run: conda list
       - name: Run tests
         run: |
-          pytest --cov=ahlive --cov-report=xml --verbose
+          pytest --verbose
 
-  docs_notebooks:  # Checks that pre-compiled notebooks in docs still work.
+  docs:  # Checks that pre-compiled notebooks in docs still work.
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -47,11 +47,11 @@ jobs:
           auto-update-conda: true
           channels: conda-forge
           mamba-version: '*'
-          activate-environment: ahlive-docs
+          activate-environment: ahlive-ci
           python-version: 3.8
       - name: Set up conda environment
         run: |
-          mamba env update -f docs/environment_rtd.yml
+          mamba env update -f ci/environment_ci.yml
       - name: Conda info
         run: conda info
       - name: Conda list
