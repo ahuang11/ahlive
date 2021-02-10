@@ -670,13 +670,6 @@ def test_interp_dataset():
     assert (ds["y"] == [3, 3.5, 4, 4, 4.5, 5]).all()
 
 
-def test_interp_dataset():
-    ah_obj = ah.Array([0, 1, 2], [3, 4, 5], frames=3).finalize()
-    ds = ah_obj[1, 1]
-    assert (ds["x"] == [0, 0.5, 1.0, 1.0, 1.5, 2.0]).all()
-    assert (ds["y"] == [3, 3.5, 4, 4, 4.5, 5]).all()
-
-
 def test_interp_dataset_ref():
     ah_obj = ah.Reference([0, 1, 2], [3, 4, 5], frames=3).finalize()
     ds = ah_obj[1, 1]
