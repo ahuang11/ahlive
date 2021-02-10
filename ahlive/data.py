@@ -1085,11 +1085,20 @@ class Data(Easing, Animation, Configuration):
         val = np.array(val)
         if is_scalar(val):
             val = np.repeat(val, num_states)
+
+        if not is_datetime(val):
+            # make string '1' into 1
+            try:
+                val = val.astype(float)
+            except (ValueError, TypeError):
+                pass
+
         if reshape:
             if shape is None:
                 val = val.reshape(-1, num_states)
             else:
                 val = val.reshape(-1, num_states, *shape)
+
         if num_items is not None and val.shape[0] != num_items:
             val = np.tile(val, (num_items, 1))
         return val
