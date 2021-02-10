@@ -17,4 +17,12 @@ dependencies:
     - pygifsicle
     - pytest
     - pandoc
-
+    - param
+    - numpy
+    - pandas
+    - bottleneck
+    - xarray>=0.16.1
+    - matplotlib>=3.3
+    - imageio
+    - dask[delayed]
+    - toolz
