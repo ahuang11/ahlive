@@ -6,6 +6,7 @@ channels:
 dependencies:
   - cartopy=0.18.0
   - gifsicle
+  - pandoc
   - pip
   - pip:
     - sphinx
@@ -15,5 +16,4 @@ dependencies:
     - panel
     - pygifsicle
     - pytest
-    - pandoc
     - -e ..
