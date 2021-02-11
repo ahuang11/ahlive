@@ -99,8 +99,9 @@ class Animation(param.Parameterized):
         "Iterables must match number of states",
     )
     pygifsicle = param.Boolean(
-        default=None, doc="Whether to use pygifsicle to reduce file size. "
-        "If save is not set, will temporarily write file to disk first."
+        default=None,
+        doc="Whether to use pygifsicle to reduce file size. "
+        "If save is not set, will temporarily write file to disk first.",
     )
 
     debug = param.Boolean(
@@ -1423,20 +1424,22 @@ class Animation(param.Parameterized):
         num_workers = compute_kwds["num_workers"]
         if num_states < num_workers:
             warnings.warn(
-                f'There is less states to process than the number of workers!'
-                f'Setting workers={num_states} from {num_workers}.'
+                f"There is less states to process than the number of workers!"
+                f"Setting workers={num_states} from {num_workers}."
             )
             num_workers = num_states
 
         if num_workers == 1:
-            if compute_kwds["scheduler"] != 'single-threaded':
+            if compute_kwds["scheduler"] != "single-threaded":
                 warnings.warn(
-                    "Only 1 worker found; setting scheduler='single-threaded'")
+                    "Only 1 worker found; setting scheduler='single-threaded'"
+                )
             compute_kwds["scheduler"] = "single-threaded"
         elif num_workers > 1 and compute_kwds["scheduler"] != "processes":
-            if compute_kwds["scheduler"] != 'processes':
+            if compute_kwds["scheduler"] != "processes":
                 warnings.warn(
-                    "Found multiple workers; setting scheduler='processes'")
+                    "Found multiple workers; setting scheduler='processes'"
+                )
             compute_kwds["scheduler"] = "processes"
 
         with dask.diagnostics.ProgressBar(minimum=1):
@@ -1505,11 +1508,11 @@ class Animation(param.Parameterized):
         ext = ext.lower()
         pygifsicle = animate_kwds.pop("pygifsicle", None)
         show = self._canvas_kwds["output_kwds"].get("show")
-        if save is None and pygifsicle and ext == '.gif' and stitch and show:
+        if save is None and pygifsicle and ext == ".gif" and stitch and show:
             # write temporary file since pygifsicle only accepts file paths
             for i in np.arange(0, 100):
                 if os.path.exists(self._temp_file):
-                    self._temp_file = f'{i:03d}{self._temp_file}'
+                    self._temp_file = f"{i:03d}{self._temp_file}"
                 else:
                     break
             out_obj = self._temp_file
@@ -1547,6 +1550,7 @@ class Animation(param.Parameterized):
             if ext == ".gif" and pygifsicle and is_file:
                 try:
                     from pygifsicle import optimize
+
                     optimize(out_obj)
                 except ImportError:
                     warnings.warn(

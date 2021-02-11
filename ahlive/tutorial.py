@@ -25,7 +25,7 @@ class TutorialData(param.Parameterized):
             comment="#",
             sep="\s+",
             names=["year", "co2_ppm", "uncertainty"],
-            **kwds
+            **kwds,
         )
         return df
 
@@ -51,7 +51,8 @@ class TutorialData(param.Parameterized):
             "USA_RMW",
         ]
         df = pd.read_csv(
-            self._data_url, keep_default_na=False, usecols=cols, **kwds)
+            self._data_url, keep_default_na=False, usecols=cols, **kwds
+        )
         df.columns = df.columns.str.lower()
         df = df.iloc[1:]
         df = df.set_index("iso_time")
@@ -221,14 +222,5 @@ class TutorialData(param.Parameterized):
         return data
 
 
-def open_dataset(
-    label=None,
-    raw=False,
-    verbose=False,
-    **kwds
-):
-    return TutorialData(label=label).open_dataset(
-        raw,
-        verbose,
-        **kwds
-    )
+def open_dataset(label=None, raw=False, verbose=False, **kwds):
+    return TutorialData(label=label).open_dataset(raw, verbose, **kwds)

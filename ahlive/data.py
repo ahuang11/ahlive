@@ -952,8 +952,8 @@ class Data(Easing, Animation, Configuration):
             ds = ds.expand_dims("state").transpose(..., "state")
         ds["state"] = srange(len(ds["state"]))
 
-        if 's' in ds:
-            ds['s'] = fillna(ds['s'].where(ds['s'] > 0), how='both')
+        if "s" in ds:
+            ds["s"] = fillna(ds["s"].where(ds["s"] > 0), how="both")
         return ds
 
     def _get_crs(self, crs_name, crs_kwds, central_longitude=None):
@@ -1043,7 +1043,7 @@ class Data(Easing, Animation, Configuration):
                     1, num_states, value
                 ).astype(int)
 
-            if 'fps' not in ds.attrs['animate_kwds']:
+            if "fps" not in ds.attrs["animate_kwds"]:
                 animate_kwds["fps"] = 1
             animate_kwds["stitch"] = True
             animate_kwds["static"] = False
