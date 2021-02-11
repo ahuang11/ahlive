@@ -28,16 +28,7 @@ from .configuration import (
     defaults,
     load_defaults,
 )
-from .util import (
-    is_datetime,
-    is_scalar,
-    pop,
-    srange,
-    to_1d,
-    to_num,
-    to_pydt,
-    to_scalar,
-)
+from .util import is_datetime, is_scalar, pop, srange, to_1d, to_num, to_pydt, to_scalar
 
 
 class Animation(param.Parameterized):
@@ -1114,10 +1105,7 @@ class Animation(param.Parameterized):
         y_is_str = yticks_kwds.pop("is_str", False)
 
         if gridlines is not None:  # geoaxes
-            from cartopy.mpl.gridliner import (
-                LatitudeFormatter,
-                LongitudeFormatter,
-            )
+            from cartopy.mpl.gridliner import LatitudeFormatter, LongitudeFormatter
 
             gridlines.yformatter = LatitudeFormatter()
             gridlines.xformatter = LongitudeFormatter()

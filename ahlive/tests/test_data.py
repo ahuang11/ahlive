@@ -6,15 +6,8 @@ import pytest
 import xarray as xr
 
 import ahlive as ah
-from ahlive.util import is_scalar
-from ahlive.configuration import (
-    CONFIGURABLES,
-    ITEMS,
-    OPTIONS,
-)
+from ahlive.configuration import CONFIGURABLES, ITEMS, OPTIONS
 from ahlive.tests.test_configuration import (  # noqa: F401
-    ah_array1,
-    ah_array2,
     DIRECTIONS,
     GRID_CS,
     GRID_LABELS,
@@ -28,8 +21,11 @@ from ahlive.tests.test_configuration import (  # noqa: F401
     TYPES,
     XS,
     YS,
+    ah_array1,
+    ah_array2,
 )
 from ahlive.tests.test_util import assert_attrs, assert_types, assert_values
+from ahlive.util import is_scalar
 
 
 @pytest.mark.parametrize("type_", TYPES)
