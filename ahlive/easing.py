@@ -165,9 +165,7 @@ class Easing(param.Parameterized):
             results = []
             for colors in array:
                 cmap = LinearSegmentedColormap.from_list("eased", colors)
-                results.append(
-                    [rgb2hex(rgb) for rgb in cmap(np.arange(num_steps))]
-                )
+                results.append([rgb2hex(rgb) for rgb in cmap(np.arange(num_steps))])
             result = np.array(results)
         else:
             result = np.repeat(array, num_steps, axis=1)
@@ -187,9 +185,7 @@ class Easing(param.Parameterized):
             else:
                 result_back = result[:, ::-1]
             if name == "duration" and revert == "rollback":
-                result_back = np.repeat(1 / 60, result_back.shape[1]).reshape(
-                    1, -1
-                )
+                result_back = np.repeat(1 / 60, result_back.shape[1]).reshape(1, -1)
             result = np.hstack([result, result_back])
 
         if is_xarray:
@@ -235,9 +231,7 @@ class Easing(param.Parameterized):
         init[init_nans] = 0  # temporarily fill the nans
         stop = np.repeat(array[:, 1:], num_steps, axis=1)
         stop_nans = np.isnan(stop)
-        tiled_steps = np.tile(steps, (num_states - 1) * num_items).reshape(
-            *new_shape
-        )
+        tiled_steps = np.tile(steps, (num_states - 1) * num_items).reshape(*new_shape)
         weights = getattr(self, f"_{interp.lower()}")(tiled_steps, ease)
         result = stop * weights + init * (1 - weights)
         result[init_nans | stop_nans] = np.nan  # replace nans
@@ -278,9 +272,7 @@ class Easing(param.Parameterized):
             index = ts < 0.5
             ts[index] = 8 * ts[index] * ts[index] * ts[index] * ts[index]
             ts[~index] = ts[~index] - 1
-            ts[~index] = (
-                -8 * ts[~index] * ts[~index] * ts[~index] * ts[~index] + 1
-            )
+            ts[~index] = -8 * ts[~index] * ts[~index] * ts[~index] * ts[~index] + 1
         return ts
 
     def _quintic(self, ts, ease):
@@ -290,18 +282,10 @@ class Easing(param.Parameterized):
             ts = (ts - 1) * (ts - 1) * (ts - 1) * (ts - 1) * (ts - 1) + 1
         elif ease == "in_out":
             index = ts < 0.5
-            ts[index] = (
-                16 * ts[index] * ts[index] * ts[index] * ts[index] * ts[index]
-            )
+            ts[index] = 16 * ts[index] * ts[index] * ts[index] * ts[index] * ts[index]
             ts[~index] = (2 * ts[~index]) - 2
             ts[~index] = (
-                0.5
-                * ts[~index]
-                * ts[~index]
-                * ts[~index]
-                * ts[~index]
-                * ts[~index]
-                + 1
+                0.5 * ts[~index] * ts[~index] * ts[~index] * ts[~index] * ts[~index] + 1
             )
         return ts
 
@@ -402,9 +386,7 @@ class Easing(param.Parameterized):
         index3 = ts >= 9 / 10
         ts[index0] = 121 * ts[index0] * ts[index0] / 16
         ts[index1] = (
-            (363 / 40.0 * ts[index1] * ts[index1])
-            - (99 / 10.0 * ts[index1])
-            + 17 / 5.0
+            (363 / 40.0 * ts[index1] * ts[index1]) - (99 / 10.0 * ts[index1]) + 17 / 5.0
         )
         ts[index2] = (
             (4356 / 361.0 * ts[index2] * ts[index2])

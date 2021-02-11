@@ -50,9 +50,7 @@ class TutorialData(param.Parameterized):
             "USA_SSHS",
             "USA_RMW",
         ]
-        df = pd.read_csv(
-            self._data_url, keep_default_na=False, usecols=cols, **kwds
-        )
+        df = pd.read_csv(self._data_url, keep_default_na=False, usecols=cols, **kwds)
         df.columns = df.columns.str.lower()
         df = df.iloc[1:]
         df = df.set_index("iso_time")

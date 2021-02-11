@@ -95,8 +95,7 @@ class Animation(param.Parameterized):
     )
     durations = param.ClassSelector(
         class_=(Iterable, int, float),
-        doc="Seconds to delay per state; "
-        "Iterables must match number of states",
+        doc="Seconds to delay per state; " "Iterables must match number of states",
     )
     pygifsicle = param.Boolean(
         default=None,
@@ -106,8 +105,7 @@ class Animation(param.Parameterized):
 
     debug = param.Boolean(
         default=False,
-        doc="Show additional debugging info and set "
-        "scheduler to single-threaded",
+        doc="Show additional debugging info and set " "scheduler to single-threaded",
     )
 
     _canvas_kwds = None
@@ -173,9 +171,7 @@ class Animation(param.Parameterized):
                 labels.append(sub_kwds[label_key])
             kwds[label_key] = labels
             kwds["format"] = format_
-            kwds = {
-                key: val for key, val in kwds.items() if key in sub_kwds.keys()
-            }
+            kwds = {key: val for key, val in kwds.items() if key in sub_kwds.keys()}
             return kwds
 
         format_ = kwds.pop("format", "auto").lstrip("%")
@@ -195,9 +191,7 @@ class Animation(param.Parameterized):
                 try:
                     label = f"{label:{format_}}"
                 except (ValueError, TypeError) as e:
-                    warnings.warn(
-                        f"Could not apply {format_} on {label} due to {e}"
-                    )
+                    warnings.warn(f"Could not apply {format_} on {label} due to {e}")
             else:
                 kwds["format"] = format_
 
@@ -229,9 +223,7 @@ class Animation(param.Parameterized):
             getattr(ax, f"set_{label}")(**label_kwds)
 
         if state_ds.attrs.get("note_kwds"):
-            note_kwds = load_defaults(
-                "note_kwds", state_ds, transform=ax.transAxes
-            )
+            note_kwds = load_defaults("note_kwds", state_ds, transform=ax.transAxes)
             ax.text(**note_kwds)
 
         caption = state_ds.attrs.get("caption_kwds", {}).get("s")
@@ -315,9 +307,7 @@ class Animation(param.Parameterized):
         )
         if all_none:
             return
-        preset_kwds = load_defaults(
-            "preset_kwds", overlay_ds, base_chart="trail"
-        )
+        preset_kwds = load_defaults("preset_kwds", overlay_ds, base_chart="trail")
         chart = preset_kwds.pop("chart", "both")
         expire = preset_kwds.pop("expire")
         stride = preset_kwds.pop("stride")
@@ -360,9 +350,7 @@ class Animation(param.Parameterized):
     ):
         if deltas is None:
             return
-        preset_kwds = load_defaults(
-            "preset_kwds", overlay_ds, base_chart="delta"
-        )
+        preset_kwds = load_defaults("preset_kwds", overlay_ds, base_chart="delta")
         if chart == "bar":
             preset_kwds["yerr"] = deltas
             x_inlines = x_centers
@@ -405,9 +393,7 @@ class Animation(param.Parameterized):
         if scan_xs is None and scan_ys is None:
             return
 
-        preset_kwds = load_defaults(
-            "preset_kwds", overlay_ds, base_chart="scan"
-        )
+        preset_kwds = load_defaults("preset_kwds", overlay_ds, base_chart="scan")
         inline_loc = preset_kwds.pop("inline_loc", None)
         preset_kwds.pop("stride")
 
@@ -570,9 +556,7 @@ class Animation(param.Parameterized):
             if str(inline_label) == "" or pd.isnull(x) or pd.isnull(y):
                 continue
             inline_kwds["text"] = inline_label
-            inline_kwds = self._update_text(
-                inline_kwds, "text", base=inline_base
-            )
+            inline_kwds = self._update_text(inline_kwds, "text", base=inline_base)
             ax.annotate(xy=(x, y), **inline_kwds)
 
     @staticmethod
@@ -627,9 +611,7 @@ class Animation(param.Parameterized):
 
         divider = make_axes_locatable(ax)
         if colorbar_kwds["orientation"] == "vertical":
-            cax = divider.new_horizontal(
-                size="2%", pad=0.1, axes_class=plt.Axes
-            )
+            cax = divider.new_horizontal(size="2%", pad=0.1, axes_class=plt.Axes)
         else:
             cax = divider.new_vertical(size="2%", pad=0.1, axes_class=plt.Axes)
         ax.figure.add_axes(cax)
@@ -690,8 +672,7 @@ class Animation(param.Parameterized):
                 [
                     var
                     for var in state_ds.data_vars
-                    if not var.startswith("ref_")
-                    and not var.startswith("grid_")
+                    if not var.startswith("ref_") and not var.startswith("grid_")
                 ]
             ]
         else:
@@ -732,12 +713,8 @@ class Animation(param.Parameterized):
                 pop(overlay_ds, "inline_label"), chart, get=get
             )
 
-            x_trails = self._reshape_batch(
-                pop(overlay_ds, "x_trail"), chart, get=None
-            )
-            y_trails = self._reshape_batch(
-                pop(overlay_ds, "y_trail"), chart, get=None
-            )
+            x_trails = self._reshape_batch(pop(overlay_ds, "x_trail"), chart, get=None)
+            y_trails = self._reshape_batch(pop(overlay_ds, "y_trail"), chart, get=None)
 
             x_discrete_trails = self._reshape_batch(
                 pop(overlay_ds, "x_discrete_trail"), chart, get=None
@@ -750,13 +727,9 @@ class Animation(param.Parameterized):
             y_centers = self._reshape_batch(pop(overlay_ds, "y_center"), chart)
 
             deltas = self._reshape_batch(pop(overlay_ds, "delta"), chart)
-            delta_labels = self._reshape_batch(
-                pop(overlay_ds, "delta_label"), chart
-            )
+            delta_labels = self._reshape_batch(pop(overlay_ds, "delta_label"), chart)
 
-            bar_labels = self._reshape_batch(
-                pop(overlay_ds, "bar_label"), chart
-            )
+            bar_labels = self._reshape_batch(pop(overlay_ds, "bar_label"), chart)
 
             remarks = self._reshape_batch(pop(overlay_ds, "remark"), chart)
 
@@ -779,9 +752,7 @@ class Animation(param.Parameterized):
             if "zorder" not in plot_kwds:
                 plot_kwds["zorder"] = 2
 
-            plot, color = self._plot_chart(
-                overlay_ds, ax, chart, xs, ys, plot_kwds
-            )
+            plot, color = self._plot_chart(overlay_ds, ax, chart, xs, ys, plot_kwds)
             if "c" in plot_kwds:
                 mappable = plot
 
@@ -865,10 +836,7 @@ class Animation(param.Parameterized):
             inline_labels = pop(overlay_ds, "inline_label")
 
             plot_kwds = self._strip_dict(
-                {
-                    var: pop(overlay_ds, var, get=0)
-                    for var in list(overlay_ds.data_vars)
-                }
+                {var: pop(overlay_ds, var, get=0) for var in list(overlay_ds.data_vars)}
             )
             if chart in ["contourf", "contour"] and "levels" not in plot_kwds:
                 plot_kwds["levels"] = overlay_ds.attrs["cticks"].get("ticks")
@@ -908,9 +876,7 @@ class Animation(param.Parameterized):
 
         return mappable
 
-    def _plot_ref_chart(
-        self, overlay_ds, ax, chart, x0s, x1s, y0s, y1s, plot_kwds
-    ):
+    def _plot_ref_chart(self, overlay_ds, ax, chart, x0s, x1s, y0s, y1s, plot_kwds):
         if plot_kwds.get("transform"):
             if chart in ["rectangle", "scatter"]:
                 pass
@@ -996,10 +962,7 @@ class Animation(param.Parameterized):
                 xytext = (0, 5)
 
             plot_kwds = self._strip_dict(
-                {
-                    var: pop(overlay_ds, var, get=0)
-                    for var in list(overlay_ds.data_vars)
-                }
+                {var: pop(overlay_ds, var, get=0) for var in list(overlay_ds.data_vars)}
             )
             plot_kwds = load_defaults(
                 "ref_plot_kwds",
@@ -1068,9 +1031,7 @@ class Animation(param.Parameterized):
         ax = plt.subplot(rows, cols, irowcol, **axes_kwds)
 
         if style == "bare":
-            plt.subplots_adjust(
-                left=0, right=1, bottom=0, top=1, hspace=0, wspace=0
-            )
+            plt.subplots_adjust(left=0, right=1, bottom=0, top=1, hspace=0, wspace=0)
             ax.set_frame_on(False)
         return ax
 
@@ -1204,9 +1165,7 @@ class Animation(param.Parameterized):
             preset = state_ds.attrs["preset_kwds"].get("preset")
             is_not_series = preset != "series"
             if chart.startswith("bar") and is_not_series:
-                preset_kwds = load_defaults(
-                    "preset_kwds", state_ds, base_chart=preset
-                )
+                preset_kwds = load_defaults("preset_kwds", state_ds, base_chart=preset)
                 xs = pop(state_ds, "x")
                 limit = preset_kwds.get("limit", None)
                 limit1 = len(xs) + 0.5
@@ -1259,9 +1218,7 @@ class Animation(param.Parameterized):
         if isinstance(show, str):
             state_ds.attrs["legend_kwds"]["show"] = True
             state_ds.attrs["legend_kwds"]["loc"] = show
-        legend_kwds = load_defaults(
-            "legend_kwds", state_ds, show=show, **legend_kwds
-        )
+        legend_kwds = load_defaults("legend_kwds", state_ds, show=show, **legend_kwds)
         legend_kwds.pop("sortby", None)
 
         if not legend_labels or not legend_kwds.get("show"):
@@ -1348,9 +1305,7 @@ class Animation(param.Parameterized):
 
     def _buffer_frame(self, state):
         buf = BytesIO()
-        savefig_kwds = load_defaults(
-            "savefig_kwds", self._canvas_kwds["savefig_kwds"]
-        )
+        savefig_kwds = load_defaults("savefig_kwds", self._canvas_kwds["savefig_kwds"])
         try:
             plt.savefig(buf, **savefig_kwds)
             buf.seek(0)
@@ -1395,9 +1350,7 @@ class Animation(param.Parameterized):
                 is_stateless = "state" not in ds.dims
                 is_line = np.any(ds.get("chart", "") == "line")
                 is_trail = ds.attrs["preset_kwds"].get("preset") == "trail"
-                is_series = (
-                    ds.attrs["preset_kwds"].get("preset", "") == "series"
-                )
+                is_series = ds.attrs["preset_kwds"].get("preset", "") == "series"
                 if is_stateless:
                     ds_sel = ds
                 elif is_line or is_trail or is_series:
@@ -1437,16 +1390,12 @@ class Animation(param.Parameterized):
             compute_kwds["scheduler"] = "single-threaded"
         elif num_workers > 1 and compute_kwds["scheduler"] != "processes":
             if compute_kwds["scheduler"] != "processes":
-                warnings.warn(
-                    "Found multiple workers; setting scheduler='processes'"
-                )
+                warnings.warn("Found multiple workers; setting scheduler='processes'")
             compute_kwds["scheduler"] = "processes"
 
         with dask.diagnostics.ProgressBar(minimum=1):
             buf_list = [
-                buf
-                for buf in dask.compute(jobs, **compute_kwds)[0]
-                if buf is not None
+                buf for buf in dask.compute(jobs, **compute_kwds)[0] if buf is not None
             ]
         return buf_list
 
@@ -1539,9 +1488,7 @@ class Animation(param.Parameterized):
                 out_obj = buf_list[0]
         elif stitch:
             if ext == ".mp4" and save is None:
-                raise NotImplementedError(
-                    "Cannot output video as BytesIO; set save."
-                )
+                raise NotImplementedError("Cannot output video as BytesIO; set save.")
             with imageio.get_writer(out_obj, **animate_kwds) as writer:
                 for buf in buf_list:
                     image = imageio.imread(buf)
@@ -1554,8 +1501,7 @@ class Animation(param.Parameterized):
                     optimize(out_obj)
                 except ImportError:
                     warnings.warn(
-                        "pip install pygifsicle to reduce "
-                        "size of output gif!"
+                        "pip install pygifsicle to reduce " "size of output gif!"
                     )
         elif save is not None:
             file_dir = file

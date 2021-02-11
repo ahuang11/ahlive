@@ -445,9 +445,7 @@ class Configuration(param.Parameterized):
 
     def _initial_config(self, attrs, configurable):
         for param_, method_key in CONFIGURABLES_KWDS[configurable].items():
-            self._set_config(
-                attrs, configurable, param_=param_, method_key=method_key
-            )
+            self._set_config(attrs, configurable, param_=param_, method_key=method_key)
         return attrs
 
     def _config_data(
@@ -531,9 +529,7 @@ class Configuration(param.Parameterized):
         else:
             return input_data
 
-    def config(
-        self, *configurables, rowcols=None, reset=False, **configurable_kwds
-    ):
+    def config(self, *configurables, rowcols=None, reset=False, **configurable_kwds):
         self_copy = deepcopy(self)
         data = self._config_data(
             self_copy.data,
