@@ -91,9 +91,7 @@ def layout(objs, cols=None, quick=False):
     obj = objs[0]
     if quick:
         rowcol = list(obj.data.keys())[0]
-        obj.data = {
-            (row, 1): array.data[rowcol] for row, array in enumerate(objs, 1)
-        }
+        obj.data = {(row, 1): array.data[rowcol] for row, array in enumerate(objs, 1)}
     else:
         for array in objs[1:]:
             obj += array

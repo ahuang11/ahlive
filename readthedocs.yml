@@ -1,3 +1,4 @@
+
 # .readthedocs.yml
 # Read the Docs configuration file
 # See https://docs.readthedocs.io/en/stable/config-file/v2.html for details
@@ -9,9 +10,6 @@ version: 2
 sphinx:
   configuration: docs/source/conf.py
 
-build:
-    image: stable
-
 conda:
     environment: docs/environment_rtd.yml
 python:
@@ -19,5 +17,6 @@ python:
     install:
       - method: setuptools
         path: .
+    system_packages: true
 
 formats: []

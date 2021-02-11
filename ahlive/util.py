@@ -57,20 +57,20 @@ def is_scalar(value):
     return np.size(value) == 1
 
 
-def is_subtype(value, subtype):
-    if isinstance(subtype, tuple):
-        return any(is_subtype(value, st) for st in subtype)
+def is_subdtype(value, subdtype):
+    if isinstance(subdtype, tuple):
+        return any(is_subdtype(value, st) for st in subdtype)
 
     value = np.array(to_1d(value)).ravel()
-    return np.issubdtype(value.dtype, subtype)
+    return np.issubdtype(value.dtype, subdtype)
 
 
 def is_datetime(value):
-    return is_subtype(value, (np.datetime64, datetime)) and not is_str(value)
+    return is_subdtype(value, (np.datetime64, datetime)) and not is_str(value)
 
 
 def is_timedelta(value):
-    return is_subtype(value, (np.timedelta64, timedelta))
+    return is_subdtype(value, (np.timedelta64, timedelta))
 
 
 def is_numeric(value):
@@ -79,17 +79,13 @@ def is_numeric(value):
         if is_str(value):
             return np.char.isnumeric(value.astype(str)).all()
         else:
-            return is_subtype(value, np.number)
+            return is_subdtype(value, np.number)
     return False
 
 
 def is_str(value):
-    is_obj = (
-        is_subtype(value, np.string_)
-        or is_subtype(value, np.unicode)
-        or is_subtype(value, np.object)
-    )
-    return is_obj and not is_subtype(value, np.number)
+    is_obj = is_subdtype(value, (np.string_, np.unicode, np.object))
+    return is_obj and not is_subdtype(value, np.number)
 
 
 def to_scalar(value, get=-1):

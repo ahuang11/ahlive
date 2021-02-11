@@ -87,27 +87,17 @@ class Data(Easing, Animation, Configuration):
     )
 
     title = param.String(allow_None=True, doc="Title label (outer top left)")
-    subtitle = param.String(
-        allow_None=True, doc="Subtitle label (outer top right)"
-    )
+    subtitle = param.String(allow_None=True, doc="Subtitle label (outer top right)")
     xlabel = param.String(allow_None=True, doc="X-axis label (bottom center)")
     ylabel = param.String(allow_None=True, doc="Y-axis label (left center")
     note = param.String(allow_None=True, doc="Note label (bottom left)")
     caption = param.String(allow_None=True, doc="Caption label (outer left)")
 
-    xticks = param.ClassSelector(
-        class_=(Iterable,), doc="X-axis tick locations"
-    )
-    yticks = param.ClassSelector(
-        class_=(Iterable,), doc="Y-axis tick locations"
-    )
+    xticks = param.ClassSelector(class_=(Iterable,), doc="X-axis tick locations")
+    yticks = param.ClassSelector(class_=(Iterable,), doc="Y-axis tick locations")
 
-    legend = param.ObjectSelector(
-        objects=OPTIONS["legend"], doc="Legend location"
-    )
-    grid = param.ObjectSelector(
-        default=True, objects=OPTIONS["grid"], doc="Grid type"
-    )
+    legend = param.ObjectSelector(objects=OPTIONS["legend"], doc="Legend location")
+    grid = param.ObjectSelector(default=True, objects=OPTIONS["grid"], doc="Grid type")
 
     rowcol = param.NumericTuple(
         default=(1, 1), length=2, doc="Subplot location as (row, column)"
@@ -126,9 +116,7 @@ class Data(Easing, Animation, Configuration):
         }
         self._parameters = [key for key in dir(self) if not key.startswith("_")]
         input_vars = {
-            key: kwds.pop(key)
-            for key in list(kwds)
-            if key not in self._parameters
+            key: kwds.pop(key) for key in list(kwds) if key not in self._parameters
         }
         super().__init__(**kwds)
         input_vars = self._amend_input_vars(input_vars)
@@ -324,9 +312,7 @@ class Data(Easing, Animation, Configuration):
             # only keep items that are show at least once above the limit
             # to optimize and keep a smaller dataset
             ds = ds.sel(
-                item=ds.where(ranks >= len(ds["item"]) - limit, drop=True)[
-                    "item"
-                ]
+                item=ds.where(ranks >= len(ds["item"]) - limit, drop=True)["item"]
             )
             ds["x"] = ds["y"].rank("item")
             # fill back in NaNs
@@ -391,14 +377,10 @@ class Data(Easing, Animation, Configuration):
                 - ds[f"grid_scan_{axis}_1_inline_label"]
             )
             other_axis = "y" if axis == "x" else "x"
-            ds.attrs["preset_kwds"]["inline_loc"] = ds[
-                f"grid_{other_axis}"
-            ].median()
+            ds.attrs["preset_kwds"]["inline_loc"] = ds[f"grid_{other_axis}"].median()
 
         scan_ds_list = []
-        stateless_vars = [
-            var for var in ds.data_vars if "state" not in ds[var].dims
-        ]
+        stateless_vars = [var for var in ds.data_vars if "state" not in ds[var].dims]
         grid_vars = [var for var in ds.data_vars if grid_axis in ds[var].dims]
         scan_stride = ds.attrs["preset_kwds"].pop("stride", 1)
         states = srange(ds["state"])[:-1]
@@ -432,9 +414,7 @@ class Data(Easing, Animation, Configuration):
         legend_kwds = load_defaults("legend_kwds", ds)
         legend_sortby = legend_kwds.pop("sortby", None)
         if legend_sortby and "label" in ds:
-            items = ds.max("state").sortby(legend_sortby, ascending=False)[
-                "item"
-            ]
+            items = ds.max("state").sortby(legend_sortby, ascending=False)["item"]
             ds = ds.sel(item=items)
             ds["item"] = srange(ds["item"])
 
@@ -460,17 +440,11 @@ class Data(Easing, Animation, Configuration):
         if self.style == "bare":
             ds.attrs["grid_kwds"]["b"] = ds.attrs["grid_kwds"].get("b", False)
         elif chart == "barh":
-            ds.attrs["grid_kwds"]["axis"] = ds.attrs["grid_kwds"].get(
-                "axis", "x"
-            )
+            ds.attrs["grid_kwds"]["axis"] = ds.attrs["grid_kwds"].get("axis", "x")
         elif chart == "bar":
-            ds.attrs["grid_kwds"]["axis"] = ds.attrs["grid_kwds"].get(
-                "axis", "y"
-            )
+            ds.attrs["grid_kwds"]["axis"] = ds.attrs["grid_kwds"].get("axis", "y")
         else:
-            ds.attrs["grid_kwds"]["axis"] = ds.attrs["grid_kwds"].get(
-                "axis", "both"
-            )
+            ds.attrs["grid_kwds"]["axis"] = ds.attrs["grid_kwds"].get("axis", "both")
         return ds
 
     def _config_chart(self, ds, chart):
@@ -525,10 +499,7 @@ class Data(Easing, Animation, Configuration):
 
     def _add_xy01_limits(self, ds, chart):
         # TODO: breakdown function
-        limits = {
-            key: ds.attrs["limits_kwds"].pop(key, None)
-            for key in ITEMS["limit"]
-        }
+        limits = {key: ds.attrs["limits_kwds"].pop(key, None) for key in ITEMS["limit"]}
 
         for axis in ["x", "y"]:
             axis_lim = limits.pop(f"{axis}lims", None)
@@ -586,9 +557,7 @@ class Data(Easing, Animation, Configuration):
                 is_line_y = chart == "line" and axis == "y"
                 is_bar_x = chart.startswith("bar") and axis == "x"
                 is_bar_y = chart.startswith("bar") and axis == "y"
-                is_fixed = any(
-                    [is_scatter, is_line_y, is_bar_y, has_other_limit]
-                )
+                is_fixed = any([is_scatter, is_line_y, is_bar_y, has_other_limit])
                 if is_bar_y and is_lower_limit:
                     limit = "zero"
                 elif is_bar_x:
@@ -596,7 +565,7 @@ class Data(Easing, Animation, Configuration):
                 elif is_fixed:
                     limit = "fixed_0.05"
                 elif num == 1:
-                    limit = "explore_0.05"
+                    limit = "explore_0.005"
                 else:
                     limit = "explore"
 
@@ -652,9 +621,7 @@ class Data(Easing, Animation, Configuration):
                     if is_str(ds[var]) or item_dim == "grid_item":
                         continue
                     limit = getattr(
-                        pd.Series(
-                            getattr(ds[var].ffill(item_dim), stat)(item_dim)
-                        ),
+                        pd.Series(getattr(ds[var].ffill(item_dim), stat)(item_dim)),
                         f"cum{stat}",
                     )().values
                 elif limit == "follow":
@@ -706,9 +673,7 @@ class Data(Easing, Animation, Configuration):
             dim = da.dims[0]
             if dim != "state":
                 item = da[dim][0]
-                return xr.DataArray(
-                    unique_vals[0], dims=(dim,), coords={dim: [item]}
-                )
+                return xr.DataArray(unique_vals[0], dims=(dim,), coords={dim: [item]})
             else:
                 return unique_vals[0]
         else:
@@ -759,9 +724,7 @@ class Data(Easing, Animation, Configuration):
                     vmin = np.nanmin(ds[c_var].values)
                 if vmax is None:
                     vmax = np.nanmax(ds[c_var].values)
-                indices = np.round(
-                    np.linspace(0, num_ticks - 1, num_ticks)
-                ).astype(
+                indices = np.round(np.linspace(0, num_ticks - 1, num_ticks)).astype(
                     int
                 )  # select 10 values equally
                 cticks = np.linspace(vmin, vmax, num_ticks)[indices]
@@ -773,9 +736,7 @@ class Data(Easing, Animation, Configuration):
                     "norm", BoundaryNorm(cticks, num_colors)
                 )
 
-            ds.attrs["colorbar_kwds"]["show"] = ds.attrs[plot_key].get(
-                "colorbar", True
-            )
+            ds.attrs["colorbar_kwds"]["show"] = ds.attrs[plot_key].get("colorbar", True)
         elif "colorbar_kwds" in ds.attrs:
             ds.attrs["colorbar_kwds"]["show"] = False
         return ds
@@ -798,14 +759,13 @@ class Data(Easing, Animation, Configuration):
                 if "c" in xyc:
                     continue
 
-                ds.attrs[f"{xyc}ticks_kwds"]["is_datetime"] = is_datetime(
-                    ds[xyc]
-                )
+                ds.attrs[f"{xyc}ticks_kwds"]["is_datetime"] = is_datetime(ds[xyc])
         return ds, base_kwds
 
     def _precompute_base_labels(self, ds, base_kwds):
         for key in ITEMS["base"]:
             key_label = f"{key}_label"
+            base = None
             if key_label in ds:
                 try:
                     if is_scalar(ds[key_label]):
@@ -814,13 +774,13 @@ class Data(Easing, Animation, Configuration):
                         key_values = ds[key_label].values
                         if is_timedelta(key_values):
                             base = key_values[0]
-                        else:
+                        elif not is_str(key_values):
                             base_diff = self._get_median_diff(key_values)
                             if is_datetime(base_diff):
                                 base = np.nanmin(base_diff) / 5
                             else:
                                 base = np.nanquantile(base_diff, 0.25)
-                    if not np.isnan(base):
+                    if not pd.isnull(base):
                         base_kwds[key] = base
                 except Exception as e:
                     if self.debug:
@@ -842,9 +802,7 @@ class Data(Easing, Animation, Configuration):
         margins_kwds = load_defaults("margins_kwds", ds)
         margins = {}
         for axis in ["x", "y"]:
-            keys = [
-                key for key in [f"{axis}lim0s", f"{axis}lim1s"] if key in ds
-            ]
+            keys = [key for key in [f"{axis}lim0s", f"{axis}lim1s"] if key in ds]
             if keys:
                 if not is_str(ds[keys[0]]):
                     limit = ds[keys].to_array().max("variable")
@@ -875,9 +833,7 @@ class Data(Easing, Animation, Configuration):
         transition_frames = durations_kwds.pop("transition_frames")
         aggregate = durations_kwds.pop("aggregate")
 
-        durations = durations_kwds.get(
-            "durations", 0.5 if num_states < 8 else 1 / 60
-        )
+        durations = durations_kwds.get("durations", 0.5 if num_states < 8 else 1 / 60)
         if isinstance(durations, (int, float)):
             durations = np.repeat(durations, num_states)
 
@@ -950,6 +906,9 @@ class Data(Easing, Animation, Configuration):
         if "state" not in ds.dims:
             ds = ds.expand_dims("state").transpose(..., "state")
         ds["state"] = srange(len(ds["state"]))
+
+        if "s" in ds:
+            ds["s"] = fillna(ds["s"].where(ds["s"] > 0), how="both")
         return ds
 
     def _get_crs(self, crs_name, crs_kwds, central_longitude=None):
@@ -1003,9 +962,7 @@ class Data(Easing, Animation, Configuration):
                 ds["projection"] = projection_obj
             else:
                 projection_obj = [
-                    self._get_crs(
-                        projection, projection_kwds, central_longitude=cl
-                    )
+                    self._get_crs(projection, projection_kwds, central_longitude=cl)
                     for cl in central_lon
                 ]
 
@@ -1032,16 +989,13 @@ class Data(Easing, Animation, Configuration):
                 animate_kwds["states"] = None
             elif animate in ["head", "ini", "start"]:
                 animate_kwds["states"] = np.arange(1, value)
-                animate_kwds["fps"] = 1
             elif animate in ["tail", "end", "value"]:
                 animate_kwds["states"] = np.arange(-value, 0, 1)
-                animate_kwds["fps"] = 1
             else:
-                animate_kwds["states"] = np.linspace(
-                    1, num_states, value
-                ).astype(int)
-                animate_kwds["fps"] = 1
+                animate_kwds["states"] = np.linspace(1, num_states, value).astype(int)
 
+            if "fps" not in ds.attrs["animate_kwds"]:
+                animate_kwds["fps"] = 1
             animate_kwds["stitch"] = True
             animate_kwds["static"] = False
         elif isinstance(self.animate, slice):
@@ -1065,9 +1019,7 @@ class Data(Easing, Animation, Configuration):
             if animate_kwds["states"][0] == 0:
                 warnings.warn("State 0 detected in animate; shifting by 1.")
                 animate_kwds["states"] += 1
-            animate_kwds["static"] = (
-                True if isinstance(self.animate, int) else False
-            )
+            animate_kwds["static"] = True if isinstance(self.animate, int) else False
         animate_kwds["num_states"] = num_states
         ds.attrs["animate_kwds"].update(**animate_kwds)
         return ds
@@ -1098,9 +1050,7 @@ class Data(Easing, Animation, Configuration):
         self_copy.data = data
         return self_copy
 
-    def _adapt_input(
-        self, val, num_states, num_items=None, reshape=True, shape=None
-    ):
+    def _adapt_input(self, val, num_states, num_items=None, reshape=True, shape=None):
         # TODO: add test
         val = np.array(val)
         if is_scalar(val):
@@ -1175,9 +1125,7 @@ class Data(Easing, Animation, Configuration):
             interp = self.interp
         ease = self.ease or "in_out"
 
-        data_vars = {
-            key: val for key, val in input_vars.items() if val is not None
-        }
+        data_vars = {key: val for key, val in input_vars.items() if val is not None}
         for var in list(data_vars.keys()):
             val = data_vars.pop(var)
             val = self._adapt_input(val, num_states)
@@ -1197,20 +1145,25 @@ class Data(Easing, Animation, Configuration):
             data_vars["inline_label"] = DIMS["basic"], inline_labels
 
         # pass unique for dataframe
-        data_vars["chart"] = DIMS["basic"], self._adapt_input(
-            chart, num_states, num_items=num_items
+        data_vars["chart"] = (
+            DIMS["basic"],
+            self._adapt_input(chart, num_states, num_items=num_items),
         )
-        data_vars["label"] = DIMS["basic"], self._adapt_input(
-            label, num_states, num_items=num_items
+        data_vars["label"] = (
+            DIMS["basic"],
+            self._adapt_input(label, num_states, num_items=num_items),
         )
-        data_vars["group"] = DIMS["basic"], self._adapt_input(
-            group, num_states, num_items=num_items
+        data_vars["group"] = (
+            DIMS["basic"],
+            self._adapt_input(group, num_states, num_items=num_items),
         )
-        data_vars["interp"] = DIMS["basic"], self._adapt_input(
-            interp, num_states, num_items=num_items
+        data_vars["interp"] = (
+            DIMS["basic"],
+            self._adapt_input(interp, num_states, num_items=num_items),
         )
-        data_vars["ease"] = DIMS["basic"], self._adapt_input(
-            ease, num_states, num_items=num_items
+        data_vars["ease"] = (
+            DIMS["basic"],
+            self._adapt_input(ease, num_states, num_items=num_items),
         )
 
         return data_vars, num_items
@@ -1291,9 +1244,7 @@ class Data(Easing, Animation, Configuration):
 class GeographicData(Data):
 
     crs = param.String(doc="The coordinate reference system to project from")
-    projection = param.String(
-        doc="The coordinate reference system to project to"
-    )
+    projection = param.String(doc="The coordinate reference system to project to")
     central_lon = param.ClassSelector(
         class_=(Iterable, int, float), doc="Longitude to center the map on"
     )
@@ -1374,12 +1325,8 @@ class ColorArray(param.Parameterized):
         class_=(Iterable,), doc="Array to be mapped to the colorbar"
     )
 
-    cticks = param.ClassSelector(
-        class_=(Iterable,), doc="Colorbar tick locations"
-    )
-    ctick_labels = param.ClassSelector(
-        class_=(Iterable,), doc="Colorbar tick labels"
-    )
+    cticks = param.ClassSelector(class_=(Iterable,), doc="Colorbar tick locations")
+    ctick_labels = param.ClassSelector(class_=(Iterable,), doc="Colorbar tick labels")
     colorbar = param.Boolean(default=None, doc="Whether to show colorbar")
     clabel = param.String(doc="Colorbar label")
 
@@ -1520,12 +1467,8 @@ class RemarkArray(param.Parameterized):
 
 class Array(GeographicData, ReferenceArray, ColorArray, RemarkArray):
 
-    xs = param.ClassSelector(
-        class_=(Iterable,), doc="Array to be mapped to the x-axis"
-    )
-    ys = param.ClassSelector(
-        class_=(Iterable,), doc="Array to be mapped to the y-axis"
-    )
+    xs = param.ClassSelector(class_=(Iterable,), doc="Array to be mapped to the x-axis")
+    ys = param.ClassSelector(class_=(Iterable,), doc="Array to be mapped to the y-axis")
 
     def __init__(self, xs, ys, **kwds):
         for xys, xys_arr in {"xs": xs, "ys": ys}.items():
@@ -1615,8 +1558,7 @@ class Array2D(GeographicData, ReferenceArray, ColorArray, RemarkArray):
             inline_ys = self.inline_ys
             if inline_xs is None or inline_ys is None:
                 raise ValueError(
-                    "Must provide an inline x and y "
-                    "if inline_labels is not None!"
+                    "Must provide an inline x and y if inline_labels is not None!"
                 )
             else:
                 ds["inline_x"] = (
@@ -1630,11 +1572,7 @@ class Array2D(GeographicData, ReferenceArray, ColorArray, RemarkArray):
 
         grid_vars = list(ds.data_vars) + ["x", "y", "item"]
         ds = ds.rename(
-            {
-                var: f"grid_{var}"
-                for var in grid_vars
-                if ds[var].dims != ("state",)
-            }
+            {var: f"grid_{var}" for var in grid_vars if ds[var].dims != ("state",)}
         )
 
         self.data = {self.rowcol: ds}
@@ -1855,9 +1793,7 @@ class Reference(GeographicData):
             else:
                 ds["inline_loc"] = (
                     DIMS["ref"],
-                    self._adapt_input(
-                        inline_locs, num_states, num_items=num_items
-                    ),
+                    self._adapt_input(inline_locs, num_states, num_items=num_items),
                 )
 
         for var in ds.data_vars:

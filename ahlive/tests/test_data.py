@@ -6,15 +6,8 @@ import pytest
 import xarray as xr
 
 import ahlive as ah
-from ahlive.util import is_scalar
-from ahlive.configuration import (
-    CONFIGURABLES,
-    ITEMS,
-    OPTIONS,
-)
+from ahlive.configuration import CONFIGURABLES, ITEMS, OPTIONS
 from ahlive.tests.test_configuration import (  # noqa: F401
-    ah_array1,
-    ah_array2,
     DIRECTIONS,
     GRID_CS,
     GRID_LABELS,
@@ -28,8 +21,11 @@ from ahlive.tests.test_configuration import (  # noqa: F401
     TYPES,
     XS,
     YS,
+    ah_array1,
+    ah_array2,
 )
 from ahlive.tests.test_util import assert_attrs, assert_types, assert_values
+from ahlive.util import is_scalar
 
 
 @pytest.mark.parametrize("type_", TYPES)
@@ -38,9 +34,7 @@ from ahlive.tests.test_util import assert_attrs, assert_types, assert_values
 def test_ah_array(type_, x, y):
     x_iterable = type_(x) if isinstance(x, list) else x
     y_iterable = type_(y) if isinstance(y, list) else y
-    ah_array = ah.Array(
-        x_iterable, y_iterable, s=y_iterable, label="test", frames=2
-    )
+    ah_array = ah.Array(x_iterable, y_iterable, s=y_iterable, label="test", frames=2)
     assert_types(ah_array)
 
     for ds in ah_array.data.values():
@@ -67,9 +61,7 @@ def test_ah_dataframe(x, y, label, join):
     df = pd.DataFrame(
         {"x": np.array(x).squeeze(), "y": np.array(y).squeeze(), "label": label}
     )
-    ah_df = ah.DataFrame(
-        df, "x", "y", s="y", label="label", join=join, frames=2
-    )
+    ah_df = ah.DataFrame(df, "x", "y", s="y", label="label", join=join, frames=2)
     assert_types(ah_df)
 
     for ds in ah_df.data.values():
@@ -312,9 +304,7 @@ def test_config_rotate_chart(central_lon):
     )
     if isinstance(central_lon, int):
         max_lon = base_ds["lon"].max().values
-        assert (central_lons >= central_lon).all() & (
-            central_lons <= max_lon
-        ).all()
+        assert (central_lons >= central_lon).all() & (central_lons <= max_lon).all()
     elif len(central_lons) == len(central_lon):
         assert central_lons == central_lon
     else:
@@ -506,9 +496,7 @@ def test_add_color_kwds_bar():
 
 def test_add_color_kwds_cticks():
     cticks = [0, 5, 6, 7, 8, 9]
-    ah_obj = ah.Array(
-        [0, 1, 2], [3, 4, 5], cs=[6, 7, 8], cticks=cticks
-    ).finalize()
+    ah_obj = ah.Array([0, 1, 2], [3, 4, 5], cs=[6, 7, 8], cticks=cticks).finalize()
     attrs = ah_obj.attrs
     assert attrs["cticks_kwds"]["ticks"] == cticks
     assert "norm" in attrs
@@ -517,9 +505,7 @@ def test_add_color_kwds_cticks():
 
 def test_add_color_kwds_cticks():
     cticks = [0, 5, 6, 7, 8, 9]
-    ah_obj = ah.Array(
-        [0, 1, 2], [3, 4, 5], cs=[6, 7, 8], cticks=cticks
-    ).finalize()
+    ah_obj = ah.Array([0, 1, 2], [3, 4, 5], cs=[6, 7, 8], cticks=cticks).finalize()
     attrs = ah_obj.attrs
     assert attrs["cticks_kwds"]["ticks"] == cticks
     assert attrs["colorbar_kwds"]["show"]
@@ -527,9 +513,7 @@ def test_add_color_kwds_cticks():
 
 def test_add_color_kwds_cticks_grid():
     cticks = [0, 1, 2]
-    ah_obj = ah.Array2D(
-        GRID_XS[0], GRID_YS[0], GRID_CS[0], cticks=cticks
-    ).finalize()
+    ah_obj = ah.Array2D(GRID_XS[0], GRID_YS[0], GRID_CS[0], cticks=cticks).finalize()
     attrs = ah_obj.attrs
     assert attrs["cticks_kwds"]["ticks"] == cticks
 
@@ -581,9 +565,7 @@ def test_precompute_base_ticks_str():
 
 
 def test_precompute_base_ticks_datetime():
-    ah_obj = ah.Array(
-        pd.date_range("2021-01-01", "2021-01-03"), [5, 6, 7]
-    ).finalize()
+    ah_obj = ah.Array(pd.date_range("2021-01-01", "2021-01-03"), [5, 6, 7]).finalize()
     attrs = ah_obj.attrs
     attrs["xticks_kwds"]["is_str"] = True
     attrs["base_kwds"]["xticks"] == np.datetime64("2021-01-01")
@@ -591,17 +573,13 @@ def test_precompute_base_ticks_datetime():
 
 
 def test_precompute_base_labels_scalar():
-    ah_obj = ah.Array(
-        [1, 2, 3], [5, 6, 7], state_labels=[10, 10, 10]
-    ).finalize()
+    ah_obj = ah.Array([1, 2, 3], [5, 6, 7], state_labels=[10, 10, 10]).finalize()
     attrs = ah_obj.attrs
     attrs["base_kwds"]["state_label"] = 1
 
 
 def test_precompute_base_labels_numeric():
-    ah_obj = ah.Array(
-        [1, 2, 3], [5, 6, 7], state_labels=[10, 11, 12]
-    ).finalize()
+    ah_obj = ah.Array([1, 2, 3], [5, 6, 7], state_labels=[10, 11, 12]).finalize()
     attrs = ah_obj.attrs
     attrs["base_kwds"]["state"] == 1.0
 
@@ -623,18 +601,14 @@ def test_precompute_base_size():
 
 
 def test_add_margins_xlims():
-    ah_obj = ah.Array(
-        [0, 1, 2], [3, 4, 5], xlim0s=0, xlim1s=2, xmargins=1
-    ).finalize()
+    ah_obj = ah.Array([0, 1, 2], [3, 4, 5], xlim0s=0, xlim1s=2, xmargins=1).finalize()
     ds = ah_obj[1, 1]
     assert ds["xlim0s"] == -2
     assert ds["xlim1s"] == 4
 
 
 def test_add_margins_ylims():
-    ah_obj = ah.Array(
-        [0, 1, 2], [3, 4, 5], ylim0s=3, ylim1s=5, ymargins=1
-    ).finalize()
+    ah_obj = ah.Array([0, 1, 2], [3, 4, 5], ylim0s=3, ylim1s=5, ymargins=1).finalize()
     ds = ah_obj[1, 1]
     assert ds["ylim0s"] == -2
     assert ds["ylim1s"] == 10
@@ -651,9 +625,7 @@ def test_add_durations_default():
 def test_add_durations_input():
     ah_obj = (
         ah.Array([0, 1], [2, 3], frames=3, durations=[0, 1])
-        .config(
-            "durations", final_frame=2, transition_frames=2, aggregate="min"
-        )
+        .config("durations", final_frame=2, transition_frames=2, aggregate="min")
         .finalize()
     )
     ds = ah_obj[1, 1]

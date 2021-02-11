@@ -4,6 +4,7 @@ from itertools import chain
 import param
 import xarray as xr
 
+TEMP_FILE = "TEMP_AHLIVE_PYGIFSICLE_OUTPUT.gif"
 NULL_VALS = [(), {}, [], None, ""]
 
 # a kind of grouping by intuition; doesn't really help code though
@@ -30,6 +31,7 @@ CONFIGURABLES = {  # used for like .config('figure', **kwds)
         "yticks",
         "limits",
         "margins",
+        "hooks",
     ],
     "label": [
         "state",
@@ -93,39 +95,20 @@ CONFIGURABLES_KWDS.update(
             "xlim1s": "xlim1s",
             "ylim1s": "ylim1s",
         },
-        "projection": {
-            "projection": "projection",
-            "central_lon": "central_longitude",
-        },
-        "clabel": {
-            "clabel": "text",
-        },
+        "projection": {"projection": "projection", "central_lon": "central_longitude"},
+        "clabel": {"clabel": "text"},
         "colorbar": {"colorbar": "show"},
-        "cticks": {
-            "cticks": "ticks",
-            "ctick_labels": "tick_labels",
-        },
-        "compute": {
-            "workers": "num_workers",
-            "scheduler": "scheduler",
-        },
-        "interpolate": {
-            "revert": "revert",
-            "frames": "frames",
-        },
+        "cticks": {"cticks": "ticks", "ctick_labels": "tick_labels"},
+        "compute": {"workers": "num_workers", "scheduler": "scheduler"},
+        "interpolate": {"revert": "revert", "frames": "frames"},
         "animate": {
             "fps": "fps",
             "fmt": "format",
             "loop": "loop",
+            "pygifsicle": "pygifsicle",
         },
-        "output": {
-            "save": "save",
-            "show": "show",
-        },
-        "margins": {
-            "xmargins": "x",
-            "ymargins": "y",
-        },
+        "output": {"save": "save", "show": "show"},
+        "margins": {"xmargins": "x", "ymargins": "y"},
     }
 )
 
@@ -177,14 +160,7 @@ VARS = {
 
 ITEMS = {
     "axes": ["x", "y", "c", "grid_c"],
-    "limit": [
-        "xlim0s",
-        "xlim1s",
-        "ylim0s",
-        "ylim1s",
-        "xlims",
-        "ylims",
-    ],
+    "limit": ["xlim0s", "xlim1s", "ylim0s", "ylim1s", "xlims", "ylims"],
     "label": ["xlabel", "ylabel", "title", "subtitle"],
     "base": [
         "inline",
@@ -293,11 +269,7 @@ DEFAULTS["ref_plot_kwds"]["axhspan"] = {"color": "darkgray", "alpha": 0.45}
 
 DEFAULTS["inline_kwds"] = DEFAULTS["label_kwds"].copy()
 DEFAULTS["inline_kwds"].update(
-    {
-        "color": "darkgray",
-        "textcoords": "offset points",
-        "fontsize": SIZES["small"],
-    }
+    {"color": "darkgray", "textcoords": "offset points", "fontsize": SIZES["small"]}
 )
 DEFAULTS["ref_inline_kwds"] = DEFAULTS["inline_kwds"].copy()
 DEFAULTS["grid_inline_kwds"] = DEFAULTS["inline_kwds"].copy()
@@ -347,11 +319,7 @@ DEFAULTS["caption_kwds"] = {
 }
 
 DEFAULTS["suptitle_kwds"] = DEFAULTS["label_kwds"].copy()
-DEFAULTS["suptitle_kwds"].update(
-    {
-        "fontsize": SIZES["large"],
-    }
-)
+DEFAULTS["suptitle_kwds"].update({"fontsize": SIZES["large"]})
 
 DEFAULTS["state_kwds"] = DEFAULTS["label_kwds"].copy()
 DEFAULTS["state_kwds"].update(
@@ -402,15 +370,16 @@ DEFAULTS["watermark_kwds"] = {
     "s": "animated using ahlive",
 }
 
-DEFAULTS["frame_kwds"] = {
-    "format": "jpg",
+DEFAULTS["savefig_kwds"] = {
+    "format": "png",
     "backend": "agg",
+    "facecolor": "white",
     "transparent": False,
 }
 
 DEFAULTS["compute_kwds"] = {"num_workers": 1, "scheduler": "single-threaded"}
 
-DEFAULTS["animate_kwds"] = {"mode": "I", "loop": 0}
+DEFAULTS["animate_kwds"] = {"mode": "I", "loop": 0, "pygifsicle": True}
 
 defaults = DEFAULTS.copy()
 
@@ -441,9 +410,7 @@ class Configuration(param.Parameterized):
 
     def _initial_config(self, attrs, configurable):
         for param_, method_key in CONFIGURABLES_KWDS[configurable].items():
-            self._set_config(
-                attrs, configurable, param_=param_, method_key=method_key
-            )
+            self._set_config(attrs, configurable, param_=param_, method_key=method_key)
         return attrs
 
     def _config_data(
@@ -527,9 +494,7 @@ class Configuration(param.Parameterized):
         else:
             return input_data
 
-    def config(
-        self, *configurables, rowcols=None, reset=False, **configurable_kwds
-    ):
+    def config(self, *configurables, rowcols=None, reset=False, **configurable_kwds):
         self_copy = deepcopy(self)
         data = self._config_data(
             self_copy.data,

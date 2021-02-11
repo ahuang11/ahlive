@@ -57,4 +57,4 @@ html_static_path = ["_static"]
 nbsphinx_allow_errors = True
 
 # Use this kernel instead of the one stored in the notebook metadata:
-nbsphinx_kernel_name = 'python3'
+nbsphinx_kernel_name = "python3"

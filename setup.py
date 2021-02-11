@@ -10,7 +10,7 @@ setup(
     packages=["ahlive"],
     include_package_data=True,
     install_requires=install_requires,
-    keywords=["ahlive", "xarray", "animation" "easing", "interp", "gif"],
+    keywords=["ahlive", "xarray", "animation", "easing", "interp", "gif"],
     use_scm_version={
         "version_scheme": "post-release",
         "local_scheme": "dirty-tag",
