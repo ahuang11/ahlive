@@ -56,7 +56,6 @@ def is_scalar(value):
 
 def is_subdtype(value, subdtype):
     if isinstance(subdtype, tuple):
-        print(subdtype)
         return any(is_subdtype(value, st) for st in subdtype)
 
     value = np.array(to_1d(value)).ravel()
