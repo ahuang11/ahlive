@@ -1,3 +1,5 @@
+from datetime import datetime, timedelta
+
 import numpy as np
 import pandas as pd
 import xarray as xr
@@ -56,24 +58,38 @@ def is_scalar(value):
 
 
 def is_subtype(value, subtype):
+    if isinstance(subtype, tuple):
+        return any(is_subtype(value, st) for st in subtype)
+
     value = np.array(to_1d(value)).ravel()
     return np.issubdtype(value.dtype, subtype)
 
 
 def is_datetime(value):
-    return is_subtype(value, np.datetime64)
+    return is_subtype(value, (np.datetime64, datetime)) and not is_str(value)
 
 
 def is_timedelta(value):
-    return is_subtype(value, np.timedelta64)
+    return is_subtype(value, (np.timedelta64, timedelta))
+
+
+def is_numeric(value):
+    date_time_delta = is_datetime(value) or is_timedelta(value)
+    if not date_time_delta:
+        if is_str(value):
+            return np.char.isnumeric(value.astype(str)).all()
+        else:
+            return is_subtype(value, np.number)
+    return False
 
 
 def is_str(value):
-    return (
+    is_obj = (
         is_subtype(value, np.string_)
         or is_subtype(value, np.unicode)
         or is_subtype(value, np.object)
     )
+    return is_obj and not is_subtype(value, np.number)
 
 
 def to_scalar(value, get=-1):

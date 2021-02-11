@@ -1,4 +1,4 @@
-name: ahlive installs
+name: Install
 
 on: pull_request_target
 

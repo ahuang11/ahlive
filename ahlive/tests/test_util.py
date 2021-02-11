@@ -4,6 +4,8 @@ import numpy as np
 import pandas as pd
 import xarray as xr
 
+from ahlive.util import is_datetime
+
 
 def assert_types(ah_obj):
     """assert types are expected"""
@@ -30,6 +32,12 @@ def assert_values(ds, var_dict):
         if actual.shape != expect.shape:
             actual = np.unique(actual)
             expect = np.unique(expect)
+
+        if not is_datetime(expect):
+            try:
+                expect = expect.astype(float)
+            except ValueError:
+                pass
 
         try:
             assert np.allclose(actual, expect, equal_nan=True)
