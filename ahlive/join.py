@@ -53,7 +53,8 @@ def cascade(objs, quick=False):
                     if rowcol in array.data
                 ],
             ).map(
-                fillna, keep_attrs=True,
+                fillna,
+                keep_attrs=True,
             )
             for rowcol in rowcols
         }

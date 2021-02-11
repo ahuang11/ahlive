@@ -134,7 +134,10 @@ PRESETS = {
 PRESETS["all"] = PRESETS["scatter"] + PRESETS["bar"] + PRESETS["pcolormesh"]
 
 DIMS = {
-    "basic": ("item", "state",),
+    "basic": (
+        "item",
+        "state",
+    ),
     "grid": ("grid_item", "state", "grid_y", "grid_x"),
     "ref": ("ref_item", "state"),
     "item": ("grid_item", "item", "ref_item"),

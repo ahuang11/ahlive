@@ -28,13 +28,17 @@ REVERTS = ["boomerang", "traceback", "rollback"]
 class Easing(param.Parameterized):
 
     interp = param.ClassSelector(
-        default=None, class_=Iterable, doc=f"Interpolation method; {INTERPS}",
+        default=None,
+        class_=Iterable,
+        doc=f"Interpolation method; {INTERPS}",
     )
     ease = param.ClassSelector(
         default="in_out", class_=Iterable, doc=f"Type of easing; {EASES}"
     )
     frames = param.Integer(
-        default=None, bounds=(1, None), doc="Number of frames between each base state",
+        default=None,
+        bounds=(1, None),
+        doc="Number of frames between each base state",
     )
     revert = param.ObjectSelector(
         default=None,
@@ -119,14 +123,28 @@ class Easing(param.Parameterized):
         elif np.issubdtype(array.dtype, np.datetime64):
             array = array.astype(float)
             result = self._interp(
-                array, steps, interp, ease, num_states, num_steps, num_items, new_shape,
+                array,
+                steps,
+                interp,
+                ease,
+                num_states,
+                num_steps,
+                num_items,
+                new_shape,
             )
             result = pd.to_datetime(result.ravel()).values
             result = result.reshape(new_shape)
         elif np.issubdtype(array.dtype, np.timedelta64):
             array = array.astype(float)
             result = self._interp(
-                array, steps, interp, ease, num_states, num_steps, num_items, new_shape,
+                array,
+                steps,
+                interp,
+                ease,
+                num_states,
+                num_steps,
+                num_items,
+                new_shape,
             )
             result = pd.to_timedelta(result.ravel()).values
             result = result.reshape(new_shape)
@@ -134,7 +152,14 @@ class Easing(param.Parameterized):
             if name == "central_longitude":
                 interp = "linear"
             result = self._interp(
-                array, steps, interp, ease, num_states, num_steps, num_items, new_shape,
+                array,
+                steps,
+                interp,
+                ease,
+                num_states,
+                num_steps,
+                num_items,
+                new_shape,
             )
         elif name in ["c", "color"]:
             results = []
@@ -167,7 +192,11 @@ class Easing(param.Parameterized):
             if len(da.dims) == 1:
                 result = result.squeeze()
             da_result = xr.DataArray(
-                result, dims=da.dims, coords=coords, name=da.name, attrs=da.attrs,
+                result,
+                dims=da.dims,
+                coords=coords,
+                name=da.name,
+                attrs=da.attrs,
             )
             if "stacked" in da_result.dims:
                 da_result = da_result.unstack()
@@ -179,14 +208,23 @@ class Easing(param.Parameterized):
         indices = np.arange(num_states * num_steps - num_steps)
         return (
             pd.DataFrame(
-                array, columns=np.arange(0, num_states * num_steps, num_steps),
+                array,
+                columns=np.arange(0, num_states * num_steps, num_steps),
             )
             .T.reindex(indices)
             .T
         )
 
     def _interp(
-        self, array, steps, interp, ease, num_states, num_steps, num_items, new_shape,
+        self,
+        array,
+        steps,
+        interp,
+        ease,
+        num_states,
+        num_steps,
+        num_items,
+        new_shape,
     ):
         init = np.repeat(array[:, :-1], num_steps, axis=1)
         init_nans = np.isnan(init)

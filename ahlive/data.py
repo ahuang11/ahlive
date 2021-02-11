@@ -57,7 +57,8 @@ class Data(Easing, Animation, Configuration):
         class_=(Iterable,), doc="Dynamic label per state (bottom right)"
     )
     inline_labels = param.ClassSelector(
-        class_=(Iterable,), doc="Dynamic label per item per state (item location)",
+        class_=(Iterable,),
+        doc="Dynamic label per item per state (item location)",
     )
 
     xmargins = param.Number(doc="Margins on the x-axis; ranges from 0-1")
@@ -65,16 +66,20 @@ class Data(Easing, Animation, Configuration):
     xlims = param.ClassSelector(class_=Iterable, doc="Limits for the x-axis")
     ylims = param.ClassSelector(class_=Iterable, doc="Limits for the y-axis")
     xlim0s = param.ClassSelector(
-        class_=(Iterable, int, float), doc="Limits for the left bounds of the x-axis",
+        class_=(Iterable, int, float),
+        doc="Limits for the left bounds of the x-axis",
     )
     xlim1s = param.ClassSelector(
-        class_=(Iterable, int, float), doc="Limits for the right bounds of the x-axis",
+        class_=(Iterable, int, float),
+        doc="Limits for the right bounds of the x-axis",
     )
     ylim0s = param.ClassSelector(
-        class_=(Iterable, int, float), doc="Limits for the bottom bounds of the y-axis",
+        class_=(Iterable, int, float),
+        doc="Limits for the bottom bounds of the y-axis",
     )
     ylim1s = param.ClassSelector(
-        class_=(Iterable, int, float), doc="Limits for the top bounds of the y-axis",
+        class_=(Iterable, int, float),
+        doc="Limits for the top bounds of the y-axis",
     )
     hooks = param.HookList(
         doc="List of customization functions to apply; "
@@ -1352,7 +1357,8 @@ class RemarkArray(param.Parameterized):
                 (
                     da.where(
                         xr.DataArray(
-                            np.isclose(da, value, rtol=rtol, atol=atol), dims=da.dims,
+                            np.isclose(da, value, rtol=rtol, atol=atol),
+                            dims=da.dims,
                         )
                     )
                     for value in to_1d(values)
@@ -1445,7 +1451,9 @@ class RemarkArray(param.Parameterized):
                     ds["duration"] = (
                         "state",
                         self._adapt_input(
-                            np.zeros_like(ds["state"]), len(ds["state"]), reshape=False,
+                            np.zeros_like(ds["state"]),
+                            len(ds["state"]),
+                            reshape=False,
                         ),
                     )
                 ds["duration"] = xr.where(condition, durations, ds["duration"])
@@ -1537,7 +1545,12 @@ class Array2D(GeographicData, ReferenceArray, ColorArray, RemarkArray):
         ys = np.array(ys)
         cs = np.array(cs)
         ds = ds.assign_coords({"x": xs, "y": ys}).assign(
-            {"c": (DIMS["grid"], self._adapt_input(cs, num_states, shape=shape),)}
+            {
+                "c": (
+                    DIMS["grid"],
+                    self._adapt_input(cs, num_states, shape=shape),
+                )
+            }
         )
 
         if self.inline_labels is not None:

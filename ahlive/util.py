@@ -17,7 +17,10 @@ def to_1d(value, unique=False, flat=True):
 def to_pydt(*values):
     if values is None:
         return
-    array = to_1d(values, flat=False,)
+    array = to_1d(
+        values,
+        flat=False,
+    )
     if np.issubdtype(array.dtype, np.datetime64):
         array = array.astype("M8[ms]").astype("O")
     if np.size(array) == 1:
