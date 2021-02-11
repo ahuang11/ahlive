@@ -71,22 +71,11 @@ def test_propagate_params(
     y = [2, 3]
     args = x, y
     a = ah.Array(
-        *args,
-        **canvas1_params,
-        **subplot1_params,
-        **geo1_params,
-        **label1_params,
+        *args, **canvas1_params, **subplot1_params, **geo1_params, **label1_params,
     )
-    b = ah.Reference(
-        *args,
-        **canvas2_params,
-    )
+    b = ah.Reference(*args, **canvas2_params,)
     c = ah.Array(
-        *args,
-        **canvas2_params,
-        **subplot2_params,
-        **geo2_params,
-        **label2_params,
+        *args, **canvas2_params, **subplot2_params, **geo2_params, **label2_params,
     )
     ah_objs = [a, b, c]
 

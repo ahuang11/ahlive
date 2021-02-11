@@ -70,25 +70,12 @@ class TutorialData(param.Parameterized):
         if raw:
             return df
         df = df.drop(
-            [
-                "UID",
-                "iso2",
-                "iso3",
-                "code3",
-                "FIPS",
-                "Admin2",
-                "Country_Region",
-            ],
+            ["UID", "iso2", "iso3", "code3", "FIPS", "Admin2", "Country_Region",],
             axis=1,
         )
         df.columns = df.columns.str.lower().str.rstrip("_")
         df = df.melt(
-            id_vars=[
-                "lat",
-                "long",
-                "combined_key",
-                "province_state",
-            ],
+            id_vars=["lat", "long", "combined_key", "province_state",],
             var_name="date",
             value_name="cases",
         )
@@ -108,12 +95,7 @@ class TutorialData(param.Parameterized):
             return df
         df.columns = df.columns.str.lower().str.rstrip("_")
         df = df.melt(
-            id_vars=[
-                "province/state",
-                "country/region",
-                "lat",
-                "long",
-            ],
+            id_vars=["province/state", "country/region", "lat", "long",],
             var_name="date",
             value_name="cases",
         )

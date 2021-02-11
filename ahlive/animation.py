@@ -48,10 +48,7 @@ class Animation(param.Parameterized):
     figsize = param.NumericTuple(
         default=None, length=2, doc="Figure's size as width and height"
     )
-    spacing = param.Dict(
-        default=None,
-        doc=f"Subplot spacing; {OPTIONS['spacing']}",
-    )
+    spacing = param.Dict(default=None, doc=f"Subplot spacing; {OPTIONS['spacing']}",)
     suptitle = param.String(
         allow_None=True, doc="Figure's super title (outer top center)"
     )
@@ -95,7 +92,7 @@ class Animation(param.Parameterized):
     )
     durations = param.ClassSelector(
         class_=(Iterable, int, float),
-        doc="Seconds to delay per state; " "Iterables must match number of states",
+        doc="Seconds to delay per state; Iterables must match number of states",
     )
     pygifsicle = param.Boolean(
         default=None,
@@ -105,7 +102,7 @@ class Animation(param.Parameterized):
 
     debug = param.Boolean(
         default=False,
-        doc="Show additional debugging info and set " "scheduler to single-threaded",
+        doc="Show additional debugging info and set scheduler to single-threaded",
     )
 
     _canvas_kwds = None
@@ -338,15 +335,7 @@ class Animation(param.Parameterized):
             ax.plot(x_trails, y_trails, color=color, **line_preset_kwds)
 
     def _plot_deltas(
-        self,
-        overlay_ds,
-        ax,
-        chart,
-        x_centers,
-        y_centers,
-        deltas,
-        delta_labels,
-        color,
+        self, overlay_ds, ax, chart, x_centers, y_centers, deltas, delta_labels, color,
     ):
         if deltas is None:
             return
@@ -469,10 +458,7 @@ class Animation(param.Parameterized):
                 continue
             remark = to_num(remark)
             remark_inline_kwds = dict(
-                text=remark,
-                xy=(x, y),
-                color=color,
-                path_effects=self._path_effects,
+                text=remark, xy=(x, y), color=color, path_effects=self._path_effects,
             )
             remark_inline_kwds = load_defaults(
                 "remark_inline_kwds", state_ds, **remark_inline_kwds
@@ -526,11 +512,7 @@ class Animation(param.Parameterized):
             ha = "center"
 
         inline_kwds = dict(
-            ha=ha,
-            va=va,
-            color=color,
-            xytext=xytext,
-            path_effects=self._path_effects,
+            ha=ha, va=va, color=color, xytext=xytext, path_effects=self._path_effects,
         )
         if clip:
             inline_kwds["annotation_clip"] = True
@@ -965,11 +947,7 @@ class Animation(param.Parameterized):
                 {var: pop(overlay_ds, var, get=0) for var in list(overlay_ds.data_vars)}
             )
             plot_kwds = load_defaults(
-                "ref_plot_kwds",
-                overlay_ds,
-                base_chart=chart,
-                label=label,
-                **plot_kwds,
+                "ref_plot_kwds", overlay_ds, base_chart=chart, label=label, **plot_kwds,
             )
 
             color = self._plot_ref_chart(
@@ -1295,11 +1273,7 @@ class Animation(param.Parameterized):
         if "spacing" in spacing_kwds:
             spacing_kwds.update(**spacing_kwds.pop("spacing"))
         spacing_kwds = load_defaults(
-            "spacing_kwds",
-            spacing_kwds,
-            top=top,
-            bottom=bottom,
-            wspace=wspace,
+            "spacing_kwds", spacing_kwds, top=top, bottom=bottom, wspace=wspace,
         )
         plt.subplots_adjust(**spacing_kwds)
 
@@ -1370,9 +1344,7 @@ class Animation(param.Parameterized):
 
         scheduler = "single-threaded" if self.debug else None
         compute_kwds = load_defaults(
-            "compute_kwds",
-            self._canvas_kwds["compute_kwds"],
-            scheduler=scheduler,
+            "compute_kwds", self._canvas_kwds["compute_kwds"], scheduler=scheduler,
         )
         num_workers = compute_kwds["num_workers"]
         if num_states < num_workers:
@@ -1424,9 +1396,7 @@ class Animation(param.Parameterized):
 
         animate_kwds = dict(format=fmt, subrectangles=True, **delays_kwds)
         animate_kwds = load_defaults(
-            "animate_kwds",
-            self._canvas_kwds["animate_kwds"],
-            **animate_kwds,
+            "animate_kwds", self._canvas_kwds["animate_kwds"], **animate_kwds,
         )
 
         loop = animate_kwds.pop("loop")
@@ -1501,7 +1471,7 @@ class Animation(param.Parameterized):
                     optimize(out_obj)
                 except ImportError:
                     warnings.warn(
-                        "pip install pygifsicle to reduce " "size of output gif!"
+                        "pip install pygifsicle to reduce size of output gif!"
                     )
         elif save is not None:
             file_dir = file
@@ -1572,8 +1542,7 @@ class Animation(param.Parameterized):
         # unrecognized durations keyword if not popped
         if "duration" in ds.data_vars:
             durations = xr.concat(
-                (pop(ds, "duration", to_numpy=False) for ds in data.values()),
-                "item",
+                (pop(ds, "duration", to_numpy=False) for ds in data.values()), "item",
             )
         if self._canvas_kwds["animate_kwds"].get("fps") is not None:
             durations = None

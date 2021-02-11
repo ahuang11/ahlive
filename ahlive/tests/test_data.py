@@ -86,8 +86,7 @@ def test_ah_dataframe(x, y, label, join):
         if num_labels > 1 and join == "cascade":
             for i in range(num_labels):
                 assert_values(
-                    ds.isel(item=i),
-                    {key: val[i] for key, val in var_dict.items()},
+                    ds.isel(item=i), {key: val[i] for key, val in var_dict.items()},
                 )
         else:
             assert_values(ds, var_dict)
@@ -590,9 +589,7 @@ def test_precompute_base_labels_numeric():
 
 def test_precompute_base_labels_datetime():
     ah_obj = ah.Array(
-        [1, 2, 3],
-        [5, 6, 7],
-        state_labels=pd.date_range("2021-01-01", "2021-01-03"),
+        [1, 2, 3], [5, 6, 7], state_labels=pd.date_range("2021-01-01", "2021-01-03"),
     ).finalize()
     attrs = ah_obj.attrs
     float(attrs["base_kwds"]["state"]) == 86400000000000
