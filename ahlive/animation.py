@@ -28,7 +28,7 @@ from .configuration import (
     defaults,
     load_defaults,
 )
-from .util import is_datetime, is_scalar, pop, srange, to_1d, to_num, to_pydt, to_scalar
+from .util import is_datetime, is_timedelta, is_scalar, pop, srange, to_1d, to_num, to_pydt, to_scalar
 
 
 class Animation(param.Parameterized):
@@ -110,7 +110,6 @@ class Animation(param.Parameterized):
     def _get_base_format(num):
         num = to_scalar(num)
 
-        is_timedelta = isinstance(num, np.timedelta64)
         num = to_num(num)
         if isinstance(num, str):
             return "s"

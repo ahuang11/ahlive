@@ -18,7 +18,7 @@ from ahlive.tests.test_configuration import (  # noqa: F401
     REF_X1S,
     REF_Y0S,
     REF_Y1S,
-    TYPES,
+    CONTAINERS,
     XS,
     YS,
     ah_array1,
@@ -28,12 +28,12 @@ from ahlive.tests.test_util import assert_attrs, assert_types, assert_values
 from ahlive.util import is_scalar
 
 
-@pytest.mark.parametrize("type_", TYPES)
+@pytest.mark.parametrize("container", CONTAINERS)
 @pytest.mark.parametrize("x", XS)
 @pytest.mark.parametrize("y", YS)
-def test_ah_array(type_, x, y):
-    x_iterable = type_(x) if isinstance(x, list) else x
-    y_iterable = type_(y) if isinstance(y, list) else y
+def test_ah_array(container, x, y):
+    x_iterable = container(x) if isinstance(x, list) else x
+    y_iterable = container(y) if isinstance(y, list) else y
     ah_array = ah.Array(x_iterable, y_iterable, s=y_iterable, label="test", frames=2)
     assert_types(ah_array)
 
@@ -155,14 +155,14 @@ def test_ah_dataset(grid_x, grid_y, grid_c, grid_label, join):
     ah_dataset.finalize()
 
 
-@pytest.mark.parametrize("type_", TYPES)
+@pytest.mark.parametrize("container", CONTAINERS)
 @pytest.mark.parametrize("ref_x0", REF_X0S)
 @pytest.mark.parametrize("ref_x1", REF_X1S)
 @pytest.mark.parametrize("ref_y0", REF_Y0S)
 @pytest.mark.parametrize("ref_y1", REF_Y1S)
-def test_ah_reference(type_, ref_x0, ref_x1, ref_y0, ref_y1):
+def test_ah_reference(container, ref_x0, ref_x1, ref_y0, ref_y1):
     refs = [ref_x0, ref_x1, ref_y0, ref_y1]
-    iterables = [type_(ref) if isinstance(ref, list) else ref for ref in refs]
+    iterables = [container(ref) if isinstance(ref, list) else ref for ref in refs]
     if all(ref is None for ref in iterables):
         pytest.skip()
     elif ref_x0 is None and ref_x1 is not None:

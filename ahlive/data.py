@@ -609,25 +609,29 @@ class Data(Easing, Animation, Configuration):
                             continue
                     item_dim = "ref_item"
 
+                da = ds[var]
+                if is_datetime(da) or is_timedelta(da):
+                    da = fillna(da, how='both')
+
                 if limit == "zero":
                     limit = 0
                 elif limit == "fixed":
                     # fixed bounds, da.min()
                     stat = "min" if is_lower_limit else "max"
-                    limit = getattr(ds[var], stat)().values
+                    limit = getattr(da, stat)().values
                 elif limit == "explore":
                     stat = "min" if is_lower_limit else "max"
                     # explore bounds, pd.Series(da.min('item')).cummin()
-                    if is_str(ds[var]) or item_dim == "grid_item":
+                    if is_str(da) or item_dim == "grid_item":
                         continue
                     limit = getattr(
-                        pd.Series(getattr(ds[var].ffill(item_dim), stat)(item_dim)),
+                        pd.Series(getattr(da.ffill(item_dim), stat)(item_dim)),
                         f"cum{stat}",
                     )().values
                 elif limit == "follow":
                     # follow latest state, da.min('item')
                     stat = "min" if is_lower_limit else "max"
-                    limit = getattr(ds[var], stat)(item_dim).values
+                    limit = getattr(da, stat)(item_dim).values
 
                 if limit is not None and margin != 0:
                     offset = self._compute_limit_offset(limit, margin)
