@@ -28,7 +28,17 @@ from .configuration import (
     defaults,
     load_defaults,
 )
-from .util import is_datetime, is_timedelta, is_scalar, pop, srange, to_1d, to_num, to_pydt, to_scalar
+from .util import (
+    is_datetime,
+    is_scalar,
+    is_timedelta,
+    pop,
+    srange,
+    to_1d,
+    to_num,
+    to_pydt,
+    to_scalar,
+)
 
 
 class Animation(param.Parameterized):

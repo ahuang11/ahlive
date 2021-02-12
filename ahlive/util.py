@@ -3,12 +3,11 @@ from datetime import datetime, timedelta
 import numpy as np
 import pandas as pd
 import xarray as xr
-
 from pandas.api.types import (
     is_datetime64_any_dtype,
-    is_timedelta64_dtype,
     is_numeric_dtype,
     is_string_dtype,
+    is_timedelta64_dtype,
 )
 
 
@@ -140,7 +139,7 @@ def transpose(da, dims=None):
 def _fillna(da, how, dim="state"):
     kwds = {}
     if dim in da:
-        kwds['axis'] = dim
+        kwds["axis"] = dim
 
     if how == "both":
         da = da.bfill(**kwds).ffill(**kwds)
@@ -163,8 +162,7 @@ def fillna(da, how="ffill", dim="state"):
         else:
             da = xr.concat(
                 (
-                    _fillna(
-                        da.sel(item=item).to_series(), how, dim=dim).to_xarray()
+                    _fillna(da.sel(item=item).to_series(), how, dim=dim).to_xarray()
                     for item in da["item"]
                 ),
                 "item",

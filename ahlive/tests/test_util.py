@@ -1,12 +1,12 @@
 from datetime import datetime
 
-import pytest
 import numpy as np
 import pandas as pd
+import pytest
 import xarray as xr
 
 from ahlive import util
-from ahlive.tests.test_configuration import TYPES, TYPES_GROUPS, CONTAINERS
+from ahlive.tests.test_configuration import CONTAINERS, TYPES, TYPES_GROUPS
 
 
 def assert_types(ah_obj):
@@ -54,11 +54,11 @@ def assert_attrs(ds, configurables):
             assert f"{key}_kwds" in ds.attrs
 
 
-@pytest.mark.parametrize('container', CONTAINERS)
+@pytest.mark.parametrize("container", CONTAINERS)
 @pytest.mark.parametrize("group", TYPES_GROUPS)
 def test_is_dtype(container, group):
     types = TYPES_GROUPS[group]
-    is_func = getattr(util, f'is_{group}')
+    is_func = getattr(util, f"is_{group}")
     for type_ in types:
         scalar = TYPES[type_]
         assert is_func(scalar)

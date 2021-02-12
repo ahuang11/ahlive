@@ -8,6 +8,7 @@ import xarray as xr
 import ahlive as ah
 from ahlive.configuration import CONFIGURABLES, ITEMS, OPTIONS
 from ahlive.tests.test_configuration import (  # noqa: F401
+    CONTAINERS,
     DIRECTIONS,
     GRID_CS,
     GRID_LABELS,
@@ -18,7 +19,6 @@ from ahlive.tests.test_configuration import (  # noqa: F401
     REF_X1S,
     REF_Y0S,
     REF_Y1S,
-    CONTAINERS,
     XS,
     YS,
     ah_array1,

@@ -611,7 +611,7 @@ class Data(Easing, Animation, Configuration):
 
                 da = ds[var]
                 if is_datetime(da) or is_timedelta(da):
-                    da = fillna(da, how='both')
+                    da = fillna(da, how="both")
 
                 if limit == "zero":
                     limit = 0

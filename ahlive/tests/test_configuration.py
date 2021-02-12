@@ -1,8 +1,8 @@
 from datetime import datetime, timedelta
 
-import pytest
 import numpy as np
 import pandas as pd
+import pytest
 import xarray as xr
 
 import ahlive as ah
@@ -75,28 +75,25 @@ JOINS = ["overlay", "cascade", "layout"]
 
 TYPES = {
     # numeric
-    'int': 0,
-    'float': 0.,
-    'nan': np.nan,
-    'inf': np.inf,
-
-    'str': 'a',
-    'str_int': '0',
-    'str_float': '0.',
-
-    'pydatetime': datetime(2021, 1, 1),
-    'datetime64': np.datetime64('2021'),
-    'pdtimestamp': pd.Timestamp('2021'),
-
-    'pytimedelta': timedelta(0),
-    'timedelta64': np.timedelta64(0),
-    'pdtimedelta': pd.Timedelta(0)
+    "int": 0,
+    "float": 0.0,
+    "nan": np.nan,
+    "inf": np.inf,
+    "str": "a",
+    "str_int": "0",
+    "str_float": "0.",
+    "pydatetime": datetime(2021, 1, 1),
+    "datetime64": np.datetime64("2021"),
+    "pdtimestamp": pd.Timestamp("2021"),
+    "pytimedelta": timedelta(0),
+    "timedelta64": np.timedelta64(0),
+    "pdtimedelta": pd.Timedelta(0),
 }
 TYPES_GROUPS = {
-    'numeric': ['int', 'float', 'nan', 'inf'],
-    'str': ['str', 'str_int', 'str_float'],
-    'datetime': ['pydatetime', 'datetime64', 'pdtimestamp'],
-    'timedelta': ['pytimedelta', 'timedelta64', 'pdtimedelta']
+    "numeric": ["int", "float", "nan", "inf"],
+    "str": ["str", "str_int", "str_float"],
+    "datetime": ["pydatetime", "datetime64", "pdtimestamp"],
+    "timedelta": ["pytimedelta", "timedelta64", "pdtimedelta"],
 }
 
 
