@@ -76,6 +76,10 @@ class Animation(param.Parameterized):
         objects=OPTIONS["scheduler"],
         doc=f"Type of workers; {OPTIONS['scheduler']}",
     )
+    progress = Param.Boolean(
+        default=None,
+        doc="Show progress bar",
+    )
 
     # animate kwds
     animate = param.ClassSelector(
@@ -1395,10 +1399,14 @@ class Animation(param.Parameterized):
                 warnings.warn("Found multiple workers; setting scheduler='processes'")
             compute_kwds["scheduler"] = "processes"
 
-        with dask.diagnostics.ProgressBar(minimum=1):
-            buf_list = [
-                buf for buf in dask.compute(jobs, **compute_kwds)[0] if buf is not None
-            ]
+        progress = compute_kwds["progress"]
+        if progress:
+            with dask.diagnostics.ProgressBar(minimum=1):
+                buf_list = dask.compute(jobs, **compute_kwds)[0]
+        else:
+            buf_list = dask.compute(jobs, **compute_kwds)[0]
+
+        buf_list = [buf for buf in buf_list if buf is not None]
         return buf_list
 
     def _write_rendered(self, buf_list, durations):
