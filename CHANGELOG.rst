@@ -6,6 +6,12 @@ Changelog
 v0.0.2 (?)
 ----------
 
+enhancements
+~~~~~~~~~~~~
+
+- `save` now accepts pathlib.Path. (:pull:29`).
+  By `Andrew Huang <https://github.com/ahuang11>`_
+
 internal changes
 ~~~~~~~~~~~~~~~~
 
