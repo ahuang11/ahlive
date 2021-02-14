@@ -124,7 +124,7 @@ class Animation(param.Parameterized):
         if isinstance(num, str):
             return "s"
 
-        if is_timedelta:
+        if is_timedelta(num):
             num = num / 1e9  # nanoseconds to seconds
             if num < 1:  # 1 second
                 return "%S.%f"
@@ -178,6 +178,7 @@ class Animation(param.Parameterized):
         if base is not None and format_ == "auto":
             try:
                 format_ = self._get_base_format(base)
+                print(format_)
             except TypeError:
                 pass
 
