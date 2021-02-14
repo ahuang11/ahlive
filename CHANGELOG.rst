@@ -39,6 +39,8 @@ documentation
   By `Andrew Huang <https://github.com/ahuang11>`_.
 - Fixed external links to GitHub (:pull:`27`).
   By `Andrew Huang <https://github.com/ahuang11>`_.
+- Added group labels documentation (:pull:`32`).
+  By `Andrew Huang <https://github.com/ahuang11>`_.
 
 
 v0.0.1 (10 February 2020)

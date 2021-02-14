@@ -45,9 +45,7 @@ from .util import (
 class Animation(param.Parameterized):
 
     save = param.ClassSelector(
-        default=None,
-        class_=(str, pathlib.Path),
-        doc="Output file path"
+        default=None, class_=(str, pathlib.Path), doc="Output file path"
     )
     show = param.Boolean(default=None, doc="Whether to show in Jupyter")
 
@@ -76,7 +74,7 @@ class Animation(param.Parameterized):
         objects=OPTIONS["scheduler"],
         doc=f"Type of workers; {OPTIONS['scheduler']}",
     )
-    progress = Param.Boolean(
+    progress = param.Boolean(
         default=None,
         doc="Show progress bar",
     )
@@ -1594,7 +1592,7 @@ class Animation(param.Parameterized):
 
         out_obj, ext = self._write_rendered(buf_list, durations)
 
-        if self.show and (stitch or static):
+        if stitch or static:
             out_obj = self._show_output(out_obj, ext)
 
         if os.path.exists(self._temp_file):

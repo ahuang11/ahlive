@@ -99,7 +99,11 @@ CONFIGURABLES_KWDS.update(
         "clabel": {"clabel": "text"},
         "colorbar": {"colorbar": "show"},
         "cticks": {"cticks": "ticks", "ctick_labels": "tick_labels"},
-        "compute": {"workers": "num_workers", "scheduler": "scheduler", "progress": "progress"},
+        "compute": {
+            "workers": "num_workers",
+            "scheduler": "scheduler",
+            "progress": "progress",
+        },
         "interpolate": {"revert": "revert", "frames": "frames"},
         "animate": {
             "fps": "fps",
@@ -378,7 +382,10 @@ DEFAULTS["savefig_kwds"] = {
 }
 
 DEFAULTS["compute_kwds"] = {
-    "num_workers": 1, "scheduler": "single-threaded", "progress": True}
+    "num_workers": 1,
+    "scheduler": "single-threaded",
+    "progress": True,
+}
 
 DEFAULTS["animate_kwds"] = {"mode": "I", "loop": 0, "pygifsicle": True}
 
