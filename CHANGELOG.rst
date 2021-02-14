@@ -16,4 +16,4 @@ documentation
 v0.0.1 (10 February 2020)
 -------------------------
 
-Initial release!
+- Initial release!

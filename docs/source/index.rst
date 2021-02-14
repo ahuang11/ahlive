@@ -48,5 +48,8 @@
    :maxdepth: 1
    :caption: REFERENCE
 
-   contributing
+   * :doc:`changelog`
+   * :doc:`release`
+
    changelog
+   release

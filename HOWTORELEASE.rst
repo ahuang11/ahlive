@@ -5,13 +5,13 @@ Release Procedure
 
 Every pull request should be documented under one of these categories.
 
-- breaking changes
-- deprecations
-- new features
-- enhancements
-- documentation
-- internal changes
-- bug fixes
+    - breaking changes
+    - deprecations
+    - new features
+    - enhancements
+    - documentation
+    - internal changes
+    - bug fixes
 
 #. Tag a release and push to github::
 
