@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timedelta
 
 import numpy as np
 import pandas as pd
@@ -7,7 +7,7 @@ import xarray as xr
 
 import ahlive as ah
 
-TYPES = [list, tuple, np.array, pd.Series, xr.DataArray]
+CONTAINERS = [list, tuple, np.array, pd.Series, xr.DataArray]
 
 XS = []
 XS.append(0)
@@ -72,6 +72,29 @@ REF_Y1S.append([1, 2, 3])
 
 DIRECTIONS = ["forward", "backward"]
 JOINS = ["overlay", "cascade", "layout"]
+
+TYPES = {
+    # numeric
+    "int": 0,
+    "float": 0.0,
+    "nan": np.nan,
+    "inf": np.inf,
+    "str": "a",
+    "str_int": "0",
+    "str_float": "0.",
+    "pydatetime": datetime(2021, 1, 1),
+    "datetime64": np.datetime64("2021"),
+    "pdtimestamp": pd.Timestamp("2021"),
+    "pytimedelta": timedelta(0),
+    "timedelta64": np.timedelta64(0),
+    "pdtimedelta": pd.Timedelta(0),
+}
+TYPES_GROUPS = {
+    "numeric": ["int", "float", "nan", "inf"],
+    "str": ["str", "str_int", "str_float"],
+    "datetime": ["pydatetime", "datetime64", "pdtimestamp"],
+    "timedelta": ["pytimedelta", "timedelta64", "pdtimedelta"],
+}
 
 
 @pytest.fixture

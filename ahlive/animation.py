@@ -28,7 +28,17 @@ from .configuration import (
     defaults,
     load_defaults,
 )
-from .util import is_datetime, is_scalar, pop, srange, to_1d, to_num, to_pydt, to_scalar
+from .util import (
+    is_datetime,
+    is_scalar,
+    is_timedelta,
+    pop,
+    srange,
+    to_1d,
+    to_num,
+    to_pydt,
+    to_scalar,
+)
 
 
 class Animation(param.Parameterized):
@@ -110,12 +120,11 @@ class Animation(param.Parameterized):
     def _get_base_format(num):
         num = to_scalar(num)
 
-        is_timedelta = isinstance(num, np.timedelta64)
         num = to_num(num)
         if isinstance(num, str):
             return "s"
 
-        if is_timedelta:
+        if is_timedelta(num):
             num = num / 1e9  # nanoseconds to seconds
             if num < 1:  # 1 second
                 return "%S.%f"
@@ -169,6 +178,7 @@ class Animation(param.Parameterized):
         if base is not None and format_ == "auto":
             try:
                 format_ = self._get_base_format(base)
+                print(format_)
             except TypeError:
                 pass
 
