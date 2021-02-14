@@ -6,6 +6,12 @@ Changelog
 v0.0.2 (?)
 ----------
 
+bug fixes
+~~~~~~~~~
+
+- Replaced internal `util.is_subdtype` with `pandas.api.types` to make type checking more robust across numpy versions (:pull:`25`).
+
+
 documentation
 ~~~~~~~~~~~~~
 
