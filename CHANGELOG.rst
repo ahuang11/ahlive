@@ -6,6 +6,12 @@ Changelog
 v0.0.2 (?)
 ----------
 
+internal changes
+~~~~~~~~~~~~~~~~
+
+- Default of `show` replaced from `True` to `None` for non-IPython users. (:pull:28`).
+  By `Andrew Huang <https://github.com/ahuang11>`_
+
 bug fixes
 ~~~~~~~~~
 
