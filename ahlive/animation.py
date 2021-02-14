@@ -1,5 +1,6 @@
 import base64
 import os
+import pathlib
 import warnings
 from collections import defaultdict
 from collections.abc import Iterable
@@ -43,7 +44,11 @@ from .util import (
 
 class Animation(param.Parameterized):
 
-    save = param.String(default=None, doc="Output file path")
+    save = param.ClassSelector(
+        default=None,
+        class_=(str, pathlib.Path),
+        doc="Output file path"
+    )
     show = param.Boolean(default=None, doc="Whether to show in Jupyter")
 
     figsize = param.NumericTuple(
