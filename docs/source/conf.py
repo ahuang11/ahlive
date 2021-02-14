@@ -34,7 +34,7 @@ extensions = ["nbsphinx", "sphinx.ext.extlinks"]
 
 extlinks = {
     "issue": ("https://github.com/pangeo-data/climpred/issues/%s", "GH#"),
-    "pr": ("https://github.com/pangeo-data/climpred/pull/%s", "GH#"),
+    "pull": ("https://github.com/pangeo-data/climpred/pull/%s", "GH#"),
 }
 
 # Add any paths that contain templates here, relative to this directory.
