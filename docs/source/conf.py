@@ -30,7 +30,12 @@ release = "0.0.1"
 # Add any Sphinx extension module names here, as strings. They can be
 # extensions coming with Sphinx (named 'sphinx.ext.*') or your custom
 # ones.
-extensions = ["nbsphinx"]
+extensions = ["nbsphinx", "sphinx.ext.extlinks"]
+
+extlinks = {
+    "issue": ("https://github.com/pangeo-data/climpred/issues/%s", "GH#"),
+    "pull": ("https://github.com/pangeo-data/climpred/pull/%s", "GH#"),
+}
 
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ["_templates"]
