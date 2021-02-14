@@ -6,16 +6,22 @@ Changelog
 v0.0.2 (?)
 ----------
 
+new features
+~~~~~~~~~~~~
+
+- `progress` is added to allow ability to toggle showing of progress bar. (:pull:`30`)
+  By `Andrew Huang <https://github.com/ahuang11>`_
+
 enhancements
 ~~~~~~~~~~~~
 
-- `save` now accepts pathlib.Path. (:pull:29`).
+- `save` now accepts pathlib.Path. (:pull:`29`).
   By `Andrew Huang <https://github.com/ahuang11>`_
 
 internal changes
 ~~~~~~~~~~~~~~~~
 
-- Default of `show` replaced from `True` to `None` for non-IPython users. (:pull:28`).
+- Default of `show` replaced from `True` to `None` for non-IPython users. (:pull:`28`).
   By `Andrew Huang <https://github.com/ahuang11>`_
 
 bug fixes
