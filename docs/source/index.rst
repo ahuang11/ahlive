@@ -43,3 +43,13 @@
    examples/gapminder.ipynb
    examples/rain_simulation.ipynb
    examples/hurricane_tracks.ipynb
+
+.. toctree::
+   :maxdepth: 1
+   :caption: REFERENCE
+
+   * :doc:`changelog`
+   * :doc:`release`
+
+   changelog
+   release
