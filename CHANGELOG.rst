@@ -17,6 +17,8 @@ enhancements
 
 - `save` now accepts pathlib.Path. (:pull:`29`).
   By `Andrew Huang <https://github.com/ahuang11>`_
+- Note that `pygifsicle` warning can be disabled by setting `pygifsicle=False` (:pull:`31`).
+  By `Andrew Huang <https://github.com/ahuang11>`_
 
 internal changes
 ~~~~~~~~~~~~~~~~

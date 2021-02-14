@@ -1511,7 +1511,8 @@ class Animation(param.Parameterized):
                     optimize(out_obj)
                 except ImportError:
                     warnings.warn(
-                        "pip install pygifsicle to reduce size of output gif!"
+                        "pip install pygifsicle to reduce size of output gif! "
+                        "To disable this warning, set pygifsicle=False "
                     )
         elif save is not None:
             file_dir = file
