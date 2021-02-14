@@ -44,7 +44,7 @@ from .util import (
 class Animation(param.Parameterized):
 
     save = param.String(default=None, doc="Output file path")
-    show = param.Boolean(default=True, doc="Whether to show in Jupyter")
+    show = param.Boolean(default=None, doc="Whether to show in Jupyter")
 
     figsize = param.NumericTuple(
         default=None, length=2, doc="Figure's size as width and height"
@@ -178,7 +178,6 @@ class Animation(param.Parameterized):
         if base is not None and format_ == "auto":
             try:
                 format_ = self._get_base_format(base)
-                print(format_)
             except TypeError:
                 pass
 
