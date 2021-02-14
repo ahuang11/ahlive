@@ -3,7 +3,7 @@
 Changelog
 ==========
 
-v0.0.2 (?)
+v0.0.2 (14 February 2021)
 ----------
 
 new features
@@ -43,7 +43,7 @@ documentation
   By `Andrew Huang <https://github.com/ahuang11>`_.
 
 
-v0.0.1 (10 February 2020)
+v0.0.1 (10 February 2021)
 -------------------------
 
 - Initial release!
