@@ -33,8 +33,8 @@ release = "0.0.1"
 extensions = ["nbsphinx", "sphinx.ext.extlinks"]
 
 extlinks = {
-    "issue": ("https://github.com/pangeo-data/climpred/issues/%s", "GH#"),
-    "pull": ("https://github.com/pangeo-data/climpred/pull/%s", "GH#"),
+    "issue": ("https://github.com/ahuang11/ahlive/issues/%s", "GH#"),
+    "pull": ("https://github.com/ahuang11/ahlive/pull/%s", "GH#"),
 }
 
 # Add any paths that contain templates here, relative to this directory.
