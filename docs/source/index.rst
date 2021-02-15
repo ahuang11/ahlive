@@ -48,8 +48,5 @@
    :maxdepth: 1
    :caption: REFERENCE
 
-   * :doc:`changelog`
-   * :doc:`release`
-
    changelog
    release
