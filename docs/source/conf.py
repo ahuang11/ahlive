@@ -14,15 +14,19 @@
 # import sys
 # sys.path.insert(0, os.path.abspath('.'))
 
+import datetime
+
+import ahlive
+
 
 # -- Project information -----------------------------------------------------
-
+year = datetime.datetime.utcnow().year
 project = "ahlive"
-copyright = "2020, Andrew Huang"
+copyright = f"2020 to {year}, Andrew Huang"
 author = "Andrew Huang"
 
 # The full version, including alpha/beta/rc tags
-release = "0.0.1"
+release = ahlive.__version__
 
 
 # -- General configuration ---------------------------------------------------
