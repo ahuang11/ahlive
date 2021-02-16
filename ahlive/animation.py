@@ -127,11 +127,13 @@ class Animation(param.Parameterized):
     def _get_base_format(num):
         num = to_scalar(num)
 
+        is_timedelta_value = is_timedelta(num)
+
         num = to_num(num)
         if isinstance(num, str):
             return "s"
 
-        if is_timedelta(num):
+        if is_timedelta_value:
             num = num / 1e9  # nanoseconds to seconds
             if num < 1:  # 1 second
                 return "%S.%f"
