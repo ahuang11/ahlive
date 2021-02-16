@@ -9,7 +9,7 @@ v0.0.3 (15 February 2021)
 documentation
 ~~~~~~~~~~~~~
 
-- Make version shown and copyright year on docs dynamic (:pull:`33`).
+- Make version shown and copyright year on docs dynamic (:pull:`34`).
   By `Andrew Huang <https://github.com/ahuang11>`_
 
 bug fixes
