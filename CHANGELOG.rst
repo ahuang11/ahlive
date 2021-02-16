@@ -12,6 +12,11 @@ documentation
 - Make version shown and copyright year on docs dynamic (:pull:`33`).
   By `Andrew Huang <https://github.com/ahuang11>`_
 
+bug fixes
+~~~~~~~~~
+
+- Fixed datetime / timedelta formatting (:pull:`34`).
+  By `Andrew Huang <https://github.com/ahuang11>`_
 
 v0.0.2 (14 February 2021)
 -------------------------
