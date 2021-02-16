@@ -186,6 +186,7 @@ ITEMS = {
         "gapminder_income",
         "gapminder_population",
         "gapminder_country",
+        "iem_asos",
     ],
     "join": ["overlay", "layout", "cascade"],
     "transformables": [
