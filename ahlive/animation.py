@@ -1507,7 +1507,6 @@ class Animation(param.Parameterized):
             if ext == ".gif" and pygifsicle and is_file:
                 try:
                     from pygifsicle import optimize
-
                     optimize(out_obj)
                 except ImportError:
                     warnings.warn(
@@ -1553,18 +1552,6 @@ class Animation(param.Parameterized):
 
         return out_obj
 
-    def _show_output(self, *args):
-        show = self._canvas_kwds["output_kwds"].get("show")
-        if show is None:
-            try:
-                get_ipython
-                show = True
-            except NameError:
-                show = False
-
-        if show:
-            return self._show_output_file(*args)
-
     def render(self):
         data = self.finalize().data
 
@@ -1576,6 +1563,14 @@ class Animation(param.Parameterized):
             break
         stitch = self._canvas_kwds["animate_kwds"]["stitch"]
         static = self._canvas_kwds["animate_kwds"]["static"]
+        show = self._canvas_kwds["output_kwds"].get("show")
+        if show is None:
+            try:
+                get_ipython
+                show = True
+            except NameError:
+                show = False
+        self._canvas_kwds["output_kwds"]['show'] = show
 
         if self.debug:
             print(data)
@@ -1594,8 +1589,8 @@ class Animation(param.Parameterized):
 
         out_obj, ext = self._write_rendered(buf_list, durations)
 
-        if stitch or static:
-            out_obj = self._show_output(out_obj, ext)
+        if (stitch or static) and show:
+            out_obj = self._show_output_file(out_obj, ext)
 
         if os.path.exists(self._temp_file):
             os.remove(self._temp_file)
