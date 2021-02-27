@@ -144,11 +144,11 @@ DIMS = {
     ),
     "grid": ("grid_item", "state", "grid_y", "grid_x"),
     "ref": ("ref_item", "state"),
-    "item": ("grid_item", "item", "ref_item"),
 }
 
 VARS = {
     "ref": ["ref_x0", "ref_x1", "ref_y0", "ref_y1"],
+    "item": ("grid_item", "item", "ref_item"),
     "stateless": [
         "chart",
         "label",

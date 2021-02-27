@@ -27,6 +27,7 @@
    customizations/interpolating.ipynb
    customizations/configuring.ipynb
    customizations/presetting.ipynb
+   customizations/transforming.ipynb
 
 .. toctree::
    :maxdepth: 3

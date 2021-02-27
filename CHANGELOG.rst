@@ -3,6 +3,15 @@
 Changelog
 ==========
 
+v0.0.4 (?)
+----------
+
+enhancements
+~~~~~~~~~~~~
+
+- `invert` is now more polished and documented, accepting label, group, and state_labels. (:pull:`44`).
+  By `Andrew Huang <https://github.com/ahuang11>`_
+
 v0.0.3 (15 February 2021)
 -------------------------
 
@@ -12,7 +21,7 @@ documentation
 - Make version shown and copyright year on docs dynamic (:pull:`34`).
   By `Andrew Huang <https://github.com/ahuang11>`_
 
-- Updated untriggered remark in intro and added new example (:pull:`39`).
+- Updated untriggered remark in intro and added new example (:pull:`40`).
   By `Andrew Huang <https://github.com/ahuang11>`_
 
 
@@ -22,7 +31,7 @@ bug fixes
 - Fixed datetime / timedelta formatting (:pull:`37`).
   By `Andrew Huang <https://github.com/ahuang11>`_
 
-- Fixed `show` dynamic default so `pygifsicle` works (:pull:`38`).
+- Fixed `show` dynamic default so `pygifsicle` works (:pull:`39`).
   By `Andrew Huang <https://github.com/ahuang11>`_
 
 v0.0.2 (14 February 2021)

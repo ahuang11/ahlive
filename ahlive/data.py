@@ -406,7 +406,7 @@ class Data(Easing, Animation, Configuration):
             "state",
             np.tile(ds[grid_axis][::scan_stride].values, len(states)),
         )
-        ds = ds.transpose(*DIMS["item"], "state", ...)
+        ds = ds.transpose(*VARS["item"], "state", ...)
         return ds
 
     @staticmethod
@@ -666,9 +666,9 @@ class Data(Easing, Animation, Configuration):
         elif da.name in ["x", "y"]:
             return da
 
-        for dim in DIMS["item"]:
-            if dim in da.dims:
-                if len(da[dim]) > 1:
+        for item in VARS["item"]:
+            if item in da.dims:
+                if len(da[item]) > 1:
                     return da
 
         vals = da.values
@@ -1189,7 +1189,7 @@ class Data(Easing, Animation, Configuration):
 
     @staticmethod
     def _shift_items(self_ds, other_ds):
-        for item in DIMS["item"]:
+        for item in VARS["item"]:
             if not (item in self_ds.dims and item in other_ds.dims):
                 continue
             has_same_items = (
@@ -1504,14 +1504,47 @@ class Array(GeographicData, ReferenceArray, ColorArray, RemarkArray):
             ds["c"] = (DIMS["basic"], self._adapt_input(cs, num_states))
         self.data = {self.rowcol: ds}
 
-    def invert(self):
+    def invert(self, label=None, group=None, state_labels=None):
         data = {}
         self_copy = deepcopy(self)
         for rowcol, ds in self_copy.data.items():
+            for item_dim in ["ref_item", "grid_item"]:
+                if item_dim in ds.dims:
+                    raise ValueError(
+                        "Cannot invert reference / grid objects; first "
+                        "invert then overlay!"
+                    )
+
             attrs = ds.attrs
-            df = ds.to_dataframe().rename_axis(DIMS["basic"][::-1])
-            ds = df.to_xarray().assign_attrs(attrs).transpose(*DIMS["basic"])
-            data[rowcol] = ds
+            inv_ds = (
+                ds.to_dataframe()
+                .rename_axis(DIMS["basic"][::-1])
+                .to_xarray()
+                .assign_attrs(attrs)
+                .transpose(*DIMS["basic"])
+            )
+            num_items = len(inv_ds["item"])
+            num_states = len(inv_ds["state"])
+
+            if state_labels is None:
+                inv_ds["state_label"] = inv_ds["label"].isel(item=0)
+            elif not state_labels:
+                inv_ds = inv_ds.drop("state_label", errors="ignore")
+            else:
+                inv_ds["state_label"] = "state", state_labels
+            inv_ds = self._drop_state(inv_ds)
+
+            if label is None:
+                inv_ds["label"] = "item", np.repeat("", num_items)
+            else:
+                inv_ds["label"] = "item", label
+
+            if group is not None:
+                if is_scalar(group):
+                    group = np.repeat(group, num_items)
+                inv_ds["group"] = "item", group
+
+            data[rowcol] = inv_ds
         self_copy.data = data
         return self_copy
 

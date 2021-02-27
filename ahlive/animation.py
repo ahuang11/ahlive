@@ -1507,6 +1507,7 @@ class Animation(param.Parameterized):
             if ext == ".gif" and pygifsicle and is_file:
                 try:
                     from pygifsicle import optimize
+
                     optimize(out_obj)
                 except ImportError:
                     warnings.warn(
@@ -1570,7 +1571,7 @@ class Animation(param.Parameterized):
                 show = True
             except NameError:
                 show = False
-        self._canvas_kwds["output_kwds"]['show'] = show
+        self._canvas_kwds["output_kwds"]["show"] = show
 
         if self.debug:
             print(data)

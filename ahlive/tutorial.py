@@ -192,14 +192,14 @@ class TutorialData(param.Parameterized):
         df["region"] = df["region"].str.replace("_", " ").str.title()
         return df
 
-    def _load_iem_asos(self, raw, ini='2020-01-01', end='2020-12-31', stn='CMI', data=None, **kwds):
+    def _load_iem_asos(
+        self, raw, ini="2020-01-01", end="2020-12-31", stn="CMI", data=None, **kwds
+    ):
         ini_dt = pd.to_datetime(ini)
         end_dt = pd.to_datetime(end)
 
         self._source = "Iowa Environment Mesonet ASOS"
-        self._base_url = (
-            "https://mesonet.agron.iastate.edu/ASOS/"
-        )
+        self._base_url = "https://mesonet.agron.iastate.edu/ASOS/"
         self._data_url = (
             f"https://mesonet.agron.iastate.edu/cgi-bin/request/asos.py?"
             f"station={stn}&data=all&latlon=yes&elev=yes&"
@@ -213,8 +213,8 @@ class TutorialData(param.Parameterized):
         if raw:
             return df
 
-        df['valid'] = pd.to_datetime(df['valid'])
-        df = df.set_index('valid')
+        df["valid"] = pd.to_datetime(df["valid"])
+        df = df.set_index("valid")
         return df
 
     def open_dataset(self, raw, verbose, **kwds):
