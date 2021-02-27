@@ -6,7 +6,7 @@ import pytest
 import xarray as xr
 
 import ahlive as ah
-from ahlive.configuration import CONFIGURABLES, ITEMS, OPTIONS
+from ahlive.configuration import CONFIGURABLES, ITEMS, OPTIONS, VARS
 from ahlive.tests.test_configuration import (  # noqa: F401
     CONTAINERS,
     DIRECTIONS,
@@ -736,3 +736,20 @@ def test_add_animate_kwds_int():
     assert animate_kwds["stitch"]
     assert animate_kwds["static"]
     assert animate_kwds["num_states"] == num_states
+
+
+def test_array_invert():
+    df = pd.DataFrame({"x": [1, 2, 3], "y": [3, 4, 5], "z": [5, 6, 7]}).melt("x")
+    ah_df = ah.DataFrame(df, "x", "value", label="variable")
+    ah_df_inv = ah_df.invert(group="A", state_labels=["1", "2"])
+
+    ds = ah_df[1, 1]
+    ds_inv = ah_df_inv[1, 1]
+    assert len(ds_inv["item"]) == len(ds["state"])
+    assert len(ds_inv["state"]) == len(ds["item"])
+    for var in VARS["stateless"]:
+        if var in ds_inv:
+            assert ds_inv[var].dims == ("item",)
+    assert (ds_inv["state_label"] == ["1", "2"]).all()
+    assert (ds_inv["group"] == ["A", "A", "A"]).all()
+    ah_df_inv.finalize()
