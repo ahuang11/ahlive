@@ -753,3 +753,9 @@ def test_array_invert():
     assert (ds_inv["state_label"] == ["1", "2"]).all()
     assert (ds_inv["group"] == ["A", "A", "A"]).all()
     ah_df_inv.finalize()
+
+
+@pytest.mark.parametrize("label", ['a', 1, 1.0])
+def test_label(label):
+    ah_obj = ah.Array([0, 1, 2], [3, 4, 5], label=label).finalize()
+    assert ah_obj[1, 1]['label'].values == [label]

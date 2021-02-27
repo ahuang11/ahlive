@@ -50,7 +50,10 @@ class Data(Easing, Animation, Configuration):
     style = param.ObjectSelector(
         objects=OPTIONS["style"], doc=f"Chart style; {OPTIONS['style']}"
     )
-    label = param.String(allow_None=True, doc="Legend label for each item")
+    label = param.ClassSelector(
+        class_=(int, float, str), allow_None=True,
+        doc="Legend label for each item"
+    )
     group = param.String(doc="Group label for multiple items")
 
     state_labels = param.ClassSelector(

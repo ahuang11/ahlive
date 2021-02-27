@@ -12,6 +12,12 @@ enhancements
 - `invert` is now more polished and documented, accepting label, group, and state_labels. (:pull:`44`).
   By `Andrew Huang <https://github.com/ahuang11>`_
 
+internal changes
+~~~~~~~~~~~~~~~~
+
+- `label` now accepts integer and float values. (:pull:`45`).
+  By `Andrew Huang <https://github.com/ahuang11>`_
+
 v0.0.3 (15 February 2021)
 -------------------------
 
