@@ -1,14 +1,14 @@
 .. include:: ../../README.rst
 
 .. toctree::
-   :maxdepth: 3
+   :maxdepth: 1
    :caption: INTRODUCTIONS
 
    introductions/overview.ipynb
    introductions/about.ipynb
 
 .. toctree::
-   :maxdepth: 3
+   :maxdepth: 1
    :caption: ESSENTIALS
 
    essentials/serializing.ipynb
@@ -20,7 +20,7 @@
    essentials/exporting.ipynb
 
 .. toctree::
-   :maxdepth: 3
+   :maxdepth: 1
    :caption: CUSTOMIZATIONS
 
    customizations/animating.ipynb
@@ -30,7 +30,7 @@
    customizations/transforming.ipynb
 
 .. toctree::
-   :maxdepth: 3
+   :maxdepth: 1
    :caption: TUTORIALS
 
    tutorials/covid_19_time_series.ipynb
@@ -38,7 +38,7 @@
    tutorials/covid_19_geographic_map.ipynb
 
 .. toctree::
-   :maxdepth: 3
+   :maxdepth: 1
    :caption: EXAMPLES
 
    examples/gapminder.ipynb

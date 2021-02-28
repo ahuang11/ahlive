@@ -915,7 +915,7 @@ class Data(Easing, Animation, Configuration):
         ds["state"] = srange(len(ds["state"]))
 
         if "s" in ds:
-            ds["s"] = fillna(ds["s"].where(ds["s"] > 0), how="both")
+            ds["s"] = fillna(ds["s"].where(ds["s"] >= 0), how="both")
         return ds
 
     def _get_crs(self, crs_name, crs_kwds, central_longitude=None):
