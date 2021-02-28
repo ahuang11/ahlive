@@ -6,6 +6,12 @@ Changelog
 v0.0.4 (?)
 ----------
 
+documentation
+~~~~~~~~~~~~~
+
+- Tidy up documentation and fix a bug in Overview regarding `s=0` (:pull:`46`).
+  By `Andrew Huang <https://github.com/ahuang11>`_
+
 enhancements
 ~~~~~~~~~~~~
 
