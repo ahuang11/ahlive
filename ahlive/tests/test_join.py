@@ -131,57 +131,60 @@ def test_propagate_params(
                 assert actual == expected
 
 
-def test_mul(ah_array1, ah_array2):
-    ah_obj = ah_array1 * ah_array2
-    assert len(ah_obj[1, 1]["item"]) == 2
-    assert len(ah_obj[1, 1]["state"]) == 1
+def test_overlay(ah_array1, ah_array2, ah_array3):
+    ds_function = ah.overlay([ah_array1, ah_array2, ah_array3]).data[1, 1]
+    assert (ds_function['state'] == [1, 2, 3]).all()
+    assert (ds_function['item'] == [1, 2, 3]).all()
+    assert (ds_function.isel(item=0)['x'] == [0, 0, 0]).all()
+    assert (ds_function.isel(item=1)['x'] == [0, 1, 1]).all()
+    assert (ds_function.isel(item=2)['x'] == [0, 1, 2]).all()
+
+    assert (ds_function.isel(item=0)['y'] == [1, 1, 1]).all()
+    assert (ds_function.isel(item=1)['y'] == [2, 3, 3]).all()
+    assert (ds_function.isel(item=2)['y'] == [2, 3, 4]).all()
+
+    ds_operator = (ah_array1 * ah_array2 * ah_array3).data[1, 1]
+    ds_method = ah_array1.overlay(ah_array2).overlay(ah_array3).data[1, 1]
+    assert ds_function.equals(ds_operator)
+    assert ds_function.equals(ds_method)
 
 
-def test_rmul(ah_array1, ah_array2):
-    ah_obj = ah_array2 * ah_array1
-    assert len(ah_obj[1, 1]["item"]) == 2
-    assert len(ah_obj[1, 1]["state"]) == 2
+def test_cascade(ah_array1, ah_array2, ah_array3):
+    ds_function = ah.cascade([ah_array1, ah_array2, ah_array3]).data[1, 1]
+    assert (ds_function['state'] == [1, 2, 3, 4, 5, 6]).all()
+    assert (ds_function['item'] == [1, 2, 3]).all()
+    assert (ds_function.isel(item=0)['x'] == [0] * 6).all()
+    assert np.isclose(
+        ds_function.isel(item=1)['x'],
+        [np.nan, 0, 1, 1, 1, 1], equal_nan=True
+    ).all()
+    assert np.isclose(
+        ds_function.isel(item=2)['x'],
+        [np.nan, np.nan, np.nan, 0, 1, 2], equal_nan=True
+    ).all()
+    assert (ds_function.isel(item=0)['y'] == [1] * 6).all()
+    assert np.isclose(
+        ds_function.isel(item=1)['y'],
+        [np.nan, 2, 3, 3, 3, 3], equal_nan=True
+    ).all()
+    assert np.isclose(
+        ds_function.isel(item=2)['y'],
+        [np.nan, np.nan, np.nan, 2, 3, 4], equal_nan=True
+    ).all()
+
+    ds_operator = (ah_array1 - ah_array2 - ah_array3).data[1, 1]
+    ds_method = ah_array1.cascade(ah_array2).cascade(ah_array3).data[1, 1]
+    assert ds_function.equals(ds_operator)
+    assert ds_function.equals(ds_method)
 
 
-def test_floordiv(ah_array1, ah_array2):
-    ah_obj = ah_array1 / ah_array2
-    assert len(ah_obj[1, 1]["item"]) == 1
-    assert len(ah_obj[1, 1]["state"]) == 1
-    assert len(ah_obj[2, 1]["item"]) == 1
-    assert len(ah_obj[2, 1]["state"]) == 1
+def test_layout(ah_array1, ah_array2, ah_array3):
+    data_function = ah.layout(arr_list)
+    for i, (rowcol, ds) in enumerate(data_function.items()):
+        assert arr_list[i].data[1, 1].equals(ds)
+        assert rowcol == (1, i)
 
-
-def test_truerdiv(ah_array1, ah_array2):
-    ah_obj = ah_array1 // ah_array2
-    assert len(ah_obj[1, 1]["item"]) == 1
-    assert len(ah_obj[1, 1]["state"]) == 1
-    assert len(ah_obj[2, 1]["item"]) == 1
-    assert len(ah_obj[2, 1]["state"]) == 1
-
-
-def test_add(ah_array1, ah_array2):
-    ah_obj = ah_array1 + ah_array2
-    assert len(ah_obj[1, 1]["item"]) == 1
-    assert len(ah_obj[1, 1]["state"]) == 1
-    assert len(ah_obj[1, 2]["item"]) == 1
-    assert len(ah_obj[1, 2]["state"]) == 1
-
-
-def test_radd(ah_array1, ah_array2):
-    ah_obj = ah_array2 + ah_array1
-    assert len(ah_obj[1, 1]["item"]) == 1
-    assert len(ah_obj[1, 1]["state"]) == 2
-    assert len(ah_obj[1, 2]["item"]) == 1
-    assert len(ah_obj[1, 2]["state"]) == 2
-
-
-def test_sub(ah_array1, ah_array2):
-    ah_obj = ah_array1 - ah_array2
-    assert len(ah_obj[1, 1]["item"]) == 2
-    assert len(ah_obj[1, 1]["state"]) == 3
-
-
-def test_rsub(ah_array1, ah_array2):
-    ah_obj = ah_array2 - ah_array1
-    assert len(ah_obj[1, 1]["item"]) == 2
-    assert len(ah_obj[1, 1]["state"]) == 3
+    data_operator = (ah_array1 + ah_array2 + ah_array3)
+    data_method = ah_array1.layout(ah_array2).layout(ah_array3)
+    assert data_function.equals(data_operator)
+    assert data_function.equals(data_method)

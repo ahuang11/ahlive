@@ -145,3 +145,8 @@ def ah_array1():
 @pytest.fixture
 def ah_array2():
     return ah.Array([0, 1], [2, 3], label="2")
+
+
+@pytest.fixture
+def ah_array3():
+    return ah.Array([0, 1, 2], [2, 3, 4], label="3")

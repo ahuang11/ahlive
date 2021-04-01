@@ -1,4 +1,3 @@
-import operator
 import warnings
 from collections.abc import Iterable
 from copy import deepcopy
@@ -27,7 +26,19 @@ from .configuration import (
     load_defaults,
 )
 from .easing import Easing
-from .join import _combine, _get_rowcols, merge
+from .join import (
+    _combine_ds_list,
+    _drop_state,
+    _get_rowcols,
+    _wrap_stack,
+    cols,
+    merge,
+    cascade,
+    overlay,
+    stagger,
+    slide,
+    layout
+)
 from .util import (
     fillna,
     is_datetime,
@@ -126,7 +137,7 @@ class Data(Easing, Animation, Configuration):
         data_vars, num_items = self._load_data_vars(input_vars, num_states)
         coords = {"item": srange(num_items), "state": srange(num_states)}
         ds = xr.Dataset(coords=coords, data_vars=data_vars)
-        ds = self._drop_state(ds)
+        ds = _drop_state(ds)
         self.data = {self.rowcol: ds}
 
     def keys(self):
@@ -151,24 +162,6 @@ class Data(Easing, Animation, Configuration):
         rowcol = list(self._data)[0]
         return self._data[rowcol].attrs
 
-    def cols(self, num_cols):
-        if num_cols == 0:
-            raise ValueError("Number of columns must be > 1!")
-        self_copy = deepcopy(self)
-        data = {}
-        for iplot, rowcol in enumerate(self_copy.data.copy()):
-            row = (iplot) // num_cols + 1
-            col = (iplot) % num_cols + 1
-            data[(row, col)] = self_copy.data.pop(rowcol)
-        self_copy.data = data
-        return self_copy
-
-    def _init_join(self, other):
-        self_copy = deepcopy(self)
-        other_copy = deepcopy(other)
-        rowcols = _get_rowcols([self_copy, other_copy])
-        return self_copy, other_copy, rowcols
-
     def __getitem__(self, key):
         return self.data[key]
 
@@ -188,110 +181,63 @@ class Data(Easing, Animation, Configuration):
         return self.__str__()
 
     def __mul__(self, other):
-        self_copy, other_copy, rowcols = self._init_join(other)
-
-        data = {}
-        for rowcol in rowcols:
-            self_ds = self_copy.data.get(rowcol)
-            other_ds = other_copy.data.get(rowcol)
-            if other_ds is None:
-                continue
-            other_ds = self._match_states(self_ds, other_ds)
-
-            if self_ds is None:
-                data[rowcol] = other_ds
-            elif other_ds is None:
-                data[rowcol] = self_ds
-            else:
-                other_ds = self._shift_items(self_ds, other_ds)
-                merged_ds = _combine([self_ds, other_ds], method="merge")
-                merged_ds = self._drop_state(merged_ds)
-                data[rowcol] = merged_ds
-        self_copy.data = data
-        self_copy = self._propagate_params(self_copy, other_copy)
-        return self_copy
+        return self.overlay(other)
 
     def __rmul__(self, other):
-        return other * self
+        return other.overlay(self)
 
     def __floordiv__(self, other):
-        self_copy, other_copy, rowcols = self._init_join(other)
-        self_rows = max(self_copy.data)[0]
-
-        data = {}
-        for rowcol in rowcols:
-            self_ds = self_copy.data.get(rowcol)
-            other_ds = other_copy.data.get(rowcol)
-            if other_ds is None:
-                continue
-            other_ds = self._match_states(self_ds, other_ds)
-
-            if rowcol[0] <= self_rows:
-                rowcol_shifted = (rowcol[0] + self_rows, rowcol[1])
-                data[rowcol_shifted] = other_ds
-            else:
-                data[rowcol] = other_ds
-
-        self_copy.data.update(data)
-        self_copy = self._propagate_params(self_copy, other_copy, layout=True)
-        return self_copy
+        return self.layout(other, by='col')
 
     def __truediv__(self, other):
-        return self // other
+        return self.layout(other, by='col')
 
     def __add__(self, other):
-        self_copy, other_copy, rowcols = self._init_join(other)
-        self_cols = max(self_copy.data, key=operator.itemgetter(1))[1]
-
-        data = {}
-        for rowcol in rowcols:
-            self_ds = self_copy.data.get(rowcol)
-            other_ds = other_copy.data.get(rowcol)
-            if other_ds is None:
-                continue
-            other_ds = self._match_states(self_ds, other_ds)
-
-            if rowcol[0] <= self_cols:
-                rowcol_shifted = (rowcol[0], rowcol[1] + self_cols)
-                data[rowcol_shifted] = other_ds
-            else:
-                data[rowcol] = other_ds
-
-        self_copy.data.update(data)
-        self_copy = self._propagate_params(self_copy, other_copy, layout=True)
-        return self_copy
+        return self.layout(other, by='row')
 
     def __radd__(self, other):
-        return self + other
+        return other.layout(self, by='row')
 
     def __sub__(self, other):
-        self_copy, other_copy, rowcols = self._init_join(other)
-
-        data = {}
-        for rowcol in rowcols:
-            self_ds = self_copy.data.get(rowcol)
-            other_ds = other_copy.data.get(rowcol)
-
-            if self_ds is None:
-                data[rowcol] = other_ds
-            elif other_ds is None:
-                data[rowcol] = self_ds
-            else:
-                other_ds = self._shift_items(self_ds, other_ds)
-                other_ds["state"] = other_ds["state"] + self_ds["state"].max()
-                merged_ds = _combine([self_ds, other_ds], method="merge")
-                merged_ds = self._drop_state(merged_ds)
-                merged_ds = merged_ds.map(fillna, keep_attrs=True)
-                data[rowcol] = merged_ds
-        self_copy.data = data
-        self_copy = self._propagate_params(self_copy, other)
-        return self_copy
+        return self.cascade(other)
 
     def __rsub__(self, other):
-        return self - other
+        return other.cascade(self)
 
     def __iter__(self):
         return self.data.__iter__()
+
+    def copy(self):
+        return deepcopy(self)
+
+    def cols(self, num_cols):
+        self_copy = cols(self, num_cols)
+        return self_copy
+
+    def cascade(self, other):
+        self_copy = _wrap_stack([self, other], 'cascade')
+        self_copy = self._propagate_params(self_copy, other)
+        return self_copy
+
+    def overlay(self, other):
+        self_copy = _wrap_stack([self, other], 'overlay')
+        self_copy = self._propagate_params(self_copy, other)
+        return self_copy
+
+    def stagger(self, other):
+        self_copy = _wrap_stack([self, other], 'stagger')
+        self_copy = self._propagate_params(self_copy, other)
+        return self_copy
+
+    def slide(self, other):
+        self_copy = _wrap_stack([self, other], 'slide')
+        self_copy = self._propagate_params(self_copy, other)
+        return self_copy
+
+    def layout(self, other, by='col', num_cols=None):
+        self_copy = layout([self, other], by)
+        self_copy = self._propagate_params(self_copy, other, layout=True)
+        return self_copy
 
     @staticmethod
     def _config_bar_chart(ds, preset):
@@ -877,7 +823,7 @@ class Data(Easing, Animation, Configuration):
                     if not ease_ds:
                         continue
                     if f"stacked_{kind}item_state" in ease_ds.dims:
-                        ease_ds = self._drop_state(ease_ds.unstack())
+                        ease_ds = _drop_state(ease_ds.unstack())
                         if "duration" in ease_ds:
                             ease_ds["duration"] = ease_ds["duration"].isel(
                                 **{item_dim: 0}
@@ -1174,42 +1120,6 @@ class Data(Easing, Animation, Configuration):
         )
 
         return data_vars, num_items
-
-    @staticmethod
-    def _match_states(self_ds, other_ds):
-        other_num_states = len(other_ds["state"])
-        self_num_states = len(self_ds["state"])
-        if other_num_states != self_num_states:
-            warnings.warn(
-                f"The latter dataset has {other_num_states} state(s) while "
-                f"the former has {self_num_states} state(s); "
-                f"reindexing the latter to match the former."
-            )
-            other_ds = other_ds.reindex(state=self_ds["state"]).map(
-                fillna, keep_attrs=True
-            )
-        return other_ds
-
-    @staticmethod
-    def _shift_items(self_ds, other_ds):
-        for item in VARS["item"]:
-            if not (item in self_ds.dims and item in other_ds.dims):
-                continue
-            has_same_items = (
-                len(set(self_ds[item].values) | set(other_ds[item].values)) > 0
-            )
-            if has_same_items:
-                other_ds[item] = other_ds[item].copy()
-                other_ds[item] = other_ds[item] + self_ds[item].max()
-        return other_ds
-
-    @staticmethod
-    def _drop_state(merged_ds):
-        for var in VARS["stateless"]:
-            if var in merged_ds:
-                if "state" in merged_ds[var].dims:
-                    merged_ds[var] = merged_ds[var].isel(state=-1)
-        return merged_ds
 
     def _propagate_params(self, self_copy, other, layout=False):
         canvas_params = [
@@ -1535,7 +1445,7 @@ class Array(GeographicData, ReferenceArray, ColorArray, RemarkArray):
                 inv_ds = inv_ds.drop("state_label", errors="ignore")
             else:
                 inv_ds["state_label"] = "state", state_labels
-            inv_ds = self._drop_state(inv_ds)
+            inv_ds = _drop_state(inv_ds)
 
             if label is None:
                 inv_ds["label"] = "item", np.repeat("", num_items)
@@ -1705,7 +1615,7 @@ class DataFrame(Array, DataStructure):
                     **kwds_updated,
                 )
                 arrays.append(deepcopy(self))
-        self.data = merge(arrays, join, quick=True).data
+        self.data = merge(arrays, join).data
 
 
 class Dataset(Array2D, DataStructure):
@@ -1738,7 +1648,7 @@ class Dataset(Array2D, DataStructure):
                     **kwds_updated,
                 )
                 arrays.append(deepcopy(self))
-        self.data = merge(arrays, join, quick=True).data
+        self.data = merge(arrays, join).data
 
 
 class Reference(GeographicData):

@@ -183,7 +183,7 @@ class Animation(param.Parameterized):
             kwds = {key: val for key, val in kwds.items() if key in sub_kwds.keys()}
             return kwds
 
-        format_ = kwds.pop("format", "auto").lstrip("%")
+        format_ = kwds.pop("format", "auto")
         if base is not None and format_ == "auto":
             try:
                 format_ = self._get_base_format(base)
@@ -1040,7 +1040,8 @@ class Animation(param.Parameterized):
         ax = plt.subplot(rows, cols, irowcol, **axes_kwds)
 
         if style == "bare":
-            plt.subplots_adjust(left=0, right=1, bottom=0, top=1, hspace=0, wspace=0)
+            plt.subplots_adjust(
+                left=0, right=1, bottom=0, top=1, hspace=0, wspace=0)
             ax.set_frame_on(False)
         return ax
 
