@@ -18,6 +18,13 @@ enhancements
 - `invert` is now more polished and documented, accepting label, group, and state_labels. (:pull:`44`).
   By `Andrew Huang <https://github.com/ahuang11>`_
 
+
+bug fixes
+~~~~~~~~~
+
+- Fixed error when rendering `ah.Dataset` with `ah.DataFrame` and non-numeric columns in tutorial (:pull:`54`).
+  By `Andrew Huang <https://github.com/ahuang11>`_
+
 internal changes
 ~~~~~~~~~~~~~~~~
 
