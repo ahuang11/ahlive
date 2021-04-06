@@ -55,7 +55,11 @@ class TutorialData(param.Parameterized):
         df = df.iloc[1:]
         df = df.set_index("iso_time")
         df.index = pd.to_datetime(df.index)
-        df = df.apply(pd.to_numeric, errors="ignore")
+        numeric_cols = [
+            'lat', 'lon', 'usa_rmw', 'usa_pres' ,'usa_sshs', 'usa_rmw'
+        ]
+        df[numeric_cols] = df[numeric_cols].apply(
+            pd.to_numeric, errors="coerce")
         return df
 
     def _load_covid19_us_cases(self, raw, **kwds):
