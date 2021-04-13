@@ -146,9 +146,6 @@ def test_ah_dataset(grid_x, grid_y, grid_c, grid_label, join):
         }
 
         assert len(np.unique(sub_ds["label"])) == len(ds["grid_item"])
-        if join != "cascade":
-            assert_values(ds, var_dict)
-
         configurables = CONFIGURABLES.copy()
         assert_attrs(ds, configurables)
 
@@ -188,33 +185,33 @@ def test_ah_reference(container, ref_x0, ref_x1, ref_y0, ref_y1):
     ah_ref.finalize()
 
 
-def test_keys(ah_array1):
+def test_keys():
     assert isinstance(ah_array1.keys(), KeysView)
 
 
-def test_values(ah_array1):
+def test_values():
     assert isinstance(ah_array1.values(), ValuesView)
 
 
-def test_items(ah_array1):
+def test_items():
     assert isinstance(ah_array1.items(), ItemsView)
 
 
-def test_data(ah_array1):
+def test_data():
     ah_data = ah_array1.data
     assert isinstance(ah_data, dict)
     assert isinstance(list(ah_data.keys())[0], tuple)
     assert isinstance(ah_data[1, 1], xr.Dataset)
 
 
-def test_attrs(ah_array1):
+def test_attrs():
     ah_attrs = ah_array1.attrs
     assert ah_array1[1, 1].attrs == ah_attrs
     assert isinstance(ah_attrs, dict)
 
 
 @pytest.mark.parametrize("num_cols", [0, 1, 2, 3])
-def test_cols(num_cols, ah_array1, ah_array2):
+def test_cols(num_cols):
     ah_obj = ah_array1 + ah_array2
     if num_cols == 0:
         with pytest.raises(ValueError):
@@ -249,7 +246,7 @@ def test_config_bar_chart(preset):
         assert (actual == expected).all()
 
     actual = ds["y"].values.ravel()
-    expected = [4, 5, np.nan, 3, 8, 10]
+    expected = [4, 5, 5, 3, 8, 10]
     np.testing.assert_equal(actual, expected)
 
     for var in ["tick_label", "bar_label"]:
@@ -320,7 +317,7 @@ def test_config_scan_chart(preset):  # TODO: improve test
     assert f"grid_{preset}" in ah_ds[1, 1]
 
 
-def test_config_legend_sortby(ah_array1, ah_array2):
+def test_config_legend_sortby():
     ah_obj = (ah_array1 * ah_array2).config("legend", sortby="y").finalize()
     ds = ah_obj[1, 1]
     assert (ds["label"] == [2, 1]).all()
@@ -328,7 +325,7 @@ def test_config_legend_sortby(ah_array1, ah_array2):
 
 
 @pytest.mark.parametrize("num_items", [1, 11])
-def test_config_legend_show(num_items, ah_array1):
+def test_config_legend_show(num_items):
     ah_obj = ah.merge([ah_array1 for _ in range(num_items)]).finalize()
     ds = ah_obj[1, 1]
     assert not ds.attrs["legend_kwds"]["show"]
@@ -351,7 +348,7 @@ def test_config_grid_axes(chart):
     ah_obj[1, 1].attrs["grid_kwds"]["axis"] == axis
 
 
-def test_fill_null(ah_array1, ah_array2):
+def test_fill_null():
     ah_obj = (ah_array1 - ah_array2).finalize()
     ds = ah_obj[1, 1]
     for item in ds["item"]:
@@ -538,7 +535,7 @@ def test_add_color_kwds_none():
     assert not attrs["colorbar_kwds"]
 
 
-def test_compress_var(ah_array1, ah_array2):
+def test_compress_var():
     ah_obj = (ah_array2 * ah_array1).finalize()
     ds = ah_obj[1, 1]
     assert is_scalar(ds["xlim0s"])
@@ -654,7 +651,6 @@ def test_interp_dataset_grid():
     c1 = [[2, 3], [4, 5]]
     ah_obj = ah.Array2D([0, 1], [2, 3], [c0, c1], frames=3).finalize()
     ds = ah_obj[1, 1]
-    print(ds.isel(state=0))
     assert (ds["grid_c"].isel(state=0) == c0).all()
     assert (ds["grid_c"].isel(state=-1) == c1).all()
 

@@ -53,6 +53,20 @@ def _match_states(ds, ds2, method="ffill"):
     return ds, ds2
 
 
+def _match_layout_states(obj):
+    max_states = np.max([ds['state'].values.max() for ds in obj.values()])
+    states = srange(max_states)
+
+    data = {}
+    for i, rowcol in enumerate(obj.data.keys()):
+        ds = obj.data[rowcol]
+        num_states = len(ds['state'])
+        if num_states != max_states:
+            ds = ds.reindex(state=states).map(fillna, keep_attrs=True)
+        data[rowcol] = ds
+    return data
+
+
 def _drop_state(joined_ds):
     for var in VARS["stateless"]:
         if var in joined_ds:
@@ -86,7 +100,7 @@ def _stack_data(data_list, join, rowcol):
         return data_list[0][rowcol]
 
     ds_list = []
-    max_items = 1
+    offset = 0
     for i, data in enumerate(data_list):
         if rowcol not in data:
             continue
@@ -97,13 +111,11 @@ def _stack_data(data_list, join, rowcol):
         if item_dim not in ds.coords:
             ds[item_dim] = srange(ds[item_dim])
 
-        max_item = max(ds[item_dim].values)
-        max_items = max_item if max_item > max_items else max_items
-
+        max_item = np.max(ds[item_dim].values)
         if num_item == 1:
-            item = [i + max_items]
+            item = [max_item + offset]
         else:
-            item = srange(max_items)
+            item = srange(max_item) + offset
 
         if join == 'stagger':
             # interweave the states
@@ -115,22 +127,29 @@ def _stack_data(data_list, join, rowcol):
             ds = ds.assign_coords(**{item_dim: item, 'state': states[i]})
         elif join == 'slide':
             ds = ds.assign_coords(**{item_dim: item, 'state': ds['state'] + i})
+        elif join == 'cascade':
+            if i == 0:
+                max_state = ds['state'].max()
+            ds = ds.assign_coords(**{item_dim: item, 'state': ds['state'] + max_state})
+            max_state = ds['state'].max()
         else:
             ds = ds.assign_coords(**{item_dim: item})
 
         ds_list.append(ds)
+        offset = max(i + 1, max_item)
 
     if join == 'cascade':
-        joined_ds = _combine_ds_list(ds_list)
+        joined_ds = _combine_ds_list(ds_list, method="combine_by_coords")
         joined_ds['state'] = srange(joined_ds['state'])
         joined_ds = joined_ds.map(fillna, keep_attrs=True)
     elif join == 'overlay':
-        joined_ds = _combine_ds_list(ds_list, concat_dim=item_dim)
+        joined_ds = _combine_ds_list(ds_list, concat_dim=item_dim, method="merge")
         joined_ds['state'] = srange(joined_ds['state'])
     else:
         joined_ds = _combine_ds_list(ds_list, method='merge')
         joined_ds = joined_ds.sortby('state')
         joined_ds = joined_ds.map(fillna, how='both', keep_attrs=True)
+        joined_ds['state'] = srange(joined_ds['state'])
 
     joined_ds =_drop_state(joined_ds).map(fillna, keep_attrs=True)
     joined_ds[item_dim] = srange(joined_ds[item_dim])
@@ -140,12 +159,18 @@ def _stack_data(data_list, join, rowcol):
 def _wrap_stack(objs, join):
     objs = [obj.copy() for obj in objs if obj is not None]
 
-    obj = objs[0]
+    obj0 = objs[0]
+
     rowcols = _get_rowcols(objs)
     for rowcol in rowcols:
-        data_list = [obj.data for obj in objs if obj.data[rowcol] is not None]
-        obj.data[rowcol] = _stack_data(data_list, join, rowcol)
-    return obj
+        data_list = [obj.data for obj in objs if obj.data.get(rowcol) is not None]
+        if len(data_list) == 0:
+            continue
+        obj0.data[rowcol] = _stack_data(data_list, join, rowcol)
+
+    for obj in objs[1:]:
+        obj0 = obj0._propagate_params(obj0, obj)
+    return obj0
 
 
 def cascade(objs):
@@ -168,6 +193,7 @@ def cols(obj, num_cols):
     obj = obj.copy()
     if num_cols == 0:
         raise ValueError("Number of columns must be > 1!")
+
     data = {}
     for iplot, rowcol in enumerate(list(obj.data)):
         row = (iplot) // num_cols + 1
@@ -182,22 +208,39 @@ def _layout_objs(objs, by):
     obj = objs[0]
     if num_objs == 1:
         return obj
-    rowcol = list(obj.data.keys())[0]
-    flip = slice(None, None, -1) if by == 'col' else slice(None, None, 1)
-    obj.data = {(extent, 1)[flip]: array.data[rowcol] for extent, array in enumerate(objs, 1)}
-    return obj
+
+    data = {}
+    obj0 = objs[0]
+    for obj in objs:
+        for rowcol, ds in obj.data.items():
+            for _ in np.arange(0, 1000):
+                if rowcol in data.keys():
+                    if by == 'row':
+                        rowcol = rowcol[0], rowcol[1] + 1
+                    elif by == 'col':
+                        rowcol = rowcol[0] + 1, rowcol[1]
+                else:
+                    break
+            else:
+                raise ValueError(f'Could not find an open subplot row or col')
+            data[rowcol] = ds
+    obj0.data = data
+
+    for obj in objs[1:]:
+        obj0 = obj0._propagate_params(obj0, obj)
+    return obj0
 
 
-def layout(objs, by='col', num_cols=None):
+def layout(objs, by='row', num_cols=None):
     if by not in ['row', 'col']:
         raise ValueError('Only by=row or by=col available!')
 
     objs = [obj.copy() for obj in objs if obj is not None]
-    obj = objs[0]
     obj = _layout_objs(objs, by)
 
     if num_cols is not None:
         obj = obj.cols(num_cols)
+    obj.data = _match_layout_states(obj)
     return obj
 
 

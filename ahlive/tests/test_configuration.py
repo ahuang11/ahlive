@@ -97,56 +97,14 @@ TYPES_GROUPS = {
 }
 
 
-@pytest.fixture
-def canvas1_params():
-    return dict(durations=1, watermark="watermark1")
-
-
-@pytest.fixture
-def canvas2_params():
-    return dict(durations=2, watermark="watermark2", revert="boomerang")
-
-
-@pytest.fixture
-def subplot1_params():
-    return dict(grid=True, legend=True)
-
-
-@pytest.fixture
-def subplot2_params():
-    return dict(grid=False, legend=False, preset="trail")
-
-
-@pytest.fixture
-def geo1_params():
-    return dict(worldwide=True, projection="Robinson")
-
-
-@pytest.fixture
-def geo2_params():
-    return dict(worldwide=False, projection="PlateCarree", crs="PlateCarree")
-
-
-@pytest.fixture
-def label1_params():
-    return dict(xlabel="xlabel1", ylabel="ylabel1")
-
-
-@pytest.fixture
-def label2_params():
-    return dict(xlabel="xlabel2", ylabel="ylabel2", title="title2")
-
-
-@pytest.fixture
-def ah_array1():
-    return ah.Array([0], [1], label="1")
-
-
-@pytest.fixture
-def ah_array2():
-    return ah.Array([0, 1], [2, 3], label="2")
-
-
-@pytest.fixture
-def ah_array3():
-    return ah.Array([0, 1, 2], [2, 3, 4], label="3")
+canvas1_params = dict(durations=1, watermark="watermark1")
+canvas2_params = dict(durations=2, watermark="watermark2", revert="boomerang")
+subplot1_params = dict(grid=True, legend=True)
+subplot2_params = dict(grid=False, legend=False, preset="trail")
+geo1_params = dict(worldwide=True, projection="Robinson")
+geo2_params = dict(worldwide=False, projection="PlateCarree", crs="PlateCarree")
+label1_params = dict(xlabel="xlabel1", ylabel="ylabel1")
+label2_params = dict(xlabel="xlabel2", ylabel="ylabel2", title="title2")
+ah_array1 = ah.Array([0], [1], label="1")
+ah_array2 = ah.Array([0, 1], [2, 3], label="2")
+ah_array3 = ah.Array([0, 1, 2], [2, 3, 4], label="3")

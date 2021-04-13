@@ -28,6 +28,7 @@ from .configuration import (
 from .easing import Easing
 from .join import (
     _combine_ds_list,
+    _match_states,
     _drop_state,
     _get_rowcols,
     _wrap_stack,
@@ -187,7 +188,10 @@ class Data(Easing, Animation, Configuration):
         return other.overlay(self)
 
     def __floordiv__(self, other):
-        return self.layout(other, by='col')
+        return self.slide(other)
+
+    def __pow__(self, other):
+        return self.stagger(other)
 
     def __truediv__(self, other):
         return self.layout(other, by='col')
@@ -207,6 +211,11 @@ class Data(Easing, Animation, Configuration):
     def __iter__(self):
         return self.data.__iter__()
 
+    def __eq__(self, other):
+        if not isinstance(other, Data):
+            raise TypeError(f'Other object is not an ah.Data object!')
+        return self.equals(other)
+
     def copy(self):
         return deepcopy(self)
 
@@ -214,30 +223,33 @@ class Data(Easing, Animation, Configuration):
         self_copy = cols(self, num_cols)
         return self_copy
 
-    def cascade(self, other):
-        self_copy = _wrap_stack([self, other], 'cascade')
+    def _stack(self, other, how):
+        self_copy = _wrap_stack([self, other], how)
         self_copy = self._propagate_params(self_copy, other)
         return self_copy
+
+    def cascade(self, other):
+        return self._stack(other, how='cascade')
 
     def overlay(self, other):
-        self_copy = _wrap_stack([self, other], 'overlay')
-        self_copy = self._propagate_params(self_copy, other)
-        return self_copy
+        return self._stack(other, how='overlay')
 
     def stagger(self, other):
-        self_copy = _wrap_stack([self, other], 'stagger')
-        self_copy = self._propagate_params(self_copy, other)
-        return self_copy
+        return self._stack(other, how='stagger')
 
     def slide(self, other):
-        self_copy = _wrap_stack([self, other], 'slide')
-        self_copy = self._propagate_params(self_copy, other)
-        return self_copy
+        return self._stack(other, how='slide')
 
-    def layout(self, other, by='col', num_cols=None):
+    def layout(self, other, by='row', num_cols=None):
         self_copy = layout([self, other], by)
         self_copy = self._propagate_params(self_copy, other, layout=True)
         return self_copy
+
+    def equals(self, other):
+        for self_items, other_items in zip(self.data.items(), other.data.items()):
+            self_rowcol, self_ds = self_items
+            other_rowcol, other_ds = other_items
+            return self_items == other_items and self_ds.equals(other_ds)
 
     @staticmethod
     def _config_bar_chart(ds, preset):
@@ -982,9 +994,8 @@ class Data(Easing, Animation, Configuration):
             return self
 
         self_copy = deepcopy(self)
-
-        data = {}
-        for i, (rowcol, ds) in enumerate(self_copy.data.items()):
+        data = self_copy.data
+        for rowcol, ds in data.items():
             chart = to_scalar(ds["chart"]) if "chart" in ds else ""
             ds = self._fill_null(ds)
             ds = self._add_xy01_limits(ds, chart)
@@ -1121,14 +1132,15 @@ class Data(Easing, Animation, Configuration):
 
         return data_vars, num_items
 
-    def _propagate_params(self, self_copy, other, layout=False):
+    @staticmethod
+    def _propagate_params(self_copy, other, layout=False):
         canvas_params = [
             param
             for param, configurable in PARAMS.items()
             if configurable in CONFIGURABLES["canvas"]
         ]
         self_copy.configurables.update(**other.configurables)
-        for param_ in self._parameters:
+        for param_ in self_copy._parameters:
             not_canvas_param = param_ not in canvas_params
             if callable(param_) or (layout and not_canvas_param):
                 continue
