@@ -1,9 +1,9 @@
-import pytest
 import numpy as np
+import pytest
 
 import ahlive as ah
-from ahlive.join import _drop_state
 from ahlive.configuration import CONFIGURABLES, CONFIGURABLES_KWDS, PARAMS, VARS
+from ahlive.join import _drop_state
 from ahlive.tests.test_configuration import (  # noqa: F401
     DIRECTIONS,
     JOINS,

@@ -26,13 +26,7 @@ from .configuration import (
     load_defaults,
 )
 from .easing import Easing
-from .join import (
-    _drop_state,
-    _wrap_stack,
-    cols,
-    merge,
-    layout,
-)
+from .join import _drop_state, _wrap_stack, cols, layout, merge
 from .util import (
     fillna,
     is_datetime,

@@ -1,5 +1,5 @@
-import xarray as xr
 import numpy as np
+import xarray as xr
 
 from .configuration import ITEMS, VARS
 from .util import fillna, srange
