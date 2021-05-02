@@ -125,15 +125,15 @@ def test_propagate_params(direction, join):
 
 def test_overlay():
     ds_function = ah.overlay([ah_array1, ah_array2, ah_array3]).data[1, 1]
-    assert (ds_function['state'] == [1, 2, 3]).all()
-    assert (ds_function['item'] == [1, 2, 3]).all()
-    assert (ds_function.isel(item=0)['x'] == [0, 0, 0]).all()
-    assert (ds_function.isel(item=1)['x'] == [0, 1, 1]).all()
-    assert (ds_function.isel(item=2)['x'] == [0, 1, 2]).all()
+    assert (ds_function["state"] == [1, 2, 3]).all()
+    assert (ds_function["item"] == [1, 2, 3]).all()
+    assert (ds_function.isel(item=0)["x"] == [0, 0, 0]).all()
+    assert (ds_function.isel(item=1)["x"] == [0, 1, 1]).all()
+    assert (ds_function.isel(item=2)["x"] == [0, 1, 2]).all()
 
-    assert (ds_function.isel(item=0)['y'] == [1, 1, 1]).all()
-    assert (ds_function.isel(item=1)['y'] == [2, 3, 3]).all()
-    assert (ds_function.isel(item=2)['y'] == [2, 3, 4]).all()
+    assert (ds_function.isel(item=0)["y"] == [1, 1, 1]).all()
+    assert (ds_function.isel(item=1)["y"] == [2, 3, 3]).all()
+    assert (ds_function.isel(item=2)["y"] == [2, 3, 4]).all()
 
     ds_operator = (ah_array1 * ah_array2 * ah_array3).data[1, 1]
     ds_method = ah_array1.overlay(ah_array2).overlay(ah_array3).data[1, 1]
@@ -143,27 +143,23 @@ def test_overlay():
 
 def test_cascade():
     ds_function = ah.cascade([ah_array1, ah_array2, ah_array3]).data[1, 1]
-    assert (ds_function['state'] == [1, 2, 3, 4, 5, 6]).all()
-    assert (ds_function['item'] == [1, 2, 3]).all()
+    assert (ds_function["state"] == [1, 2, 3, 4, 5, 6]).all()
+    assert (ds_function["item"] == [1, 2, 3]).all()
 
-    assert (ds_function.isel(item=0)['x'] == [0] * 6).all()
+    assert (ds_function.isel(item=0)["x"] == [0] * 6).all()
     assert np.isclose(
-        ds_function.isel(item=1)['x'],
-        [np.nan, 0, 1, 1, 1, 1], equal_nan=True
+        ds_function.isel(item=1)["x"], [np.nan, 0, 1, 1, 1, 1], equal_nan=True
     ).all()
     assert np.isclose(
-        ds_function.isel(item=2)['x'],
-        [np.nan, np.nan, np.nan, 0, 1, 2], equal_nan=True
+        ds_function.isel(item=2)["x"], [np.nan, np.nan, np.nan, 0, 1, 2], equal_nan=True
     ).all()
 
-    assert (ds_function.isel(item=0)['y'] == [1] * 6).all()
+    assert (ds_function.isel(item=0)["y"] == [1] * 6).all()
     assert np.isclose(
-        ds_function.isel(item=1)['y'],
-        [np.nan, 2, 3, 3, 3, 3], equal_nan=True
+        ds_function.isel(item=1)["y"], [np.nan, 2, 3, 3, 3, 3], equal_nan=True
     ).all()
     assert np.isclose(
-        ds_function.isel(item=2)['y'],
-        [np.nan, np.nan, np.nan, 2, 3, 4], equal_nan=True
+        ds_function.isel(item=2)["y"], [np.nan, np.nan, np.nan, 2, 3, 4], equal_nan=True
     ).all()
 
     ds_operator = (ah_array1 - ah_array2 - ah_array3).data[1, 1]
@@ -176,24 +172,24 @@ def test_layout():
     data_function = ah.layout([ah_array1, ah_array2, ah_array3])
 
     ds1 = data_function[1, 1]
-    assert (ds1['state'] == [1, 2, 3]).all()
-    assert (ds1['item'] == [1]).all()
-    assert (ds1['x'] == [0, 0, 0]).all()
-    assert (ds1['y'] == [1, 1, 1]).all()
+    assert (ds1["state"] == [1, 2, 3]).all()
+    assert (ds1["item"] == [1]).all()
+    assert (ds1["x"] == [0, 0, 0]).all()
+    assert (ds1["y"] == [1, 1, 1]).all()
 
     ds2 = data_function[1, 2]
-    assert (ds2['state'] == [1, 2, 3]).all()
-    assert (ds2['item'] == [1]).all()
-    assert (ds2['x'] == [0, 1, 1]).all()
-    assert (ds2['y'] == [2, 3, 3]).all()
+    assert (ds2["state"] == [1, 2, 3]).all()
+    assert (ds2["item"] == [1]).all()
+    assert (ds2["x"] == [0, 1, 1]).all()
+    assert (ds2["y"] == [2, 3, 3]).all()
 
     ds2 = data_function[1, 3]
-    assert (ds2['state'] == [1, 2, 3]).all()
-    assert (ds2['item'] == [1]).all()
-    assert (ds2['x'] == [0, 1, 2]).all()
-    assert (ds2['y'] == [2, 3, 4]).all()
+    assert (ds2["state"] == [1, 2, 3]).all()
+    assert (ds2["item"] == [1]).all()
+    assert (ds2["x"] == [0, 1, 2]).all()
+    assert (ds2["y"] == [2, 3, 4]).all()
 
-    data_operator = (ah_array1 + ah_array2 + ah_array3)
+    data_operator = ah_array1 + ah_array2 + ah_array3
     data_method = ah_array1.layout(ah_array2).layout(ah_array3)
     assert data_function.equals(data_operator)
     assert data_function.equals(data_method)
@@ -201,57 +197,49 @@ def test_layout():
 
 def test_slide():
     ds_function = ah.slide([ah_array1, ah_array2, ah_array3]).data[1, 1]
-    assert (ds_function['state'] == [1, 2, 3, 4, 5]).all()
-    assert (ds_function['item'] == [1, 2, 3]).all()
+    assert (ds_function["state"] == [1, 2, 3, 4, 5]).all()
+    assert (ds_function["item"] == [1, 2, 3]).all()
 
-    assert (ds_function.isel(item=0)['x'] == [0] * 5).all()
+    assert (ds_function.isel(item=0)["x"] == [0] * 5).all()
     assert np.isclose(
-        ds_function.isel(item=1)['x'],
-        [0., 0., 1., 1., 1.], equal_nan=True
+        ds_function.isel(item=1)["x"], [0.0, 0.0, 1.0, 1.0, 1.0], equal_nan=True
     ).all()
     assert np.isclose(
-        ds_function.isel(item=2)['x'],
-        [0., 0., 0., 1., 2.], equal_nan=True
+        ds_function.isel(item=2)["x"], [0.0, 0.0, 0.0, 1.0, 2.0], equal_nan=True
     ).all()
 
-    assert (ds_function.isel(item=0)['y'] == [1] * 5).all()
+    assert (ds_function.isel(item=0)["y"] == [1] * 5).all()
     assert np.isclose(
-        ds_function.isel(item=1)['y'],
-        [2, 2, 3, 3, 3], equal_nan=True
+        ds_function.isel(item=1)["y"], [2, 2, 3, 3, 3], equal_nan=True
     ).all()
     assert np.isclose(
-        ds_function.isel(item=2)['y'],
-        [2, 2, 2, 3, 4], equal_nan=True
+        ds_function.isel(item=2)["y"], [2, 2, 2, 3, 4], equal_nan=True
     ).all()
 
-    ds_operator = (ah_array1 // ah_array2 // ah_array3).data[1, 1]
-    ds_method = ah_array1.slide(ah_array2).slide(ah_array3).data[1, 1]
+    (ah_array1 // ah_array2 // ah_array3).data[1, 1]
+    ah_array1.slide(ah_array2).slide(ah_array3).data[1, 1]
 
 
 def test_stagger():
     ds_function = ah.stagger([ah_array1, ah_array2, ah_array3]).data[1, 1]
-    assert (ds_function['state'] == [1, 2, 3, 4, 5, 6]).all()
-    assert (ds_function['item'] == [1, 2, 3]).all()
+    assert (ds_function["state"] == [1, 2, 3, 4, 5, 6]).all()
+    assert (ds_function["item"] == [1, 2, 3]).all()
 
-    assert (ds_function.isel(item=0)['x'] == [0] * 6).all()
+    assert (ds_function.isel(item=0)["x"] == [0] * 6).all()
     assert np.isclose(
-        ds_function.isel(item=1)['x'],
-        [0., 0., 1., 1., 1., 1.], equal_nan=True
+        ds_function.isel(item=1)["x"], [0.0, 0.0, 1.0, 1.0, 1.0, 1.0], equal_nan=True
     ).all()
     assert np.isclose(
-        ds_function.isel(item=2)['x'],
-        [0., 0., 0., 1., 1., 2.], equal_nan=True
+        ds_function.isel(item=2)["x"], [0.0, 0.0, 0.0, 1.0, 1.0, 2.0], equal_nan=True
     ).all()
 
-    assert (ds_function.isel(item=0)['y'] == [1] * 6).all()
+    assert (ds_function.isel(item=0)["y"] == [1] * 6).all()
     assert np.isclose(
-        ds_function.isel(item=1)['y'],
-        [2, 2, 3, 3, 3, 3], equal_nan=True
+        ds_function.isel(item=1)["y"], [2, 2, 3, 3, 3, 3], equal_nan=True
     ).all()
     assert np.isclose(
-        ds_function.isel(item=2)['y'],
-        [2, 2, 2, 3, 3, 4], equal_nan=True
+        ds_function.isel(item=2)["y"], [2, 2, 2, 3, 3, 4], equal_nan=True
     ).all()
 
-    ds_operator = (ah_array1 ** ah_array2 ** ah_array3).data[1, 1]
-    ds_method = ah_array1.stagger(ah_array2).stagger(ah_array3).data[1, 1]
+    (ah_array1 ** ah_array2 ** ah_array3).data[1, 1]
+    ah_array1.stagger(ah_array2).stagger(ah_array3).data[1, 1]

@@ -138,13 +138,6 @@ def test_ah_dataset(grid_x, grid_y, grid_c, grid_label, join):
         sub_ds = base_ds.where(
             base_ds["label"] == np.unique(ds["grid_label"]), drop=True
         )
-        var_dict = {
-            "grid_x": sub_ds["x"],
-            "grid_y": sub_ds["y"],
-            "grid_c": sub_ds["c"],
-            "grid_label": sub_ds["label"],
-        }
-
         assert len(np.unique(sub_ds["label"])) == len(ds["grid_item"])
         configurables = CONFIGURABLES.copy()
         assert_attrs(ds, configurables)
@@ -751,7 +744,7 @@ def test_array_invert():
     ah_df_inv.finalize()
 
 
-@pytest.mark.parametrize("label", ['a', 1, 1.0])
+@pytest.mark.parametrize("label", ["a", 1, 1.0])
 def test_label(label):
     ah_obj = ah.Array([0, 1, 2], [3, 4, 5], label=label).finalize()
-    assert ah_obj[1, 1]['label'].values == [label]
+    assert ah_obj[1, 1]["label"].values == [label]

@@ -1,6 +1,3 @@
-import warnings
-from operator import itemgetter
-
 import xarray as xr
 import numpy as np
 
@@ -25,9 +22,7 @@ def _shift_items(ds, ds2):
     for item in VARS["item"]:
         if not (item in ds.dims and item in ds2.dims):
             continue
-        has_same_items = (
-            len(set(ds[item].values) | set(ds2[item].values)) > 0
-        )
+        has_same_items = len(set(ds[item].values) | set(ds2[item].values)) > 0
         if has_same_items:
             ds2[item] = ds2[item].copy()
             ds2[item] = ds2[item] + ds[item].max()
@@ -46,21 +41,21 @@ def _match_states(ds, ds2, method="ffill"):
     elif method == "shift":
         if self_num_states > other_num_states:
             shift_states = self_num_states - other_num_states
-            ds2['state'] = ds2['state'] + shift_states
+            ds2["state"] = ds2["state"] + shift_states
         else:
             shift_states = other_num_states - self_num_states
-            ds['state'] = ds['state'] + shift_states
+            ds["state"] = ds["state"] + shift_states
     return ds, ds2
 
 
 def _match_layout_states(obj):
-    max_states = np.max([ds['state'].values.max() for ds in obj.values()])
+    max_states = np.max([ds["state"].values.max() for ds in obj.values()])
     states = srange(max_states)
 
     data = {}
     for i, rowcol in enumerate(obj.data.keys()):
         ds = obj.data[rowcol]
-        num_states = len(ds['state'])
+        num_states = len(ds["state"])
         if num_states != max_states:
             ds = ds.reindex(state=states).map(fillna, keep_attrs=True)
         data[rowcol] = ds
@@ -117,41 +112,39 @@ def _stack_data(data_list, join, rowcol):
         else:
             item = srange(max_item) + offset
 
-        if join == 'stagger':
+        if join == "stagger":
             # interweave the states
             # converts ds['state'] = [1, 2, 3] and ds2['state'] = [1, 2, 3]
             # to [[1, 3, 5], [2, 4, 6]]
-            states = np.arange(
-                ds['state'].max() * num_data
-            ).reshape(-1, num_data).T + 1
-            ds = ds.assign_coords(**{item_dim: item, 'state': states[i]})
-        elif join == 'slide':
-            ds = ds.assign_coords(**{item_dim: item, 'state': ds['state'] + i})
-        elif join == 'cascade':
+            states = np.arange(ds["state"].max() * num_data).reshape(-1, num_data).T + 1
+            ds = ds.assign_coords(**{item_dim: item, "state": states[i]})
+        elif join == "slide":
+            ds = ds.assign_coords(**{item_dim: item, "state": ds["state"] + i})
+        elif join == "cascade":
             if i == 0:
-                max_state = ds['state'].max()
-            ds = ds.assign_coords(**{item_dim: item, 'state': ds['state'] + max_state})
-            max_state = ds['state'].max()
+                max_state = ds["state"].max()
+            ds = ds.assign_coords(**{item_dim: item, "state": ds["state"] + max_state})
+            max_state = ds["state"].max()
         else:
             ds = ds.assign_coords(**{item_dim: item})
 
         ds_list.append(ds)
         offset = max(i + 1, max_item)
 
-    if join == 'cascade':
+    if join == "cascade":
         joined_ds = _combine_ds_list(ds_list, method="combine_by_coords")
-        joined_ds['state'] = srange(joined_ds['state'])
+        joined_ds["state"] = srange(joined_ds["state"])
         joined_ds = joined_ds.map(fillna, keep_attrs=True)
-    elif join == 'overlay':
+    elif join == "overlay":
         joined_ds = _combine_ds_list(ds_list, concat_dim=item_dim, method="merge")
-        joined_ds['state'] = srange(joined_ds['state'])
+        joined_ds["state"] = srange(joined_ds["state"])
     else:
-        joined_ds = _combine_ds_list(ds_list, method='merge')
-        joined_ds = joined_ds.sortby('state')
-        joined_ds = joined_ds.map(fillna, how='both', keep_attrs=True)
-        joined_ds['state'] = srange(joined_ds['state'])
+        joined_ds = _combine_ds_list(ds_list, method="merge")
+        joined_ds = joined_ds.sortby("state")
+        joined_ds = joined_ds.map(fillna, how="both", keep_attrs=True)
+        joined_ds["state"] = srange(joined_ds["state"])
 
-    joined_ds =_drop_state(joined_ds).map(fillna, keep_attrs=True)
+    joined_ds = _drop_state(joined_ds).map(fillna, keep_attrs=True)
     joined_ds[item_dim] = srange(joined_ds[item_dim])
     return joined_ds
 
@@ -174,19 +167,19 @@ def _wrap_stack(objs, join):
 
 
 def cascade(objs):
-    return _wrap_stack(objs, 'cascade')
+    return _wrap_stack(objs, "cascade")
 
 
 def overlay(objs):
-    return _wrap_stack(objs, 'overlay')
+    return _wrap_stack(objs, "overlay")
 
 
 def stagger(objs):
-    return _wrap_stack(objs, 'stagger')
+    return _wrap_stack(objs, "stagger")
 
 
 def slide(objs):
-    return _wrap_stack(objs, 'slide')
+    return _wrap_stack(objs, "slide")
 
 
 def cols(obj, num_cols):
@@ -215,14 +208,14 @@ def _layout_objs(objs, by):
         for rowcol, ds in obj.data.items():
             for _ in np.arange(0, 1000):
                 if rowcol in data.keys():
-                    if by == 'row':
+                    if by == "row":
                         rowcol = rowcol[0], rowcol[1] + 1
-                    elif by == 'col':
+                    elif by == "col":
                         rowcol = rowcol[0] + 1, rowcol[1]
                 else:
                     break
             else:
-                raise ValueError(f'Could not find an open subplot row or col')
+                raise ValueError("Could not find an open subplot row or col")
             data[rowcol] = ds
     obj0.data = data
 
@@ -231,9 +224,9 @@ def _layout_objs(objs, by):
     return obj0
 
 
-def layout(objs, by='row', num_cols=None):
-    if by not in ['row', 'col']:
-        raise ValueError('Only by=row or by=col available!')
+def layout(objs, by="row", num_cols=None):
+    if by not in ["row", "col"]:
+        raise ValueError("Only by=row or by=col available!")
 
     objs = [obj.copy() for obj in objs if obj is not None]
     obj = _layout_objs(objs, by)

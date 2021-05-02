@@ -162,7 +162,9 @@ def fillna(da, how="ffill", dim="state"):
         else:
             da = xr.concat(
                 (
-                    _fillna(da.sel(item=item).to_series().rename_axis("state"), how, dim=dim).to_xarray()
+                    _fillna(
+                        da.sel(item=item).to_series().rename_axis("state"), how, dim=dim
+                    ).to_xarray()
                     for item in da["item"]
                 ),
                 "item",

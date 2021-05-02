@@ -27,18 +27,11 @@ from .configuration import (
 )
 from .easing import Easing
 from .join import (
-    _combine_ds_list,
-    _match_states,
     _drop_state,
-    _get_rowcols,
     _wrap_stack,
     cols,
     merge,
-    cascade,
-    overlay,
-    stagger,
-    slide,
-    layout
+    layout,
 )
 from .util import (
     fillna,
@@ -63,8 +56,7 @@ class Data(Easing, Animation, Configuration):
         objects=OPTIONS["style"], doc=f"Chart style; {OPTIONS['style']}"
     )
     label = param.ClassSelector(
-        class_=(int, float, str), allow_None=True,
-        doc="Legend label for each item"
+        class_=(int, float, str), allow_None=True, doc="Legend label for each item"
     )
     group = param.String(doc="Group label for multiple items")
 
@@ -194,13 +186,13 @@ class Data(Easing, Animation, Configuration):
         return self.stagger(other)
 
     def __truediv__(self, other):
-        return self.layout(other, by='col')
+        return self.layout(other, by="col")
 
     def __add__(self, other):
-        return self.layout(other, by='row')
+        return self.layout(other, by="row")
 
     def __radd__(self, other):
-        return other.layout(self, by='row')
+        return other.layout(self, by="row")
 
     def __sub__(self, other):
         return self.cascade(other)
@@ -213,7 +205,7 @@ class Data(Easing, Animation, Configuration):
 
     def __eq__(self, other):
         if not isinstance(other, Data):
-            raise TypeError(f'Other object is not an ah.Data object!')
+            raise TypeError("Other object is not an ah.Data object!")
         return self.equals(other)
 
     def copy(self):
@@ -229,18 +221,18 @@ class Data(Easing, Animation, Configuration):
         return self_copy
 
     def cascade(self, other):
-        return self._stack(other, how='cascade')
+        return self._stack(other, how="cascade")
 
     def overlay(self, other):
-        return self._stack(other, how='overlay')
+        return self._stack(other, how="overlay")
 
     def stagger(self, other):
-        return self._stack(other, how='stagger')
+        return self._stack(other, how="stagger")
 
     def slide(self, other):
-        return self._stack(other, how='slide')
+        return self._stack(other, how="slide")
 
-    def layout(self, other, by='row', num_cols=None):
+    def layout(self, other, by="row", num_cols=None):
         self_copy = layout([self, other], by)
         self_copy = self._propagate_params(self_copy, other, layout=True)
         return self_copy
@@ -1449,7 +1441,6 @@ class Array(GeographicData, ReferenceArray, ColorArray, RemarkArray):
                 .transpose(*DIMS["basic"])
             )
             num_items = len(inv_ds["item"])
-            num_states = len(inv_ds["state"])
 
             if state_labels is None:
                 inv_ds["state_label"] = inv_ds["label"].isel(item=0)
