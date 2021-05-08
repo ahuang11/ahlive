@@ -246,6 +246,7 @@ class Data(Easing, Animation, Configuration):
 
         preset_kwds = load_defaults("preset_kwds", ds, base_chart=preset)
         bar_label = preset_kwds.get("bar_label", True)
+        ascending = preset_kwds.pop("ascending", False)
         ds["tick_label"] = ds["x"]
         if bar_label:
             ds["bar_label"] = ds["x"]
@@ -254,6 +255,8 @@ class Data(Easing, Animation, Configuration):
             preset_kwds = load_defaults("preset_kwds", ds, base_chart=preset)
             limit = preset_kwds.get("limit", None)
             # want to count NaNs so highest number is consistent
+            if ascending:
+                ds["y"] *= -1
             ds["y"] = ds["y"].fillna(-np.inf)
             ranks = ds["y"].rank("item")
             # only keep items that are show at least once above the limit
@@ -261,9 +264,11 @@ class Data(Easing, Animation, Configuration):
             ds = ds.sel(
                 item=ds.where(ranks >= len(ds["item"]) - limit, drop=True)["item"]
             )
-            ds["x"] = ds["y"].rank("item")
+            ds["x"] = ranks
             # fill back in NaNs
             ds["y"] = ds["y"].where(np.isfinite(ds["y"]))
+            if ascending:
+                ds["y"] *= -1
         else:
             ds["x"] = ds["x"].rank("item")
             if preset == "delta":
