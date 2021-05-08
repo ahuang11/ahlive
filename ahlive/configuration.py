@@ -257,7 +257,7 @@ DEFAULTS["preset_kwds"]["trail"] = {
     "expire": 100,
     "stride": 1,
 }
-DEFAULTS["preset_kwds"]["race"] = {"bar_label": True, "limit": 5}
+DEFAULTS["preset_kwds"]["race"] = {"bar_label": True, "limit": 5, "ascending": False}
 DEFAULTS["preset_kwds"]["delta"] = {"bar_label": True, "capsize": 6}
 DEFAULTS["preset_kwds"]["scan"] = {"color": "black", "stride": 1}
 
