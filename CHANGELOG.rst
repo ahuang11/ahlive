@@ -3,13 +3,25 @@
 Changelog
 ==========
 
-v0.0.4 (?)
+v0.1.0 (?)
 ----------
+
+new features
+~~~~~~~~~~~~
+
+- Added two new merge functions: `slide` and `stagger`. Also, implemented merge methods and refactored the merge functions internally (:pull:`56`).
+  By `Andrew Huang <https://github.com/ahuang11>`_
 
 documentation
 ~~~~~~~~~~~~~
 
 - Tidy up documentation and fix a bug in Overview regarding `s=0` (:pull:`46`).
+  By `Andrew Huang <https://github.com/ahuang11>`_
+
+documentation
+~~~~~~~~~~~~~
+
+- Fix documentation bugs by adding `pooch` for `xr.tutorial` and add missing documentation from PR 56 (:pull:`57`).
   By `Andrew Huang <https://github.com/ahuang11>`_
 
 enhancements
