@@ -10,6 +10,7 @@ new features
 ~~~~~~~~~~~~
 
 - Added two new merge functions: `slide` and `stagger`. Also, implemented merge methods and refactored the merge functions internally (:pull:`56`).
+  By `Andrew Huang <https://github.com/ahuang11>`_
 
 documentation
 ~~~~~~~~~~~~~
