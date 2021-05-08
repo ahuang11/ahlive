@@ -55,11 +55,8 @@ class TutorialData(param.Parameterized):
         df = df.iloc[1:]
         df = df.set_index("iso_time")
         df.index = pd.to_datetime(df.index)
-        numeric_cols = [
-            'lat', 'lon', 'usa_rmw', 'usa_pres' ,'usa_sshs', 'usa_rmw'
-        ]
-        df[numeric_cols] = df[numeric_cols].apply(
-            pd.to_numeric, errors="coerce")
+        numeric_cols = ["lat", "lon", "usa_rmw", "usa_pres", "usa_sshs", "usa_rmw"]
+        df[numeric_cols] = df[numeric_cols].apply(pd.to_numeric, errors="coerce")
         return df
 
     def _load_covid19_us_cases(self, raw, **kwds):
@@ -209,7 +206,8 @@ class TutorialData(param.Parameterized):
             f"station={stn}&data=all&latlon=yes&elev=yes&"
             f"year1={ini_dt:%Y}&month1={ini_dt:%m}&day1={ini_dt:%d}&"
             f"year2={end_dt:%Y}&month2={end_dt:%m}&day2={end_dt:%d}&"
-            f"tz=Etc%2FUTC&format=onlycomma&latlon=no&elev=no&missing=empty&trace=empty&"
+            f"tz=Etc%2FUTC&format=onlycomma&latlon=no&elev=no&"
+            f"missing=empty&trace=empty&"
             f"direct=no&report_type=1&report_type=2"
         )
         df = pd.read_csv(self._data_url, **kwds)
