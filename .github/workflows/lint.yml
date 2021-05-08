@@ -5,6 +5,9 @@ on: pull_request_target
 jobs:
   lint:  # Runs linting package checks for code styling.
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        shell: bash -l {0}
     steps:
       - uses: actions/checkout@v2
       - name: Set up Python
@@ -16,14 +19,11 @@ jobs:
           python -m pip install --upgrade pip
           pip install flake8 isort black
       - name: Lint with flake8
-        shell: bash -l {0}
         run: |
           flake8 ahlive
       - name: Lint with black
-        shell: bash -l {0}
         run: |
           black --check ahlive
       - name: Lint with isort
-        shell: bash -l {0}
         run: |
           isort --check-only ahlive
