@@ -183,7 +183,7 @@ class Animation(param.Parameterized):
             kwds = {key: val for key, val in kwds.items() if key in sub_kwds.keys()}
             return kwds
 
-        format_ = kwds.pop("format", "auto").lstrip("%")
+        format_ = kwds.pop("format", "auto")
         if base is not None and format_ == "auto":
             try:
                 format_ = self._get_base_format(base)
@@ -829,6 +829,8 @@ class Animation(param.Parameterized):
             xs = pop(overlay_ds, "x")
             ys = pop(overlay_ds, "y")
             cs = pop(overlay_ds, "c")
+            if cs.ndim > 2:
+                cs = cs[-1]
 
             scan_xs = pop(overlay_ds, "scan_x")
             scan_ys = pop(overlay_ds, "scan_y")
