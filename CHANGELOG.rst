@@ -37,6 +37,8 @@ bug fixes
 - Fixed error when rendering `ah.Dataset` with `ah.DataFrame` and non-numeric columns in tutorial (:pull:`54`).
   By `Andrew Huang <https://github.com/ahuang11>`_
 
+- Fixed bug with `ah.Array2D` when input arrays only had two dimensions (:pull:`58`).
+
 internal changes
 ~~~~~~~~~~~~~~~~
 

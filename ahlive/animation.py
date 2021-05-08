@@ -828,7 +828,9 @@ class Animation(param.Parameterized):
 
             xs = pop(overlay_ds, "x")
             ys = pop(overlay_ds, "y")
-            cs = pop(overlay_ds, "c")[-1]
+            cs = pop(overlay_ds, "c")
+            if cs.ndim > 2:
+                cs = cs[-1]
 
             scan_xs = pop(overlay_ds, "scan_x")
             scan_ys = pop(overlay_ds, "scan_y")
