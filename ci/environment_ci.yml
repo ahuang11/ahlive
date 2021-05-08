@@ -9,7 +9,6 @@ dependencies:
   - pandoc
   - pip
   - pip:
-    - black
     - sphinx
     - nbsphinx
     - sphinx-book-theme
