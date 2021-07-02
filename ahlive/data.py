@@ -625,7 +625,7 @@ class Data(Easing, Animation, Configuration):
 
         vals = da.values
         unique_vals = np.unique(vals[~pd.isnull(vals)])
-        if len(unique_vals) == 1:
+        if len(unique_vals) == 1 and len(vals) > 1:
             dim = da.dims[0]
             if dim != "state":
                 item = da[dim][0]
@@ -817,7 +817,7 @@ class Data(Easing, Animation, Configuration):
                 continue
 
             ds[interp_var] = fillna(ds[interp_var], how="both")
-            ds[ease_var] = fillna(ds[ease_var], how="both")
+            ds[ease_var] = fillna(ds[ease_var], dim=item_dim, how="both")
 
             vars_seen = set([])
             for _, interp_ds in ds.groupby(interp_var):
