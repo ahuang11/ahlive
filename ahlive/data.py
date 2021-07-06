@@ -617,6 +617,8 @@ class Data(Easing, Animation, Configuration):
 
             if limit is not None:
                 if is_scalar(limit) == 1:
+                    if isinstance(limit, xr.DataArray):
+                        limit = limit.item()
                     limit = np.repeat(limit, len(ds["state"]))
                 ds[key] = ("state", limit)
         return ds
