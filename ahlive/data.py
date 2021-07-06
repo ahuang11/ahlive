@@ -441,8 +441,6 @@ class Data(Easing, Animation, Configuration):
     def _compute_limit_offset(self, limit, margin):
         if is_str(limit):
             return None
-        elif isinstance(limit, xr.DataArray):
-            limit = limit.values
 
         if is_datetime(limit):
             base_diff = self._get_median_diff(limit).astype(float)
