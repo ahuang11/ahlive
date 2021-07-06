@@ -87,12 +87,26 @@ class Data(Easing, Animation, Configuration):
         "function must contain fig and ax as arguments"
     )
 
-    title = param.String(allow_None=True, doc="Title label (outer top left)")
-    subtitle = param.String(allow_None=True, doc="Subtitle label (outer top right)")
-    xlabel = param.String(allow_None=True, doc="X-axis label (bottom center)")
-    ylabel = param.String(allow_None=True, doc="Y-axis label (left center")
-    note = param.String(allow_None=True, doc="Note label (bottom left)")
-    caption = param.String(allow_None=True, doc="Caption label (outer left)")
+    title = param.ClassSelector(
+        class_=(int, float, str), allow_None=True, doc="Title label (outer top left)"
+    )
+    subtitle = param.ClassSelector(
+        class_=(int, float, str),
+        allow_None=True,
+        doc="Subtitle label (outer top right)",
+    )
+    xlabel = param.ClassSelector(
+        class_=(int, float, str), allow_None=True, doc="X-axis label (bottom center)"
+    )
+    ylabel = param.ClassSelector(
+        class_=(int, float, str), allow_None=True, doc="Y-axis label (left center"
+    )
+    note = param.ClassSelector(
+        class_=(int, float, str), allow_None=True, doc="Note label (bottom left)"
+    )
+    caption = param.ClassSelector(
+        class_=(int, float, str), allow_None=True, doc="Caption label (outer left)"
+    )
 
     xticks = param.ClassSelector(class_=(Iterable,), doc="X-axis tick locations")
     yticks = param.ClassSelector(class_=(Iterable,), doc="Y-axis tick locations")
@@ -1248,7 +1262,9 @@ class ColorArray(param.Parameterized):
     cticks = param.ClassSelector(class_=(Iterable,), doc="Colorbar tick locations")
     ctick_labels = param.ClassSelector(class_=(Iterable,), doc="Colorbar tick labels")
     colorbar = param.Boolean(default=None, doc="Whether to show colorbar")
-    clabel = param.String(doc="Colorbar label")
+    clabel = param.ClassSelector(
+        class_=(int, float, str), allow_None=True, doc="Colorbar label"
+    )
 
     def __init__(self, **kwds):
         self.configurables["color"] = CONFIGURABLES["color"]
@@ -1554,11 +1570,11 @@ class DataStructure(param.Parameterized):
         kwds_updated = kwds.copy()
         if kwds_updated.get("style") != "bare":
             if "xlabel" not in kwds:
-                kwds_updated["xlabel"] = xs.title()
+                kwds_updated["xlabel"] = str(xs).title()
             if "ylabel" not in kwds:
-                kwds_updated["ylabel"] = ys.title()
+                kwds_updated["ylabel"] = str(ys).title()
             if "clabel" not in kwds:
-                kwds_updated["clabel"] = cs.title()
+                kwds_updated["clabel"] = str(cs).title()
             if "title" not in kwds and join == "layout":
                 kwds_updated["title"] = label
 

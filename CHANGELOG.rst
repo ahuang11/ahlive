@@ -30,6 +30,9 @@ enhancements
 - `invert` is now more polished and documented, accepting label, group, and state_labels. (:pull:`44`).
   By `Andrew Huang <https://github.com/ahuang11>`_
 
+- Cast labels input to str. (:pull:`60`).
+  By `Andrew Huang <https://github.com/ahuang11>`_
+
 bug fixes
 ~~~~~~~~~
 

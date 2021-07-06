@@ -744,7 +744,13 @@ def test_array_invert():
     ah_df_inv.finalize()
 
 
+@pytest.mark.parametrize("key", ["label", "xlabel", "ylabel", "clabel"])
 @pytest.mark.parametrize("label", ["a", 1, 1.0])
-def test_label(label):
-    ah_obj = ah.Array([0, 1, 2], [3, 4, 5], label=label).finalize()
-    assert ah_obj[1, 1]["label"].values == [label]
+def test_labels(key, label):
+    label_kwd = {key: label}
+    ah_obj = ah.Array([0, 1, 2], [3, 4, 5], **label_kwd).finalize()
+    if key != "label":
+        sub_key = "text" if key == "clabel" else key
+        assert ah_obj[1, 1].attrs[f"{key}_kwds"][sub_key] == label
+    else:
+        assert ah_obj[1, 1][key].values == [label]
