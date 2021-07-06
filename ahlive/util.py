@@ -150,14 +150,14 @@ def _fillna(da, how, dim="state"):
     return da
 
 
-def fillna(da, how="ffill", dim="state"):
+def fillna(da, how="ffill", dim="state", item_dim="item"):
     """ds.ffill does not handle datetimes"""
     if "state" not in da.dims:
         return da
     try:
         da = _fillna(da, how, dim=dim)
     except (TypeError, ImportError):
-        if "item" not in da.dims:
+        if item_dim not in da.dims:
             da = _fillna(da.to_series(), how, dim=dim).to_xarray()
         else:
             da = xr.concat(
@@ -165,8 +165,8 @@ def fillna(da, how="ffill", dim="state"):
                     _fillna(
                         da.sel(item=item).to_series().rename_axis("state"), how, dim=dim
                     ).to_xarray()
-                    for item in da["item"]
+                    for item in da[item_dim]
                 ),
-                "item",
+                item_dim,
             )
     return da
