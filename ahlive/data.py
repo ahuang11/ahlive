@@ -1554,11 +1554,11 @@ class DataStructure(param.Parameterized):
         kwds_updated = kwds.copy()
         if kwds_updated.get("style") != "bare":
             if "xlabel" not in kwds:
-                kwds_updated["xlabel"] = xs.title()
+                kwds_updated["xlabel"] = str(xs).title()
             if "ylabel" not in kwds:
-                kwds_updated["ylabel"] = ys.title()
+                kwds_updated["ylabel"] = str(ys).title()
             if "clabel" not in kwds:
-                kwds_updated["clabel"] = cs.title()
+                kwds_updated["clabel"] = str(cs).title()
             if "title" not in kwds and join == "layout":
                 kwds_updated["title"] = label
 
