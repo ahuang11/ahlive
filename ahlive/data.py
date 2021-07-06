@@ -87,12 +87,26 @@ class Data(Easing, Animation, Configuration):
         "function must contain fig and ax as arguments"
     )
 
-    title = param.ClassSelector(class_=(int, float, str), allow_None=True, doc="Title label (outer top left)")
-    subtitle = param.ClassSelector(class_=(int, float, str), allow_None=True, doc="Subtitle label (outer top right)")
-    xlabel = param.ClassSelector(class_=(int, float, str), allow_None=True, doc="X-axis label (bottom center)")
-    ylabel = param.ClassSelector(class_=(int, float, str), allow_None=True, doc="Y-axis label (left center")
-    note = param.ClassSelector(class_=(int, float, str), allow_None=True, doc="Note label (bottom left)")
-    caption = param.ClassSelector(class_=(int, float, str), allow_None=True, doc="Caption label (outer left)")
+    title = param.ClassSelector(
+        class_=(int, float, str), allow_None=True, doc="Title label (outer top left)"
+    )
+    subtitle = param.ClassSelector(
+        class_=(int, float, str),
+        allow_None=True,
+        doc="Subtitle label (outer top right)",
+    )
+    xlabel = param.ClassSelector(
+        class_=(int, float, str), allow_None=True, doc="X-axis label (bottom center)"
+    )
+    ylabel = param.ClassSelector(
+        class_=(int, float, str), allow_None=True, doc="Y-axis label (left center"
+    )
+    note = param.ClassSelector(
+        class_=(int, float, str), allow_None=True, doc="Note label (bottom left)"
+    )
+    caption = param.ClassSelector(
+        class_=(int, float, str), allow_None=True, doc="Caption label (outer left)"
+    )
 
     xticks = param.ClassSelector(class_=(Iterable,), doc="X-axis tick locations")
     yticks = param.ClassSelector(class_=(Iterable,), doc="Y-axis tick locations")
@@ -1248,7 +1262,9 @@ class ColorArray(param.Parameterized):
     cticks = param.ClassSelector(class_=(Iterable,), doc="Colorbar tick locations")
     ctick_labels = param.ClassSelector(class_=(Iterable,), doc="Colorbar tick labels")
     colorbar = param.Boolean(default=None, doc="Whether to show colorbar")
-    clabel = param.ClassSelector(class_=(int, float, str), allow_None=True, doc="Colorbar label")
+    clabel = param.ClassSelector(
+        class_=(int, float, str), allow_None=True, doc="Colorbar label"
+    )
 
     def __init__(self, **kwds):
         self.configurables["color"] = CONFIGURABLES["color"]

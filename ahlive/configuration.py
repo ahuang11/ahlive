@@ -256,6 +256,7 @@ DEFAULTS["preset_kwds"]["trail"] = {
     "chart": "scatter",
     "expire": 100,
     "stride": 1,
+    "finish": True,
 }
 DEFAULTS["preset_kwds"]["race"] = {"bar_label": True, "limit": 5, "ascending": False}
 DEFAULTS["preset_kwds"]["delta"] = {"bar_label": True, "capsize": 6}
