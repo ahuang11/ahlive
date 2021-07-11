@@ -13,6 +13,9 @@ from matplotlib.colors import BoundaryNorm
 
 from .animation import Animation
 from .configuration import (
+    CartopyCRS,
+    CartopyTiles,
+    CartopyFeature,
     CHARTS,
     CONFIGURABLES,
     DIMS,
@@ -932,32 +935,51 @@ class Data(Easing, Animation, Configuration):
         ds["state"] = srange(len(ds["state"]))
         return ds
 
-    def _get_crs(self, crs_name, crs_kwds, central_longitude=None):
+    def _get_crs(self, crs_obj, crs_kwds, central_longitude=None):
         import cartopy.crs as ccrs
+        if isinstance(crs_obj, bool):
+            crs_obj = "PlateCarree"
 
-        if self._crs_names is None:
-            self._crs_names = {
-                crs_name.lower(): crs_name
-                for crs_name in dir(ccrs)
-                if "_" not in crs_name
-            }
+        if isinstance(crs_obj, str):
+            if self._crs_names is None:
+                self._crs_names = {
+                    name.lower(): name for name, obj in vars(ccrs).items()
+                    if isinstance(obj, type) and issubclass(obj, ccrs.Projection) and
+                    not name.startswith('_') and name not in ['Projection'] or
+                    name == "GOOGLE_MERCATOR"
+                }
 
-        if crs_name is not None:
-            crs_name = crs_name.lower()
-        crs_name = self._crs_names.get(crs_name, "PlateCarree")
-        if central_longitude is not None:
-            crs_kwds["central_longitude"] = central_longitude
-        crs_obj = getattr(ccrs, crs_name)(**crs_kwds)
+            if isinstance(crs_obj, str):
+                crs_obj = crs_obj.lower()
+
+            if central_longitude is not None:
+                crs_kwds["central_longitude"] = central_longitude
+
+            if crs_obj == "google_mercator":
+                crs_obj = getattr(ccrs, self._crs_names[crs_obj])
+            else:
+                crs_obj = getattr(ccrs, self._crs_names[crs_obj])(**crs_kwds)
+        else:
+            if central_longitude is not None:
+                raise ValueError(
+                    f"central_longitude only supported if projection is a string type (not ccrs object)!"
+                )
         return crs_obj
 
     def _add_geo_transforms(self, ds):
+        import cartopy.crs as ccrs
         crs_kwds = load_defaults("crs_kwds", ds)
         crs = crs_kwds.pop("crs", None)
 
         projection_kwds = load_defaults("projection_kwds", ds)
         projection = projection_kwds.pop("projection", None)
 
-        if crs is not None or projection is not None:
+        if ds.attrs["tiles_kwds"].get("tiles"):
+            projection = "GOOGLE_MERCATOR"
+        elif any(ds.attrs[f"{geo}_kwds"].get(geo) for geo in CONFIGURABLES["geo"]):
+            projection = "PlateCarree"
+
+        if crs or projection:
             if "central_longitude" in ds:
                 central_lon = pop(ds, "central_longitude")
             elif "central_longitude" in projection_kwds:
@@ -995,6 +1017,38 @@ class Data(Easing, Animation, Configuration):
                         f"have {len(ds['state'])} num_states!"
                     )
                 ds["projection"] = "state", projection_obj
+        return ds
+
+    def _add_geo_features(self, ds):
+        from cartopy import feature as cfeature
+
+        for feature in CONFIGURABLES["geo"]:
+            if feature in ["projection", "crs", "tiles"]:
+                continue
+            feature_key = f"{feature}_kwds"
+            feature_kwds = load_defaults(feature_key, ds)
+            feature_obj = feature_kwds.pop(feature, False)
+            if feature_obj:
+                if isinstance(feature_obj, bool):
+                    feature_obj = getattr(cfeature, feature.upper())
+                ds.attrs[feature_key][feature] = feature_obj
+        return ds
+
+    def _add_geo_tiles(self, ds):
+        from cartopy.io import img_tiles as ctiles
+
+        tiles_kwds = load_defaults("tiles_kwds", ds)
+        tiles_obj = tiles_kwds.pop("tiles", False)
+        style = tiles_kwds.pop("style", None)
+        if tiles_obj:
+            if isinstance(tiles_obj, bool):
+                tiles_obj = "Stamen"
+            if isinstance(tiles_obj, str):
+                try:
+                    tiles_obj = getattr(ctiles, tiles_obj)(style=style)
+                except TypeError:
+                    tiles_obj = getattr(ctiles, tiles_obj)()
+                ds.attrs["tiles_kwds"]["tiles"] = tiles_obj
         return ds
 
     def _add_animate_kwds(self, ds):
@@ -1071,6 +1125,9 @@ class Data(Easing, Animation, Configuration):
             ds = self._add_durations(ds)
             ds = self._interp_dataset(ds)
             ds = self._add_geo_transforms(ds)
+            if "projection" in ds.data_vars:
+                ds = self._add_geo_features(ds)
+                ds = self._add_geo_tiles(ds)
             ds = self._add_animate_kwds(ds)
             ds.attrs["finalized"] = True
             data[rowcol] = ds
@@ -1261,18 +1318,19 @@ class Data(Easing, Animation, Configuration):
 
 class GeographicData(Data):
 
-    crs = param.String(doc="The coordinate reference system to project from")
-    projection = param.String(doc="The coordinate reference system to project to")
+    crs = CartopyCRS(doc="The coordinate reference system to project from")
+    projection = CartopyCRS(doc="The coordinate reference system to project to")
     central_lon = param.ClassSelector(
         class_=(Iterable, int, float), doc="Longitude to center the map on")
 
-    borders = param.Boolean(default=None, doc="Whether to show borders")
-    coastline = param.Boolean(default=None, doc="Whether to show coastlines")
-    land = param.Boolean(default=None, doc="Whether to show land surfaces")
-    ocean = param.Boolean(default=None, doc="Whether to show ocean surfaces")
-    lakes = param.Boolean(default=None, doc="Whether to show lakes")
-    rivers = param.Boolean(default=None, doc="Whether to show rivers")
-    states = param.Boolean(default=None, doc="Whether to show states")
+    tiles = CartopyTiles(default=None, doc="Whether to show tiles")
+    borders = CartopyFeature(default=None, doc="Whether to show borders")
+    coastline = CartopyFeature(default=None, doc="Whether to show coastlines")
+    land = CartopyFeature(default=None, doc="Whether to show land surfaces")
+    ocean = CartopyFeature(default=None, doc="Whether to show ocean surfaces")
+    lakes = CartopyFeature(default=None, doc="Whether to show lakes")
+    rivers = CartopyFeature(default=None, doc="Whether to show rivers")
+    states = CartopyFeature(default=None, doc="Whether to show states")
     worldwide = param.Boolean(default=None, doc="Whether to view globally")
 
     def __init__(self, num_states, **kwds):

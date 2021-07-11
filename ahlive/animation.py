@@ -1095,6 +1095,24 @@ class Animation(param.Parameterized):
             gridlines = None
         return gridlines
 
+    def _update_geo(self, state_ds, ax):
+        plot_kwds = load_defaults("plot_kwds", state_ds)
+        transform = plot_kwds.get("transform")
+        if transform is not None:
+            for feature in CONFIGURABLES["geo"]:
+                if feature in ["projection", "crs", "tiles"]:
+                    continue
+                feature_key = f"{feature}_kwds"
+                feature_kwds = load_defaults(feature_key, state_ds)
+                feature_obj = feature_kwds.pop(feature, False)
+                if feature_obj:
+                    ax.add_feature(feature_obj, **feature_kwds)
+
+            tiles_kwds = load_defaults("tiles_kwds", state_ds)
+            tiles_obj = tiles_kwds.pop("tiles", False)
+            if tiles_obj:
+                ax.add_image(tiles_obj, 1, **tiles_kwds)
+
     def _update_limits(self, state_ds, ax):
         limits = {
             var: pop(state_ds, var, get=-1)
@@ -1105,8 +1123,6 @@ class Animation(param.Parameterized):
         margins_kwds = load_defaults("margins_kwds", state_ds)
         transform = margins_kwds.pop("transform", None)
         if transform is not None:
-            from cartopy import feature as cfeature
-
             unset_limits = all(limit is None for limit in limits)
             if state_ds.attrs["limits_kwds"].get("worldwide"):
                 ax.set_global()
@@ -1120,14 +1136,6 @@ class Animation(param.Parameterized):
                     ],
                     transform,
                 )
-            for feature in CONFIGURABLES["geo"]:
-                if feature in ["projection", "crs"]:
-                    continue
-                feature_key = f"{feature}_kwds"
-                feature_kwds = load_defaults(feature_key, state_ds)
-                if feature_kwds.pop(feature, False):
-                    feature_obj = getattr(cfeature, feature.upper())
-                    ax.add_feature(feature_obj, **feature_kwds)
         else:
             for axis in ["x", "y"]:
                 axis_lim0 = to_scalar(limits.get(f"{axis}lim0s"))
@@ -1276,6 +1284,7 @@ class Animation(param.Parameterized):
         self._update_labels(state_ds, ax)
         self._add_state_labels(state_ds, ax)
         self._update_limits(state_ds, ax)
+        self._update_geo(state_ds, ax)
 
         base_mappable = self._process_base_vars(state_ds, ax)
         grid_mappable = self._process_grid_vars(state_ds, ax)
