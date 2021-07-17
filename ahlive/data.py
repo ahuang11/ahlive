@@ -636,7 +636,7 @@ class Data(Easing, Animation, Configuration):
                         continue
                     limit = getattr(
                         pd.Series(
-                            getattr(ds[var].ffill(item_dim), stat)(item_dim)
+                            getattr(ds[var].ffill(item_dim), stat)(item_dim).values
                         ),
                         f"cum{stat}",
                     )().values
@@ -1045,9 +1045,9 @@ class Data(Easing, Animation, Configuration):
                 tiles_obj = "Stamen"
             if isinstance(tiles_obj, str):
                 try:
-                    tiles_obj = getattr(ctiles, tiles_obj)(style=style)
+                    tiles_obj = getattr(ctiles, tiles_obj)(style=style, cache=True)
                 except TypeError:
-                    tiles_obj = getattr(ctiles, tiles_obj)()
+                    tiles_obj = getattr(ctiles, tiles_obj)(cache=True)
                 ds.attrs["tiles_kwds"]["tiles"] = tiles_obj
         return ds
 
