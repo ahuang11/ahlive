@@ -5,6 +5,7 @@ import pandas as pd
 import pytest
 import xarray as xr
 import cartopy.crs as ccrs
+import cartopy.feature as cfeature
 
 import ahlive as ah
 from ahlive.configuration import CONFIGURABLES, ITEMS, OPTIONS, VARS
@@ -687,7 +688,7 @@ def test_add_geo_features(coastline):
     ah_obj = ah.Array([0, 1, 2], [3, 4, 5], coastline=coastline).finalize()
     attrs = ah_obj.attrs
     assert isinstance(
-        attrs[f"coastline_kwds"]["coastline"], cfeature.NaturalEarthFeature
+        attrs["coastline_kwds"]["coastline"], cfeature.NaturalEarthFeature
     )
 
 
