@@ -111,9 +111,9 @@ class Easing(param.Parameterized):
             indices[-1] -= 1
             result[indices] = array[0]  # (1, num_states)
             result = result.reshape(1, -1)
-        elif interp == "fill" or name.endswith("discrete_trail"):
+        elif interp == "fill" or name.endswith(("zoom", "discrete_trail")):
             result = self._fill(array, num_states, num_steps)
-            if interp == "fill":
+            if interp == "fill" or name == "zoom":
                 result = result.ffill(axis=1)
                 result.iloc[:, -1] = array[:, -1]
             result = result.values

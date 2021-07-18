@@ -54,6 +54,7 @@ CONFIGURABLES = {  # used for like .config('figure', **kwds)
         "ocean",
         "rivers",
         "states",
+        "tiles",
     ],
     "color": ["colorbar", "clabel", "cticks"],
     "remark": ["remark_plot", "remark_inline"],
@@ -69,6 +70,8 @@ CONFIGURABLES_KWDS = {
     configurable: {configurable: configurable}
     for configurable in list(chain(*CONFIGURABLES.values()))
 }
+# this maps ahlive's configurable's params to matplotlib keys
+# key may match value if ahlive's param name matches matplotlib
 # outer key is configurable
 # inner key is param
 # inner value is method_key
@@ -95,8 +98,14 @@ CONFIGURABLES_KWDS.update(
             "xlim1s": "xlim1s",
             "ylim1s": "ylim1s",
         },
-        "projection": {"projection": "projection", "central_lon": "central_longitude"},
-        "clabel": {"clabel": "text"},
+        "projection": {
+            "projection": "projection",
+            "central_lon": "central_longitude",
+        },
+        "tiles": {"tiles": "tiles", "zoom": "zoom"},
+        "clabel": {
+            "clabel": "text",
+        },
         "colorbar": {"colorbar": "show"},
         "cticks": {"cticks": "ticks", "ctick_labels": "tick_labels"},
         "compute": {
@@ -364,6 +373,8 @@ DEFAULTS["cticks_kwds"].update({"num_colors": 11})
 
 DEFAULTS["coastline_kwds"] = {"coastline": True}  # TODO: change to show
 
+DEFAULTS["tiles_kwds"] = {"style": "toner"}  # TODO: change to show
+
 DEFAULTS["land_kwds"] = {"facecolor": "whitesmoke"}
 
 DEFAULTS["watermark_kwds"] = {
@@ -392,6 +403,61 @@ DEFAULTS["compute_kwds"] = {
 DEFAULTS["animate_kwds"] = {"mode": "I", "loop": 0, "pygifsicle": True}
 
 defaults = DEFAULTS.copy()
+
+
+class CartopyCRS(param.ClassSelector):
+
+    __slots__ = ["crs_dict"]
+
+    def __init__(self, default=None, **params):
+        import cartopy.crs as ccrs
+
+        self.crs_dict = {
+            name.lower(): obj
+            for name, obj in vars(ccrs).items()
+            if isinstance(obj, type)
+            and issubclass(obj, ccrs.Projection)
+            and not name.startswith("_")
+            and name not in ["Projection"]
+            or name == "GOOGLE_MERCATOR"
+        }
+        objects = tuple(list(self.crs_dict.values()) + [str, bool])
+        super(CartopyCRS, self).__init__(objects, **params)
+        self._validate(self.default)
+
+    def _validate(self, val):
+        if isinstance(val, str):
+            crs_names = self.crs_dict.keys()
+            if val.lower() not in crs_names:
+                raise ValueError(f"Expected one of these {crs_names}; got {val}")
+
+
+class CartopyFeature(param.ClassSelector):
+    def __init__(self, default=None, **params):
+        import cartopy.feature as cfeature
+
+        objects = (cfeature.NaturalEarthFeature, bool)
+        super(CartopyFeature, self).__init__(objects, **params)
+        self._validate(self.default)
+
+
+class CartopyTiles(param.ClassSelector):
+
+    __slots__ = ["tiles_dict"]
+
+    def __init__(self, default=None, **params):
+        import cartopy.io.img_tiles as ctiles
+
+        self.tiles_dict = {
+            name.lower(): obj
+            for name, obj in vars(ctiles).items()
+            if isinstance(obj, type)
+            and issubclass(obj, ctiles.GoogleWTS)
+            and not name.startswith("_")
+        }
+        objects = tuple(list(self.tiles_dict.values()) + [str, bool])
+        super(CartopyTiles, self).__init__(objects, **params)
+        self._validate(self.default)
 
 
 class Configuration(param.Parameterized):

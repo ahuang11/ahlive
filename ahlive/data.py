@@ -1,4 +1,5 @@
 import warnings
+from collections import defaultdict
 from collections.abc import Iterable
 from copy import deepcopy
 from itertools import chain
@@ -21,6 +22,9 @@ from .configuration import (
     PARAMS,
     PRESETS,
     VARS,
+    CartopyCRS,
+    CartopyFeature,
+    CartopyTiles,
     Configuration,
     defaults,
     load_defaults,
@@ -118,8 +122,8 @@ class Data(Easing, Animation, Configuration):
         default=(1, 1), length=2, doc="Subplot location as (row, column)"
     )
 
-    _crs_names = None
     _parameters = None
+    _canvas_kwds = None
     configurables = None
     data = None
 
@@ -129,6 +133,7 @@ class Data(Easing, Animation, Configuration):
             "subplot": CONFIGURABLES["subplot"],
             "label": CONFIGURABLES["label"],
         }
+        self._canvas_kwds = defaultdict(dict)
         self._parameters = [key for key in dir(self) if not key.startswith("_")]
         input_vars = {
             key: kwds.pop(key) for key in list(kwds) if key not in self._parameters
@@ -428,6 +433,17 @@ class Data(Easing, Animation, Configuration):
         ds = self._config_grid_axes(ds, chart)
         return ds
 
+    def _add_figsize(self, ds):
+        figure_kwds = ds.attrs["figure_kwds"]
+        if figure_kwds.get("figsize") is None:
+            rows = self._canvas_kwds["rows"]
+            cols = self._canvas_kwds["cols"]
+            width = 7.5 + 7.5 * (cols - 1)
+            height = 5 + 5 * (rows - 1)
+            figsize = (width, height)
+            ds.attrs["figure_kwds"]["figsize"] = figsize
+        return ds
+
     @staticmethod
     def _fill_null(ds):
         for var in ds.data_vars:
@@ -509,6 +525,34 @@ class Data(Easing, Animation, Configuration):
             num = int(key[-2])  # 0
             is_lower_limit = num == 0
 
+            grid_var = f"grid_{axis}"
+            if grid_var in ds:
+                var = grid_var
+                item_dim = "grid_item"
+            elif axis in ds:
+                var = axis
+                item_dim = "item"
+            else:
+                if axis == "x":
+                    if "ref_x0" in ds and "ref_x1" in ds:
+                        var = "ref_x0" if num == 0 else "ref_x1"
+                    elif "ref_x0" in ds:
+                        var = "ref_x0"
+                    elif "ref_x1" in ds:
+                        var = "ref_x1"
+                    else:
+                        continue
+                elif axis == "y":
+                    if "ref_y0" in ds and "ref_y1" in ds:
+                        var = "ref_y0" if num == 0 else "ref_y1"
+                    elif "ref_y0" in ds:
+                        var = "ref_y0"
+                    elif "ref_y1" in ds:
+                        var = "ref_y1"
+                    else:
+                        continue
+                item_dim = "ref_item"
+
             axis_limit_key = f"{axis}lim"
             if axes_kwds is not None:
                 in_axes_kwds = axis_limit_key in axes_kwds
@@ -528,6 +572,8 @@ class Data(Easing, Animation, Configuration):
                     limit = "zero"
                 elif is_bar_x:
                     continue
+                elif item_dim == "grid_item":
+                    limit = "fixed"
                 elif is_fixed:
                     limit = "fixed_0.05"
                 elif num == 1:
@@ -588,10 +634,12 @@ class Data(Easing, Animation, Configuration):
                 elif limit == "explore":
                     stat = "min" if is_lower_limit else "max"
                     # explore bounds, pd.Series(da.min('item')).cummin()
-                    if is_str(da) or item_dim == "grid_item":
+                    if is_str(da):
                         continue
                     limit = getattr(
-                        pd.Series(getattr(da.ffill(item_dim), stat)(item_dim)),
+                        pd.Series(
+                            getattr(ds[var].ffill(item_dim), stat)(item_dim).values
+                        ),
                         f"cum{stat}",
                     )().values
                 elif limit == "follow":
@@ -619,6 +667,7 @@ class Data(Easing, Animation, Configuration):
                 if is_scalar(limit) == 1:
                     limit = np.repeat(limit, len(ds["state"]))
                 ds[key] = ("state", limit)
+
         return ds
 
     def _compress_vars(self, da):
@@ -836,7 +885,7 @@ class Data(Easing, Animation, Configuration):
             vars_seen = set([])
             for _, interp_ds in ds.groupby(interp_var):
                 interpolate_kwds["interp"] = pop(interp_ds, interp_var, get=-1)
-                for _, ease_ds in interp_ds.groupby(ease_var):
+                for _, ease_ds in interp_ds.unstack().groupby(ease_var):
                     if not ease_ds:
                         continue
                     if f"stacked_{kind}item_state" in ease_ds.dims:
@@ -881,22 +930,36 @@ class Data(Easing, Animation, Configuration):
             ds["s"] = fillna(ds["s"].where(ds["s"] >= 0), how="both")
         return ds
 
-    def _get_crs(self, crs_name, crs_kwds, central_longitude=None):
-        import cartopy.crs as ccrs
+    def _get_crs(self, crs_obj, crs_kwds, central_longitude=None):
+        if isinstance(crs_obj, bool):
+            crs_obj = "PlateCarree"
 
-        if self._crs_names is None:
-            self._crs_names = {
-                crs_name.lower(): crs_name
-                for crs_name in dir(ccrs)
-                if "_" not in crs_name
-            }
+        if isinstance(crs_obj, str):
+            import cartopy.crs as ccrs
 
-        if crs_name is not None:
-            crs_name = crs_name.lower()
-        crs_name = self._crs_names.get(crs_name, "PlateCarree")
-        if central_longitude is not None:
-            crs_kwds["central_longitude"] = central_longitude
-        crs_obj = getattr(ccrs, crs_name)(**crs_kwds)
+            if not self._canvas_kwds["crs_names"]:
+                self._canvas_kwds["crs_names"] = {
+                    name.lower(): name
+                    for name, obj in vars(ccrs).items()
+                    if isinstance(obj, type)
+                    and issubclass(obj, ccrs.Projection)
+                    and not name.startswith("_")
+                    and name not in ["Projection"]
+                    or name == "GOOGLE_MERCATOR"
+                }
+
+            if central_longitude is not None:
+                crs_kwds["central_longitude"] = central_longitude
+
+            crs_obj = getattr(ccrs, self._canvas_kwds["crs_names"][crs_obj.lower()])
+            if callable(crs_obj):  # else ccrs.GOOGLE_MERCATOR
+                crs_obj = crs_obj(**crs_kwds)
+        else:
+            if central_longitude is not None:
+                raise ValueError(
+                    f"central_longitude only supported if "
+                    f"projection is a string type; got {crs_obj}"
+                )
         return crs_obj
 
     def _add_geo_transforms(self, ds):
@@ -906,7 +969,12 @@ class Data(Easing, Animation, Configuration):
         projection_kwds = load_defaults("projection_kwds", ds)
         projection = projection_kwds.pop("projection", None)
 
-        if crs is not None or projection is not None:
+        tiles_kwds = load_defaults("tiles_kwds", ds)
+        tiles = tiles_kwds.pop("tiles", None)
+        if any(ds.attrs[f"{geo}_kwds"].get(geo) for geo in CONFIGURABLES["geo"]):
+            projection = projection or ("GOOGLE_MERCATOR" if tiles else "PlateCarree")
+
+        if crs or projection:
             if "central_longitude" in ds:
                 central_lon = pop(ds, "central_longitude")
             elif "central_longitude" in projection_kwds:
@@ -942,6 +1010,107 @@ class Data(Easing, Animation, Configuration):
                         f"have {len(ds['state'])} num_states!"
                     )
                 ds["projection"] = "state", projection_obj
+        return ds
+
+    def _add_geo_features(self, ds):
+        import cartopy.feature as cfeature
+
+        for feature in CONFIGURABLES["geo"]:
+            if feature in ["projection", "crs", "tiles"]:
+                continue
+            feature_key = f"{feature}_kwds"
+            feature_kwds = load_defaults(feature_key, ds)
+            feature_obj = feature_kwds.pop(feature, False)
+            if feature_obj:
+                if isinstance(feature_obj, bool):
+                    feature_obj = getattr(cfeature, feature.upper())
+                ds.attrs[feature_key][feature] = feature_obj
+        return ds
+
+    @staticmethod
+    def _get_zoom(bounds, width, height):
+        """
+        Compute zoom level given bounds and the plot size.
+        https://github.com/holoviz/geoviews/blob/master/geoviews/util.py#L111-L136
+        """
+        w, e, s, n = bounds  # changed from w, s, e, n
+        max_width, max_height = 256, 256
+        num_states = len(w)
+        ZOOM_MAX = np.repeat(21, num_states)
+        ln2 = np.log(2)
+        pi = np.repeat(np.pi, num_states)
+
+        def latRad(lat):
+            sin = np.sin(lat * pi / 180)
+            radX2 = np.log((1 + sin) / (1 - sin)) / 2
+            return np.max([np.min([radX2, pi], axis=0), -pi], axis=0) / 2
+
+        def zoom(mapPx, worldPx, fraction):
+            return np.floor(np.log(mapPx / worldPx / fraction) / ln2)
+
+        latFraction = (latRad(n) - latRad(s)) / pi
+
+        lngDiff = e - w
+        lngFraction = np.where(lngDiff < 0, lngDiff + 360, lngDiff / 360)
+
+        latZoom = zoom(height, max_height, latFraction)
+        lngZoom = zoom(width, max_width, lngFraction)
+        zoom = np.min([latZoom, lngZoom, ZOOM_MAX], axis=0)
+        return np.where(np.isfinite(zoom), zoom, 0).astype(int)
+
+    def _add_geo_tiles(self, ds):
+        figure_kwds = load_defaults("figure_kwds", ds)
+        tiles_kwds = load_defaults("tiles_kwds", ds)
+        tiles_obj = tiles_kwds.pop("tiles", False)
+        style = tiles_kwds.pop("style", None)
+        if tiles_obj:
+            import cartopy
+            import cartopy.io.img_tiles as ctiles
+
+            cartopy_version = cartopy.__version__
+            if cartopy_version < "0.19.0":
+                raise ValueError(
+                    f"To use tiles, ensure cartopy>=0.19.0; got {cartopy_version}"
+                )
+
+            if not self._canvas_kwds["tiles_names"]:
+                self._canvas_kwds["tiles_names"] = {
+                    name.lower(): name
+                    for name, obj in vars(ctiles).items()
+                    if isinstance(obj, type)
+                    and issubclass(obj, ctiles.GoogleWTS)
+                    and not name.startswith("_")
+                }
+
+            zoom = tiles_kwds.pop("zoom", None)
+            num_states = len(ds["state"])
+            if zoom is None:
+                bounds = np.vstack(
+                    [
+                        self._adapt_input(ds["xlim0s"].values, num_states),
+                        self._adapt_input(ds["xlim1s"].values, num_states),
+                        self._adapt_input(ds["ylim0s"].values, num_states),
+                        self._adapt_input(ds["ylim1s"].values, num_states),
+                    ]
+                )
+                width, height = np.array(figure_kwds["figsize"]) * figure_kwds.get(
+                    "dpi", 75
+                )
+                zoom = self._get_zoom(bounds, width, height)
+            else:
+                zoom = self._adapt_input(zoom, num_states, reshape=False)
+            ds["zoom"] = ("state", zoom)
+
+            if isinstance(tiles_obj, bool):
+                tiles_obj = "OSM"
+
+            if isinstance(tiles_obj, str):
+                tiles_obj = self._canvas_kwds["tiles_names"][tiles_obj.lower()]
+                try:
+                    tiles_obj = getattr(ctiles, tiles_obj)(style=style, cache=True)
+                except TypeError:
+                    tiles_obj = getattr(ctiles, tiles_obj)(cache=True)
+                ds.attrs["tiles_kwds"]["tiles"] = tiles_obj
         return ds
 
     def _add_animate_kwds(self, ds):
@@ -998,10 +1167,15 @@ class Data(Easing, Animation, Configuration):
         if all(ds.attrs.get("finalized", False) for ds in self.data.values()):
             return self
 
+        rows, cols = [max(rowcol) for rowcol in zip(*self.data.keys())]
+        self._canvas_kwds["rows"] = rows
+        self._canvas_kwds["cols"] = cols
+
+        data = {}
         self_copy = deepcopy(self)
-        data = self_copy.data
-        for rowcol, ds in data.items():
+        for rowcol, ds in self_copy.data.items():
             chart = to_scalar(ds["chart"]) if "chart" in ds else ""
+            ds = self._add_figsize(ds)
             ds = self._fill_null(ds)
             ds = self._add_xy01_limits(ds, chart)
             ds = self._compress_vars(ds)
@@ -1010,8 +1184,11 @@ class Data(Easing, Animation, Configuration):
             ds = self._precompute_base(ds)
             ds = self._add_margins(ds)
             ds = self._add_durations(ds)
-            ds = self._interp_dataset(ds)
             ds = self._add_geo_transforms(ds)
+            if "projection" in ds.data_vars:
+                ds = self._add_geo_features(ds)
+                ds = self._add_geo_tiles(ds)
+            ds = self._interp_dataset(ds)
             ds = self._add_animate_kwds(ds)
             ds.attrs["finalized"] = True
             data[rowcol] = ds
@@ -1177,20 +1354,23 @@ class Data(Easing, Animation, Configuration):
 
 class GeographicData(Data):
 
-    crs = param.String(doc="The coordinate reference system to project from")
-    projection = param.String(doc="The coordinate reference system to project to")
+    crs = CartopyCRS(doc="The coordinate reference system to project from")
+    projection = CartopyCRS(doc="The coordinate reference system to project to")
     central_lon = param.ClassSelector(
         class_=(Iterable, int, float), doc="Longitude to center the map on"
     )
 
-    borders = param.Boolean(default=None, doc="Whether to show borders")
-    coastline = param.Boolean(default=None, doc="Whether to show coastlines")
-    land = param.Boolean(default=None, doc="Whether to show land surfaces")
-    ocean = param.Boolean(default=None, doc="Whether to show ocean surfaces")
-    lakes = param.Boolean(default=None, doc="Whether to show lakes")
-    rivers = param.Boolean(default=None, doc="Whether to show rivers")
-    states = param.Boolean(default=None, doc="Whether to show states")
-    worldwide = param.Boolean(default=None, doc="Whether to view globally")
+    borders = CartopyFeature(doc="Whether to show borders")
+    coastline = CartopyFeature(doc="Whether to show coastlines")
+    land = CartopyFeature(doc="Whether to show land surfaces")
+    ocean = CartopyFeature(doc="Whether to show ocean surfaces")
+    lakes = CartopyFeature(doc="Whether to show lakes")
+    rivers = CartopyFeature(doc="Whether to show rivers")
+    states = CartopyFeature(doc="Whether to show states")
+    worldwide = param.Boolean(doc="Whether to view globally")
+
+    tiles = CartopyTiles(doc="Whether to show web tiles")
+    zoom = param.Integer(default=None, bounds=(0, 25), doc="Zoom level of tiles")
 
     def __init__(self, num_states, **kwds):
         super().__init__(num_states, **kwds)

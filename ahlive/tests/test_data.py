@@ -1,5 +1,7 @@
 from collections.abc import ItemsView, KeysView, ValuesView
 
+import cartopy.crs as ccrs
+import cartopy.feature as cfeature
 import numpy as np
 import pandas as pd
 import pytest
@@ -489,15 +491,6 @@ def test_add_color_kwds_cticks():
     ah_obj = ah.Array([0, 1, 2], [3, 4, 5], cs=[6, 7, 8], cticks=cticks).finalize()
     attrs = ah_obj.attrs
     assert attrs["cticks_kwds"]["ticks"] == cticks
-    assert "norm" in attrs
-    assert attrs["colorbar_kwds"]["show"]
-
-
-def test_add_color_kwds_cticks():
-    cticks = [0, 5, 6, 7, 8, 9]
-    ah_obj = ah.Array([0, 1, 2], [3, 4, 5], cs=[6, 7, 8], cticks=cticks).finalize()
-    attrs = ah_obj.attrs
-    assert attrs["cticks_kwds"]["ticks"] == cticks
     assert attrs["colorbar_kwds"]["show"]
 
 
@@ -648,22 +641,58 @@ def test_interp_dataset_grid():
     assert (ds["grid_c"].isel(state=-1) == c1).all()
 
 
-def test_add_geo_transform():
+@pytest.mark.parametrize(
+    "crs", [None, True, "PlateCarree", "platecarree", ccrs.PlateCarree()]
+)
+@pytest.mark.parametrize(
+    "projection", [None, True, "Robinson", "robinson", ccrs.Robinson()]
+)
+def test_add_geo_transform(crs, projection):
     ah_obj = (
-        ah.Array([0, 1, 2], [3, 4, 5], crs="PlateCarree", projection="Robinson")
+        ah.Array([0, 1, 2], [3, 4, 5], crs=crs, projection=projection)
         .config("projection", central_longitude=180)
         .finalize()
     )
+    if crs is None and projection is None:
+        pytest.skip()
+
+    ds = ah_obj.data[1, 1]
     attrs = ah_obj.attrs
-    assert attrs["crs_kwds"]["crs"] == "PlateCarree"
-    assert attrs["projection_kwds"]["projection"] == "Robinson"
+    if isinstance(projection, (str, ccrs.Robinson)):
+        projection = ccrs.Robinson
+    else:
+        projection = ccrs.PlateCarree
+
     assert attrs["projection_kwds"]["central_longitude"] == 180
 
     for key in ITEMS["transformables"]:
-        assert "transform" in attrs[key]
+        assert isinstance(attrs[key]["transform"], ccrs.PlateCarree)
+
+    assert isinstance(ds["projection"].item(), projection)
 
     ds = ah_obj[1, 1]
     assert "projection" in ds
+
+
+@pytest.mark.parametrize("coastline", [True, cfeature.COASTLINE])
+def test_add_geo_features(coastline):
+    ah_obj = ah.Array([0, 1, 2], [3, 4, 5], coastline=coastline).finalize()
+    attrs = ah_obj.attrs
+    assert isinstance(
+        attrs["coastline_kwds"]["coastline"], cfeature.NaturalEarthFeature
+    )
+
+
+@pytest.mark.parametrize("xlim0s", [0, "fixed", "follow", "explore"])
+@pytest.mark.parametrize("tiles", [True, "osm", "OSM"])
+@pytest.mark.parametrize("zoom", [None, 1])
+def test_add_geo_tiles(xlim0s, tiles, zoom):
+    ah_obj = (
+        ah.Array([0, 1, 2], [3, 4, 5], xlim0s=xlim0s, tiles=tiles, zoom=zoom).finalize()
+    ).finalize()
+    ds = ah_obj.data[1, 1]
+    zoom = np.repeat(zoom or 7, len(ds["state"]))
+    np.testing.assert_almost_equal(ds["zoom"].values, zoom)
 
 
 @pytest.mark.parametrize("animate", ["test", "head", "tail"])

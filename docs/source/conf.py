@@ -18,7 +18,6 @@ import datetime
 
 import ahlive
 
-
 # -- Project information -----------------------------------------------------
 year = datetime.datetime.utcnow().year
 project = "ahlive"
