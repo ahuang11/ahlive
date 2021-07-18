@@ -1,7 +1,6 @@
 import base64
 import os
 import warnings
-from collections import defaultdict
 from collections.abc import Iterable
 from io import BytesIO
 
@@ -102,7 +101,6 @@ class Animation(param.Parameterized):
         "scheduler to single-threaded",
     )
 
-    _canvas_kwds = None
     _path_effects = [withStroke(linewidth=2, alpha=0.5, foreground="white")]
 
     def __init__(self, **kwds):
@@ -1016,15 +1014,8 @@ class Animation(param.Parameterized):
                 va="bottom",
             )
 
-    def _prep_figure(self, rows, cols):
-        figure_kwds = self._canvas_kwds["figure_kwds"]
-        if figure_kwds.get("figsize") is None:
-            width = 7.5 + 7.5 * (cols - 1)
-            height = 5 + 5 * (rows - 1)
-            figsize = (width, height)
-        else:
-            figsize = None
-        figure_kwds = load_defaults("figure_kwds", figure_kwds, figsize=figsize)
+    def _prep_figure(self):
+        figure_kwds = load_defaults("figure_kwds", self._canvas_kwds["figure_kwds"])
         figure = plt.figure(**figure_kwds)
 
         if "suptitle_kwds" in self._canvas_kwds:
@@ -1035,7 +1026,7 @@ class Animation(param.Parameterized):
             figure.suptitle(**suptitle_kwds)
         return figure
 
-    def _prep_axes(self, state_ds, rows, cols, irowcol):
+    def _prep_axes(self, state_ds, irowcol):
         axes_kwds = state_ds.attrs["axes_kwds"]
         style = axes_kwds.pop("style", "")
         if style == "minimal":
@@ -1053,6 +1044,9 @@ class Animation(param.Parameterized):
 
         axes_kwds["projection"] = pop(state_ds, "projection", squeeze=True)
         axes_kwds = load_defaults("axes_kwds", state_ds, **axes_kwds)
+        
+        rows = self._canvas_kwds["rows"]
+        cols = self._canvas_kwds["cols"]
         ax = plt.subplot(rows, cols, irowcol, **axes_kwds)
 
         if style == "bare":
@@ -1095,24 +1089,6 @@ class Animation(param.Parameterized):
             gridlines = None
         return gridlines
 
-    def _update_geo(self, state_ds, ax):
-        plot_kwds = load_defaults("plot_kwds", state_ds)
-        transform = plot_kwds.get("transform")
-        if transform is not None:
-            for feature in CONFIGURABLES["geo"]:
-                if feature in ["projection", "crs", "tiles"]:
-                    continue
-                feature_key = f"{feature}_kwds"
-                feature_kwds = load_defaults(feature_key, state_ds)
-                feature_obj = feature_kwds.pop(feature, False)
-                if feature_obj:
-                    ax.add_feature(feature_obj, **feature_kwds)
-
-            tiles_kwds = load_defaults("tiles_kwds", state_ds)
-            tiles_obj = tiles_kwds.pop("tiles", False)
-            if tiles_obj:
-                ax.add_image(tiles_obj, 1, **tiles_kwds)
-
     def _update_limits(self, state_ds, ax):
         limits = {
             var: pop(state_ds, var, get=-1)
@@ -1143,6 +1119,27 @@ class Animation(param.Parameterized):
                 if axis_lim0 is not None or axis_lim1 is not None:
                     getattr(ax, f"set_{axis}lim")(to_pydt(axis_lim0, axis_lim1))
         ax.margins(**margins_kwds)
+
+    def _update_geo(self, state_ds, ax):
+        plot_kwds = load_defaults("plot_kwds", state_ds)
+        transform = plot_kwds.get("transform")
+        if transform is not None:
+            for feature in CONFIGURABLES["geo"]:
+                if feature in ["projection", "crs", "tiles"]:
+                    continue
+                feature_key = f"{feature}_kwds"
+                feature_kwds = load_defaults(feature_key, state_ds)
+                feature_obj = feature_kwds.pop(feature, False)
+                if feature_obj:
+                    ax.add_feature(feature_obj, **feature_kwds)
+
+            tiles_kwds = load_defaults("tiles_kwds", state_ds)
+            tiles_obj = tiles_kwds.pop("tiles", False)
+            tiles_kwds.pop("style")
+            tiles_kwds.pop("zoom")
+            if tiles_obj:
+                tiles_zoom = int(pop(state_ds, "zoom", squeeze=True))
+                ax.add_image(tiles_obj, tiles_zoom, **tiles_kwds)
 
     def _update_ticks(self, state_ds, ax, gridlines):
         chart = to_scalar(state_ds.get("chart", ""))
@@ -1362,10 +1359,10 @@ class Animation(param.Parameterized):
             return
 
     @dask.delayed()
-    def _draw_frame(self, state_ds_rowcols, rows, cols):
-        figure = self._prep_figure(rows, cols)
+    def _draw_frame(self, state_ds_rowcols):
+        figure = self._prep_figure()
         for irowcol, state_ds in enumerate(state_ds_rowcols, 1):
-            ax = self._prep_axes(state_ds, rows, cols, irowcol)
+            ax = self._prep_axes(state_ds, irowcol)
             self._draw_subplot(state_ds, ax)
             self._apply_hooks(state_ds, figure, ax)
         self._update_watermark(figure)
@@ -1374,7 +1371,7 @@ class Animation(param.Parameterized):
         buf = self._buffer_frame(state)
         return buf
 
-    def _create_frames(self, data, rows, cols):
+    def _create_frames(self, data):
         num_states = self._canvas_kwds["animate_kwds"].pop("num_states")
         states = self._canvas_kwds["animate_kwds"].pop("states")
         if states is not None:
@@ -1408,7 +1405,7 @@ class Animation(param.Parameterized):
                     ds_sel = ds.sel(state=state)
 
                 state_ds_rowcols.append(ds_sel)
-            job = self._draw_frame(state_ds_rowcols, rows, cols)
+            job = self._draw_frame(state_ds_rowcols)
             jobs.append(job)
 
         scheduler = "single-threaded" if self.debug else "processes"
@@ -1580,7 +1577,6 @@ class Animation(param.Parameterized):
     def render(self):
         data = self.finalize().data
 
-        self._canvas_kwds = defaultdict(dict)
         for ds in data.values():
             for configurable in CONFIGURABLES["canvas"]:
                 key = f"{configurable}_kwds"
@@ -1601,9 +1597,7 @@ class Animation(param.Parameterized):
         if self._canvas_kwds["animate_kwds"].get("fps") is not None:
             durations = None
 
-        rows, cols = [max(rowcol) for rowcol in zip(*data.keys())]
-        buf_list = self._create_frames(data, rows, cols)
-
+        buf_list = self._create_frames(data)
         out_obj, ext = self._write_rendered(buf_list, durations)
 
         if self.show and (stitch or static):

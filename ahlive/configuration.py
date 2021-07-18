@@ -45,7 +45,6 @@ CONFIGURABLES = {  # used for like .config('figure', **kwds)
     "geo": [
         "crs",
         "projection",
-        "tiles",
         "borders",
         "coastline",
         "land",
@@ -53,6 +52,7 @@ CONFIGURABLES = {  # used for like .config('figure', **kwds)
         "ocean",
         "rivers",
         "states",
+        "tiles",
     ],
     "color": ["colorbar", "clabel", "cticks"],
     "remark": ["remark_plot", "remark_inline"],
@@ -68,6 +68,8 @@ CONFIGURABLES_KWDS = {
     configurable: {configurable: configurable}
     for configurable in list(chain(*CONFIGURABLES.values()))
 }
+# this maps ahlive's configurable's params to matplotlib keys
+# key may match value if ahlive's param name matches matplotlib
 # outer key is configurable
 # inner key is param
 # inner value is method_key
@@ -97,6 +99,10 @@ CONFIGURABLES_KWDS.update(
         "projection": {
             "projection": "projection",
             "central_lon": "central_longitude",
+        },
+        "tiles": {
+            "tiles": "tiles",
+            "zoom": "zoom"
         },
         "clabel": {
             "clabel": "text",
@@ -390,6 +396,8 @@ DEFAULTS["cticks_kwds"] = DEFAULTS["ticks_kwds"].copy()
 DEFAULTS["cticks_kwds"].update({"num_colors": 11})
 
 DEFAULTS["coastline_kwds"] = {"coastline": True}  # TODO: change to show
+
+DEFAULTS["tiles_kwds"] = {"style": "toner"}  # TODO: change to show
 
 DEFAULTS["land_kwds"] = {"facecolor": "whitesmoke"}
 
