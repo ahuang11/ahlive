@@ -491,7 +491,6 @@ def test_add_color_kwds_cticks():
     ah_obj = ah.Array([0, 1, 2], [3, 4, 5], cs=[6, 7, 8], cticks=cticks).finalize()
     attrs = ah_obj.attrs
     assert attrs["cticks_kwds"]["ticks"] == cticks
-    assert "norm" in attrs
     assert attrs["colorbar_kwds"]["show"]
 
 
