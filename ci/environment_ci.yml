@@ -4,7 +4,7 @@ channels:
  - conda-forge
 
 dependencies:
-  - cartopy=0.18.0
+  - cartopy
   - gifsicle
   - pandoc
   - pip
