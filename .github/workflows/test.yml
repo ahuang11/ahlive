@@ -1,0 +1,63 @@
+name: Test
+
+on: pull_request
+
+jobs:
+  tests:  # Runs testing suite on various python versions.
+    name: Test ahlive, python ${{ matrix.python-version }}
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        shell: bash -l {0}
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: [3.6, 3.7, 3.8]
+    steps:
+      - uses: actions/checkout@v2
+      - name: Set up conda
+        uses: conda-incubator/setup-miniconda@v2
+        with:
+          auto-update-conda: true
+          channels: conda-forge
+          mamba-version: '*'
+          activate-environment: ahlive-ci
+          python-version: ${{ matrix.python-version }}
+      - name: Set up conda environment
+        run: |
+          mamba env update -f ci/environment_ci.yml
+      - name: Conda info
+        run: conda info
+      - name: Conda list
+        run: conda list
+      - name: Run tests
+        run: |
+          pytest --verbose
+
+  docs:  # Checks that pre-compiled notebooks in docs still work.
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        shell: bash -l {0}
+    steps:
+      - uses: actions/checkout@v2
+      - name: Set up conda
+        uses: conda-incubator/setup-miniconda@v2
+        with:
+          auto-update-conda: true
+          channels: conda-forge
+          mamba-version: '*'
+          activate-environment: ahlive-ci
+          python-version: 3.8
+      - name: Set up conda environment
+        run: |
+          mamba env update -f ci/environment_ci.yml
+      - name: Conda info
+        run: conda info
+      - name: Conda list
+        run: conda list
+      - name: Test notebooks in docs
+        run: |
+          pushd docs
+          make html
+          popd

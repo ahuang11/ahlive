@@ -1,10 +1,27 @@
+from datetime import datetime, timedelta
+
 import numpy as np
 import pandas as pd
 import xarray as xr
+from pandas.api.types import (
+    is_datetime64_any_dtype,
+    is_numeric_dtype,
+    is_string_dtype,
+    is_timedelta64_dtype,
+)
 
 
 def to_1d(value, unique=False, flat=True):
+    # pd.Series converts datetime to Timestamps
+    if isinstance(value, xr.DataArray):
+        value = value.values
+
     array = np.atleast_1d(value)
+    if is_datetime(value):
+        array = pd.to_datetime(array).values
+    elif is_timedelta(value):
+        array = pd.to_timedelta(array).values
+
     if unique:
         array = pd.unique(array)
     if flat:
@@ -55,30 +72,33 @@ def is_scalar(value):
     return np.size(value) == 1
 
 
-def is_subtype(value, subtype):
-    value = np.array(to_1d(value)).ravel()
-    return np.issubdtype(value.dtype, subtype)
-
-
-def is_datetime(value):
-    return is_subtype(value, np.datetime64)
-
-
-def is_timedelta(value):
-    return is_subtype(value, np.timedelta64)
-
-
-def is_str(value):
-    return (
-        is_subtype(value, np.string_)
-        or is_subtype(value, np.unicode)
-        or is_subtype(value, np.object)
-    )
-
-
 def to_scalar(value, get=-1):
     value = to_1d(value)[get]
     return value
+
+
+def is_datetime(value):
+    if isinstance(value, (list, tuple)):
+        value = pd.Series(value)
+    return is_datetime64_any_dtype(value) or isinstance(value, datetime)
+
+
+def is_timedelta(value):
+    if isinstance(value, (list, tuple)):
+        value = pd.Series(value)
+    return is_timedelta64_dtype(value) or isinstance(value, timedelta)
+
+
+def is_numeric(value):
+    if isinstance(value, (list, tuple)):
+        value = pd.Series(value)
+    return is_numeric_dtype(value) or isinstance(value, (int, float))
+
+
+def is_str(value):
+    if isinstance(value, (list, tuple)):
+        value = pd.Series(value)
+    return is_string_dtype(value) or isinstance(value, str)
 
 
 def pop(ds, key, dflt=None, get=None, squeeze=False, to_numpy=True):
@@ -116,31 +136,37 @@ def transpose(da, dims=None):
     return da.transpose(*dims)
 
 
-def _fillna(da, how):
+def _fillna(da, how, dim="state"):
+    kwds = {}
+    if isinstance(da, xr.DataArray) and dim in da.dims:
+        kwds["axis"] = dim
+
     if how == "both":
-        da = da.bfill().ffill()
+        da = da.bfill(**kwds).ffill(**kwds)
     elif how == "ffill":
-        da = da.ffill()
+        da = da.ffill(**kwds)
     elif how == "bfill":
-        da = da.bfill()
+        da = da.bfill(**kwds)
     return da
 
 
-def fillna(da, how="ffill"):
+def fillna(da, how="ffill", dim="state", item_dim="item"):
     """ds.ffill does not handle datetimes"""
     if "state" not in da.dims:
         return da
     try:
-        da = da.ffill("state")
+        da = _fillna(da, how, dim=dim)
     except (TypeError, ImportError):
-        if "item" not in da.dims:
-            da = _fillna(da.to_series(), how).to_xarray()
+        if item_dim not in da.dims:
+            da = _fillna(da.to_series(), how, dim=dim).to_xarray()
         else:
             da = xr.concat(
                 (
-                    _fillna(da.sel(item=item).to_series(), how=how).to_xarray()
-                    for item in da["item"]
+                    _fillna(
+                        da.sel(item=item).to_series().rename_axis("state"), how, dim=dim
+                    ).to_xarray()
+                    for item in da[item_dim]
                 ),
-                "item",
+                item_dim,
             )
     return da

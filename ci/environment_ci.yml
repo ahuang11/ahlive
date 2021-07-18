@@ -1,0 +1,20 @@
+name: ahlive-ci
+
+channels:
+ - conda-forge
+
+dependencies:
+  - cartopy=0.18.0
+  - gifsicle
+  - pandoc
+  - pip
+  - pip:
+    - sphinx
+    - nbsphinx
+    - sphinx-book-theme
+    - ipykernel
+    - panel
+    - pooch
+    - pygifsicle
+    - pytest
+    - -e ..

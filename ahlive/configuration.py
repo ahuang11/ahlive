@@ -4,6 +4,7 @@ from itertools import chain
 import param
 import xarray as xr
 
+TEMP_FILE = "TEMP_AHLIVE_PYGIFSICLE_OUTPUT.gif"
 NULL_VALS = [(), {}, [], None, ""]
 
 # a kind of grouping by intuition; doesn't really help code though
@@ -30,6 +31,7 @@ CONFIGURABLES = {  # used for like .config('figure', **kwds)
         "yticks",
         "limits",
         "margins",
+        "hooks",
     ],
     "label": [
         "state",
@@ -108,31 +110,21 @@ CONFIGURABLES_KWDS.update(
             "clabel": "text",
         },
         "colorbar": {"colorbar": "show"},
-        "cticks": {
-            "cticks": "ticks",
-            "ctick_labels": "tick_labels",
-        },
+        "cticks": {"cticks": "ticks", "ctick_labels": "tick_labels"},
         "compute": {
             "workers": "num_workers",
             "scheduler": "scheduler",
+            "progress": "progress",
         },
-        "interpolate": {
-            "revert": "revert",
-            "frames": "frames",
-        },
+        "interpolate": {"revert": "revert", "frames": "frames"},
         "animate": {
             "fps": "fps",
             "fmt": "format",
             "loop": "loop",
+            "pygifsicle": "pygifsicle",
         },
-        "output": {
-            "save": "save",
-            "show": "show",
-        },
-        "margins": {
-            "xmargins": "x",
-            "ymargins": "y",
-        },
+        "output": {"save": "save", "show": "show"},
+        "margins": {"xmargins": "x", "ymargins": "y"},
     }
 )
 
@@ -164,11 +156,11 @@ DIMS = {
     ),
     "grid": ("grid_item", "state", "grid_y", "grid_x"),
     "ref": ("ref_item", "state"),
-    "item": ("grid_item", "item", "ref_item"),
 }
 
 VARS = {
     "ref": ["ref_x0", "ref_x1", "ref_y0", "ref_y1"],
+    "item": ("grid_item", "item", "ref_item"),
     "stateless": [
         "chart",
         "label",
@@ -184,14 +176,7 @@ VARS = {
 
 ITEMS = {
     "axes": ["x", "y", "c", "grid_c"],
-    "limit": [
-        "xlim0s",
-        "xlim1s",
-        "ylim0s",
-        "ylim1s",
-        "xlims",
-        "ylims",
-    ],
+    "limit": ["xlim0s", "xlim1s", "ylim0s", "ylim1s", "xlims", "ylims"],
     "label": ["xlabel", "ylabel", "title", "subtitle"],
     "base": [
         "inline",
@@ -213,6 +198,7 @@ ITEMS = {
         "gapminder_income",
         "gapminder_population",
         "gapminder_country",
+        "iem_asos",
     ],
     "join": ["overlay", "layout", "cascade"],
     "transformables": [
@@ -249,7 +235,7 @@ OPTIONS = {
     ],
     "grid": ["x", "y", "both", True, False],
     "limit": ["zero", "fixed", "follow", "explore"],
-    "scheduler": ["processes", "single-threaded"],
+    "scheduler": ["single-threaded", "processes"],
 }
 
 SIZES = {
@@ -282,8 +268,9 @@ DEFAULTS["preset_kwds"]["trail"] = {
     "chart": "scatter",
     "expire": 100,
     "stride": 1,
+    "finish": True,
 }
-DEFAULTS["preset_kwds"]["race"] = {"bar_label": True, "limit": 5}
+DEFAULTS["preset_kwds"]["race"] = {"bar_label": True, "limit": 5, "ascending": False}
 DEFAULTS["preset_kwds"]["delta"] = {"bar_label": True, "capsize": 6}
 DEFAULTS["preset_kwds"]["scan"] = {"color": "black", "stride": 1}
 
@@ -300,11 +287,7 @@ DEFAULTS["ref_plot_kwds"]["axhspan"] = {"color": "darkgray", "alpha": 0.45}
 
 DEFAULTS["inline_kwds"] = DEFAULTS["label_kwds"].copy()
 DEFAULTS["inline_kwds"].update(
-    {
-        "color": "darkgray",
-        "textcoords": "offset points",
-        "fontsize": SIZES["small"],
-    }
+    {"color": "darkgray", "textcoords": "offset points", "fontsize": SIZES["small"]}
 )
 DEFAULTS["ref_inline_kwds"] = DEFAULTS["inline_kwds"].copy()
 DEFAULTS["grid_inline_kwds"] = DEFAULTS["inline_kwds"].copy()
@@ -354,11 +337,7 @@ DEFAULTS["caption_kwds"] = {
 }
 
 DEFAULTS["suptitle_kwds"] = DEFAULTS["label_kwds"].copy()
-DEFAULTS["suptitle_kwds"].update(
-    {
-        "fontsize": SIZES["large"],
-    }
-)
+DEFAULTS["suptitle_kwds"].update({"fontsize": SIZES["large"]})
 
 DEFAULTS["state_kwds"] = DEFAULTS["label_kwds"].copy()
 DEFAULTS["state_kwds"].update(
@@ -411,15 +390,20 @@ DEFAULTS["watermark_kwds"] = {
     "s": "animated using ahlive",
 }
 
-DEFAULTS["frame_kwds"] = {
-    "format": "jpg",
+DEFAULTS["savefig_kwds"] = {
+    "format": "png",
     "backend": "agg",
+    "facecolor": "white",
     "transparent": False,
 }
 
-DEFAULTS["compute_kwds"] = {"num_workers": 4, "scheduler": "processes"}
+DEFAULTS["compute_kwds"] = {
+    "num_workers": 1,
+    "scheduler": "single-threaded",
+    "progress": True,
+}
 
-DEFAULTS["animate_kwds"] = {"mode": "I", "loop": 0}
+DEFAULTS["animate_kwds"] = {"mode": "I", "loop": 0, "pygifsicle": True}
 
 defaults = DEFAULTS.copy()
 
@@ -497,9 +481,7 @@ class Configuration(param.Parameterized):
 
     def _initial_config(self, attrs, configurable):
         for param_, method_key in CONFIGURABLES_KWDS[configurable].items():
-            self._set_config(
-                attrs, configurable, param_=param_, method_key=method_key
-            )
+            self._set_config(attrs, configurable, param_=param_, method_key=method_key)
         return attrs
 
     def _config_data(
@@ -583,9 +565,7 @@ class Configuration(param.Parameterized):
         else:
             return input_data
 
-    def config(
-        self, *configurables, rowcols=None, reset=False, **configurable_kwds
-    ):
+    def config(self, *configurables, rowcols=None, reset=False, **configurable_kwds):
         self_copy = deepcopy(self)
         data = self._config_data(
             self_copy.data,
