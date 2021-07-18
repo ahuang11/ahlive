@@ -936,6 +936,7 @@ class Data(Easing, Animation, Configuration):
 
         if isinstance(crs_obj, str):
             import cartopy.crs as ccrs
+
             if not self._canvas_kwds["crs_names"]:
                 self._canvas_kwds["crs_names"] = {
                     name.lower(): name
