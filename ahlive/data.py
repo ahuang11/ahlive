@@ -1,8 +1,8 @@
 import warnings
+from collections import defaultdict
 from collections.abc import Iterable
 from copy import deepcopy
 from itertools import chain
-from collections import defaultdict
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -13,9 +13,6 @@ from matplotlib.colors import BoundaryNorm
 
 from .animation import Animation
 from .configuration import (
-    CartopyCRS,
-    CartopyTiles,
-    CartopyFeature,
     CHARTS,
     CONFIGURABLES,
     DIMS,
@@ -25,6 +22,9 @@ from .configuration import (
     PARAMS,
     PRESETS,
     VARS,
+    CartopyCRS,
+    CartopyFeature,
+    CartopyTiles,
     Configuration,
     defaults,
     load_defaults,

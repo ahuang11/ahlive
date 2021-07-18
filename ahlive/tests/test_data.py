@@ -1,11 +1,11 @@
 from collections.abc import ItemsView, KeysView, ValuesView
 
+import cartopy.crs as ccrs
+import cartopy.feature as cfeature
 import numpy as np
 import pandas as pd
 import pytest
 import xarray as xr
-import cartopy.crs as ccrs
-import cartopy.feature as cfeature
 
 import ahlive as ah
 from ahlive.configuration import CONFIGURABLES, ITEMS, OPTIONS, VARS
