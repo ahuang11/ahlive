@@ -102,10 +102,7 @@ CONFIGURABLES_KWDS.update(
             "projection": "projection",
             "central_lon": "central_longitude",
         },
-        "tiles": {
-            "tiles": "tiles",
-            "zoom": "zoom"
-        },
+        "tiles": {"tiles": "tiles", "zoom": "zoom"},
         "clabel": {
             "clabel": "text",
         },
@@ -409,18 +406,22 @@ defaults = DEFAULTS.copy()
 
 
 class CartopyCRS(param.ClassSelector):
-    
+
     __slots__ = ["crs_dict"]
 
     def __init__(self, default=None, **params):
         import cartopy.crs as ccrs
+
         self.crs_dict = {
-            name.lower(): obj for name, obj in vars(ccrs).items()
-            if isinstance(obj, type) and issubclass(obj, ccrs.Projection) and
-            not name.startswith('_') and name not in ['Projection'] or
-            name == "GOOGLE_MERCATOR"
+            name.lower(): obj
+            for name, obj in vars(ccrs).items()
+            if isinstance(obj, type)
+            and issubclass(obj, ccrs.Projection)
+            and not name.startswith("_")
+            and name not in ["Projection"]
+            or name == "GOOGLE_MERCATOR"
         }
-        objects = tuple(list(self.crs_dict.values()) + [str, bool]) 
+        objects = tuple(list(self.crs_dict.values()) + [str, bool])
         super(CartopyCRS, self).__init__(objects, **params)
         self._validate(self.default)
 
@@ -434,23 +435,27 @@ class CartopyCRS(param.ClassSelector):
 class CartopyFeature(param.ClassSelector):
     def __init__(self, default=None, **params):
         import cartopy.feature as cfeature
+
         objects = (cfeature.NaturalEarthFeature, bool)
         super(CartopyFeature, self).__init__(objects, **params)
         self._validate(self.default)
 
 
 class CartopyTiles(param.ClassSelector):
-    
+
     __slots__ = ["tiles_dict"]
 
     def __init__(self, default=None, **params):
         import cartopy.io.img_tiles as ctiles
+
         self.tiles_dict = {
-            name.lower(): obj for name, obj in vars(ctiles).items()
-            if isinstance(obj, type) and issubclass(obj, ctiles.GoogleWTS) and
-            not name.startswith('_')
+            name.lower(): obj
+            for name, obj in vars(ctiles).items()
+            if isinstance(obj, type)
+            and issubclass(obj, ctiles.GoogleWTS)
+            and not name.startswith("_")
         }
-        objects = tuple(list(self.tiles_dict.values()) + [str, bool]) 
+        objects = tuple(list(self.tiles_dict.values()) + [str, bool])
         super(CartopyTiles, self).__init__(objects, **params)
         self._validate(self.default)
 

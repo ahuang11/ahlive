@@ -1031,7 +1031,7 @@ class Animation(param.Parameterized):
 
         axes_kwds["projection"] = pop(state_ds, "projection", squeeze=True)
         axes_kwds = load_defaults("axes_kwds", state_ds, **axes_kwds)
-        
+
         rows = self._canvas_kwds["rows"]
         cols = self._canvas_kwds["cols"]
         ax = plt.subplot(rows, cols, irowcol, **axes_kwds)

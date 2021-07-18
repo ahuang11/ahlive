@@ -4,6 +4,7 @@ import numpy as np
 import pandas as pd
 import pytest
 import xarray as xr
+import cartopy.crs as ccrs
 
 import ahlive as ah
 from ahlive.configuration import CONFIGURABLES, ITEMS, OPTIONS, VARS
@@ -648,8 +649,12 @@ def test_interp_dataset_grid():
     assert (ds["grid_c"].isel(state=-1) == c1).all()
 
 
-@pytest.mark.parametrize("crs", [None, True, "PlateCarree", "platecarree", ccrs.PlateCarree()])
-@pytest.mark.parametrize("projection", [None, True, "Robinson", "robinson", ccrs.Robinson()])
+@pytest.mark.parametrize(
+    "crs", [None, True, "PlateCarree", "platecarree", ccrs.PlateCarree()]
+)
+@pytest.mark.parametrize(
+    "projection", [None, True, "Robinson", "robinson", ccrs.Robinson()]
+)
 def test_add_geo_transform(crs, projection):
     ah_obj = (
         ah.Array([0, 1, 2], [3, 4, 5], crs=crs, projection=projection)
@@ -658,7 +663,7 @@ def test_add_geo_transform(crs, projection):
     )
     if crs is None and projection is None:
         pytest.skip()
-    
+
     ds = ah_obj.data[1, 1]
     attrs = ah_obj.attrs
     if isinstance(projection, (str, ccrs.Robinson)):
@@ -670,7 +675,7 @@ def test_add_geo_transform(crs, projection):
 
     for key in ITEMS["transformables"]:
         assert isinstance(attrs[key]["transform"], ccrs.PlateCarree)
-    
+
     assert isinstance(ds["projection"].item(), projection)
 
     ds = ah_obj[1, 1]
@@ -679,11 +684,11 @@ def test_add_geo_transform(crs, projection):
 
 @pytest.mark.parametrize("coastline", [True, cfeature.COASTLINE])
 def test_add_geo_features(coastline):
-    ah_obj = (
-        ah.Array([0, 1, 2], [3, 4, 5], coastline=coastline).finalize()
-    )
+    ah_obj = ah.Array([0, 1, 2], [3, 4, 5], coastline=coastline).finalize()
     attrs = ah_obj.attrs
-    assert isinstance(attrs[f"coastline_kwds"]["coastline"], cfeature.NaturalEarthFeature)
+    assert isinstance(
+        attrs[f"coastline_kwds"]["coastline"], cfeature.NaturalEarthFeature
+    )
 
 
 @pytest.mark.parametrize("xlim0s", [0, "fixed", "follow", "explore"])

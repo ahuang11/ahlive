@@ -518,7 +518,6 @@ class Data(Easing, Animation, Configuration):
         if ds.attrs["limits_kwds"].get("worldwide"):
             return ds  # ax.set_global() will be called in animation.py
 
-
         axes_kwds = load_defaults("axes_kwds", ds)
         for key, limit in limits.items():
             # example: xlim0s
@@ -933,16 +932,20 @@ class Data(Easing, Animation, Configuration):
 
     def _get_crs(self, crs_obj, crs_kwds, central_longitude=None):
         import cartopy.crs as ccrs
+
         if isinstance(crs_obj, bool):
             crs_obj = "PlateCarree"
 
         if isinstance(crs_obj, str):
             if not self._canvas_kwds["crs_names"]:
                 self._canvas_kwds["crs_names"] = {
-                    name.lower(): name for name, obj in vars(ccrs).items()
-                    if isinstance(obj, type) and issubclass(obj, ccrs.Projection) and
-                    not name.startswith('_') and name not in ['Projection'] or
-                    name == "GOOGLE_MERCATOR"
+                    name.lower(): name
+                    for name, obj in vars(ccrs).items()
+                    if isinstance(obj, type)
+                    and issubclass(obj, ccrs.Projection)
+                    and not name.startswith("_")
+                    and name not in ["Projection"]
+                    or name == "GOOGLE_MERCATOR"
                 }
 
             if central_longitude is not None:
@@ -960,6 +963,7 @@ class Data(Easing, Animation, Configuration):
 
     def _add_geo_transforms(self, ds):
         import cartopy.crs as ccrs
+
         crs_kwds = load_defaults("crs_kwds", ds)
         crs = crs_kwds.pop("crs", None)
 
@@ -1031,7 +1035,7 @@ class Data(Easing, Animation, Configuration):
         https://github.com/holoviz/geoviews/blob/master/geoviews/util.py#L111-L136
         """
         w, e, s, n = bounds  # changed from w, s, e, n
-        max_width, max_height = 256, 256 
+        max_width, max_height = 256, 256
         num_states = len(w)
         ZOOM_MAX = np.repeat(21, num_states)
         ln2 = np.log(2)
@@ -1064,30 +1068,40 @@ class Data(Easing, Animation, Configuration):
             import cartopy
             import cartopy.crs as ccrs
             import cartopy.io.img_tiles as ctiles
+
             cartopy_version = cartopy.__version__
             if cartopy_version < "0.19.0":
                 raise ValueError(
-                    f"To use tiles, ensure cartopy>=0.19.0; got {cartopy_version}")
+                    f"To use tiles, ensure cartopy>=0.19.0; got {cartopy_version}"
+                )
 
             if not self._canvas_kwds["tiles_names"]:
                 self._canvas_kwds["tiles_names"] = {
-                    name.lower(): name for name, obj in vars(ctiles).items()
-                    if isinstance(obj, type) and issubclass(obj, ctiles.GoogleWTS) and
-                    not name.startswith('_')
+                    name.lower(): name
+                    for name, obj in vars(ctiles).items()
+                    if isinstance(obj, type)
+                    and issubclass(obj, ctiles.GoogleWTS)
+                    and not name.startswith("_")
                 }
 
             zoom = tiles_kwds.pop("zoom", None)
             num_states = len(ds["state"])
             if zoom is None:
-                zoom_crs = self._canvas_kwds["zoom_crs"].get("zoom_crs", ccrs.PlateCarree())
+                zoom_crs = self._canvas_kwds["zoom_crs"].get(
+                    "zoom_crs", ccrs.PlateCarree()
+                )
                 projection = ds["projection"].item()
-                bounds = np.vstack([
-                    self._adapt_input(ds["xlim0s"].values, num_states),
-                    self._adapt_input(ds["xlim1s"].values, num_states),
-                    self._adapt_input(ds["ylim0s"].values, num_states),
-                    self._adapt_input(ds["ylim1s"].values, num_states)
-                ])
-                width, height = np.array(figure_kwds["figsize"]) * figure_kwds.get("dpi", 75)
+                bounds = np.vstack(
+                    [
+                        self._adapt_input(ds["xlim0s"].values, num_states),
+                        self._adapt_input(ds["xlim1s"].values, num_states),
+                        self._adapt_input(ds["ylim0s"].values, num_states),
+                        self._adapt_input(ds["ylim1s"].values, num_states),
+                    ]
+                )
+                width, height = np.array(figure_kwds["figsize"]) * figure_kwds.get(
+                    "dpi", 75
+                )
                 zoom = self._get_zoom(bounds, width, height)
             else:
                 zoom = self._adapt_input(zoom, num_states, reshape=False)
