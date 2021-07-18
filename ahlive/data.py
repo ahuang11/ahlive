@@ -1087,10 +1087,6 @@ class Data(Easing, Animation, Configuration):
             zoom = tiles_kwds.pop("zoom", None)
             num_states = len(ds["state"])
             if zoom is None:
-                zoom_crs = self._canvas_kwds["zoom_crs"].get(
-                    "zoom_crs", ccrs.PlateCarree()
-                )
-                projection = ds["projection"].item()
                 bounds = np.vstack(
                     [
                         self._adapt_input(ds["xlim0s"].values, num_states),
