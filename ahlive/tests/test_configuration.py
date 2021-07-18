@@ -85,7 +85,7 @@ TYPES = {
     "datetime64": np.datetime64("2021"),
     "pdtimestamp": pd.Timestamp("2021"),
     "pytimedelta": timedelta(0),
-    "timedelta64": np.timedelta64(0),
+    "timedelta64": np.timedelta64(0, "D"),
     "pdtimedelta": pd.Timedelta(0),
 }
 TYPES_GROUPS = {
