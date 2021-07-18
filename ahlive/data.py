@@ -931,12 +931,11 @@ class Data(Easing, Animation, Configuration):
         return ds
 
     def _get_crs(self, crs_obj, crs_kwds, central_longitude=None):
-        import cartopy.crs as ccrs
-
         if isinstance(crs_obj, bool):
             crs_obj = "PlateCarree"
 
         if isinstance(crs_obj, str):
+            import cartopy.crs as ccrs
             if not self._canvas_kwds["crs_names"]:
                 self._canvas_kwds["crs_names"] = {
                     name.lower(): name
@@ -957,13 +956,12 @@ class Data(Easing, Animation, Configuration):
         else:
             if central_longitude is not None:
                 raise ValueError(
-                    f"central_longitude only supported if projection is a string type (not ccrs object)!"
+                    f"central_longitude only supported if "
+                    f"projection is a string type; got {crs_obj}"
                 )
         return crs_obj
 
     def _add_geo_transforms(self, ds):
-        import cartopy.crs as ccrs
-
         crs_kwds = load_defaults("crs_kwds", ds)
         crs = crs_kwds.pop("crs", None)
 
@@ -1066,7 +1064,6 @@ class Data(Easing, Animation, Configuration):
         style = tiles_kwds.pop("style", None)
         if tiles_obj:
             import cartopy
-            import cartopy.crs as ccrs
             import cartopy.io.img_tiles as ctiles
 
             cartopy_version = cartopy.__version__

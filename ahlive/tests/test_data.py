@@ -495,14 +495,6 @@ def test_add_color_kwds_cticks():
     assert attrs["colorbar_kwds"]["show"]
 
 
-def test_add_color_kwds_cticks():
-    cticks = [0, 5, 6, 7, 8, 9]
-    ah_obj = ah.Array([0, 1, 2], [3, 4, 5], cs=[6, 7, 8], cticks=cticks).finalize()
-    attrs = ah_obj.attrs
-    assert attrs["cticks_kwds"]["ticks"] == cticks
-    assert attrs["colorbar_kwds"]["show"]
-
-
 def test_add_color_kwds_cticks_grid():
     cticks = [0, 1, 2]
     ah_obj = ah.Array2D(GRID_XS[0], GRID_YS[0], GRID_CS[0], cticks=cticks).finalize()
