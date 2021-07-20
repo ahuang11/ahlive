@@ -159,7 +159,9 @@ def _wrap_stack(objs, join):
         data_list = [obj.data for obj in objs if obj.data.get(rowcol) is not None]
         if len(data_list) == 0:
             continue
-        obj0.data[rowcol] = _stack_data(data_list, join, rowcol)
+        ds = _stack_data(data_list, join, rowcol)
+        obj0.data[rowcol] = ds
+        obj0._canvas_kwds["num_states"] = len(ds["state"])
 
     for obj in objs[1:]:
         obj0 = obj0._propagate_params(obj0, obj)

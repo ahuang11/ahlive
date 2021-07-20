@@ -718,7 +718,6 @@ def test_add_animate_kwds_str(animate, value):
     assert animate_kwds["fps"] == 1
     assert animate_kwds["stitch"]
     assert not animate_kwds["static"]
-    assert animate_kwds["num_states"] == num_states
 
 
 def test_add_animate_kwds_slice():
@@ -730,7 +729,6 @@ def test_add_animate_kwds_slice():
     assert (animate_kwds["states"] == states).all()
     assert animate_kwds["stitch"]
     assert not animate_kwds["static"]
-    assert animate_kwds["num_states"] == num_states
 
 
 @pytest.mark.parametrize("animate", [True, False])
@@ -742,7 +740,6 @@ def test_add_animate_kwds_bool(animate):
     assert animate_kwds["states"] is None
     assert animate_kwds["stitch"] == animate
     assert not animate_kwds["static"]
-    assert animate_kwds["num_states"] == num_states
 
 
 def test_add_animate_kwds_int():
@@ -753,7 +750,6 @@ def test_add_animate_kwds_int():
     assert animate_kwds["states"] == 1
     assert animate_kwds["stitch"]
     assert animate_kwds["static"]
-    assert animate_kwds["num_states"] == num_states
 
 
 def test_array_invert():

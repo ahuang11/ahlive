@@ -1349,7 +1349,7 @@ class Animation(param.Parameterized):
         return buf
 
     def _create_frames(self, data):
-        num_states = self._canvas_kwds["animate_kwds"].pop("num_states")
+        num_states = self._canvas_kwds["num_states"]
         states = self._canvas_kwds["animate_kwds"].pop("states")
         if states is not None:
             negative_indices = states < 0
