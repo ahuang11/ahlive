@@ -12,7 +12,7 @@ new features
 - Added two new merge functions: `slide` and `stagger`. Also, implemented merge methods and refactored the merge functions internally (:pull:`56`).
   By `Andrew Huang <https://github.com/ahuang11>`_
 
-- Add `ascending` configuration to `race` preset (:pull:`58).
+- Add `ascending` configuration to `race` preset (:pull:`58`).
   By `Andrew Huang <https://github.com/ahuang11>`_
 
 - Add `tiles`, `zoom`, and allow passing cartopy.crs + cartopy.feature instances to geographic params (:pull:`62`).
@@ -25,6 +25,9 @@ documentation
   By `Andrew Huang <https://github.com/ahuang11>`_
 
 - Fix documentation bugs by adding `pooch` for `xr.tutorial` and add missing documentation from PR 56 (:pull:`57`).
+  By `Andrew Huang <https://github.com/ahuang11>`_
+
+- Fix documentation bugs by unpinning `cartopy=0.18.0` and adding a default for `tiles_kwds.pop("zoom")` (:pull:`63`).
   By `Andrew Huang <https://github.com/ahuang11>`_
 
 enhancements
