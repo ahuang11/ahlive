@@ -27,6 +27,9 @@ documentation
 - Fix documentation bugs by adding `pooch` for `xr.tutorial` and add missing documentation from PR 56 (:pull:`57`).
   By `Andrew Huang <https://github.com/ahuang11>`_
 
+- Fix documentation bugs by unpinning `cartopy=0.18.0` and adding a default for `tiles_kwds.pop("zoom")` (:pull:`63`).
+  By `Andrew Huang <https://github.com/ahuang11>`_
+
 enhancements
 ~~~~~~~~~~~~
 

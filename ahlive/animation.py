@@ -1120,9 +1120,9 @@ class Animation(param.Parameterized):
 
             tiles_kwds = load_defaults("tiles_kwds", state_ds)
             tiles_obj = tiles_kwds.pop("tiles", False)
-            tiles_kwds.pop("style")
-            tiles_kwds.pop("zoom")
             if tiles_obj:
+                tiles_kwds.pop("style", None)
+                tiles_kwds.pop("zoom", None)
                 tiles_zoom = int(pop(state_ds, "zoom", squeeze=True))
                 ax.add_image(tiles_obj, tiles_zoom, **tiles_kwds)
 
