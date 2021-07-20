@@ -12,7 +12,7 @@ new features
 - Added two new merge functions: `slide` and `stagger`. Also, implemented merge methods and refactored the merge functions internally (:pull:`56`).
   By `Andrew Huang <https://github.com/ahuang11>`_
 
-- Add `ascending` configuration to `race` preset (:pull:`58).
+- Add `ascending` configuration to `race` preset (:pull:`58`).
   By `Andrew Huang <https://github.com/ahuang11>`_
 
 - Add `tiles`, `zoom`, and allow passing cartopy.crs + cartopy.feature instances to geographic params (:pull:`62`).
