@@ -377,6 +377,8 @@ DEFAULTS["tiles_kwds"] = {"style": "toner"}  # TODO: change to show
 
 DEFAULTS["land_kwds"] = {"facecolor": "whitesmoke"}
 
+DEFAULTS["num_kwds"] = {"default": 1, "bounds": (1, None), "constant": True}
+
 DEFAULTS["watermark_kwds"] = {
     "x": 0.995,
     "y": 0.005,

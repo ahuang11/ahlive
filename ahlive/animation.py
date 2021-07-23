@@ -3,6 +3,7 @@ import os
 import pathlib
 import warnings
 from collections.abc import Iterable
+from collections import defaultdict
 from io import BytesIO
 
 import dask.delayed
@@ -33,6 +34,7 @@ from .util import (
     is_scalar,
     is_timedelta,
     pop,
+    length,
     srange,
     to_1d,
     to_num,
@@ -115,7 +117,7 @@ class Animation(param.Parameterized):
         doc="Show additional debugging info and set scheduler to single-threaded",
     )
 
-    _canvas_kwds = None
+    _canvas_kwds = defaultdict(dict)
     _temp_file = TEMP_FILE
     _path_effects = [withStroke(linewidth=2, alpha=0.5, foreground="white")]
 
@@ -269,7 +271,7 @@ class Animation(param.Parameterized):
                 except AttributeError:
                     color = plot[0].get_facecolor()
 
-                if len(to_1d(color)) < 1:
+                if length(color) < 1:
                     try:
                         color = plot.get_edgecolor()
                     except AttributeError:
@@ -340,8 +342,8 @@ class Animation(param.Parameterized):
             ax.scatter(x_discrete_trails, y_discrete_trails, **preset_kwds)
 
         if chart in ["line", "both"]:
-            x_trails = x_trails[-expire * self._num_steps - 1 :]
-            y_trails = y_trails[-expire * self._num_steps - 1 :]
+            x_trails = x_trails[-expire * self.num_steps - 1 :]
+            y_trails = y_trails[-expire * self.num_steps - 1 :]
             line_preset_kwds["label"] = "_nolegend_"
             ax.plot(x_trails, y_trails, color=color, **line_preset_kwds)
 
@@ -707,7 +709,7 @@ class Animation(param.Parameterized):
         mappable = None
         for _, overlay_ds in iter_ds:
             overlay_ds = overlay_ds.where(overlay_ds["chart"] != "", drop=True)
-            if len(to_1d(overlay_ds["state"])) == 0:
+            if length(overlay_ds["state"]) == 0:
                 continue
             chart = pop(overlay_ds, "chart", get=0)
             if pd.isnull(chart):
@@ -1032,9 +1034,7 @@ class Animation(param.Parameterized):
         axes_kwds["projection"] = pop(state_ds, "projection", squeeze=True)
         axes_kwds = load_defaults("axes_kwds", state_ds, **axes_kwds)
 
-        rows = self._canvas_kwds["rows"]
-        cols = self._canvas_kwds["cols"]
-        ax = plt.subplot(rows, cols, irowcol, **axes_kwds)
+        ax = plt.subplot(self.num_rows, self.num_cols, irowcol, **axes_kwds)
 
         if style == "bare":
             plt.subplots_adjust(left=0, right=1, bottom=0, top=1, hspace=0, wspace=0)
@@ -1349,7 +1349,7 @@ class Animation(param.Parameterized):
         return buf
 
     def _create_frames(self, data):
-        num_states = self._canvas_kwds["num_states"]
+        num_states = self.num_states
         states = self._canvas_kwds["animate_kwds"].pop("states")
         if states is not None:
             negative_indices = states < 0
@@ -1563,7 +1563,8 @@ class Animation(param.Parameterized):
         return out_obj
 
     def render(self):
-        data = self.finalize().data
+        self = self.finalize()
+        data = self.data
 
         for ds in data.values():
             for configurable in CONFIGURABLES["canvas"]:

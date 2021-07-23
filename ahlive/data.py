@@ -1,5 +1,4 @@
 import warnings
-from collections import defaultdict
 from collections.abc import Iterable
 from copy import deepcopy
 from itertools import chain
@@ -16,6 +15,7 @@ from .configuration import (
     CHARTS,
     CONFIGURABLES,
     DIMS,
+    DEFAULTS,
     ITEMS,
     NULL_VALS,
     OPTIONS,
@@ -39,6 +39,7 @@ from .util import (
     is_timedelta,
     pop,
     srange,
+    length,
     to_1d,
     to_scalar,
 )
@@ -122,25 +123,28 @@ class Data(Easing, Animation, Configuration):
         default=(1, 1), length=2, doc="Subplot location as (row, column)"
     )
 
+    num_rows = param.Integer(doc="Number of rows", **DEFAULTS["num_kwds"])
+    num_cols = param.Integer(doc="Number of cols", **DEFAULTS["num_kwds"])
+    num_states = param.Integer(doc="Number of states", **DEFAULTS["num_kwds"])
+    attrs = param.Dict(doc="Attributes of the first dataset", constant=True)
+
     _parameters = []
-    _canvas_kwds = defaultdict(dict)
     configurables = {}
     data = {}
 
-    def __init__(self, **kwds):
+    def __init__(self, num_states, **kwds):
         self.configurables = {
             "canvas": CONFIGURABLES["canvas"],
             "subplot": CONFIGURABLES["subplot"],
             "label": CONFIGURABLES["label"],
         }
         self._parameters = [key for key in dir(self) if not key.startswith("_")]
-        input_vars = {
+        self._input_vars = {
             key: kwds.pop(key) for key in list(kwds) if key not in self._parameters
         }
         super().__init__(**kwds)
-        input_vars = self._amend_input_vars(input_vars)
-        ds = self._load_dataset(input_vars)
-        self.data = {self.rowcol: ds}
+        with param.edit_constant(self):
+            self.num_states = num_states
 
     def keys(self):
         return self.data.keys()
@@ -158,11 +162,17 @@ class Data(Easing, Animation, Configuration):
     @data.setter
     def data(self, data):
         self._data = self._config_data(data)
+        with param.edit_constant(self):
+            ds = list(self._data.values())[0]
+            self.attrs = ds.attrs
+            self.num_states = len(ds["state"])
+            self.num_rows, self.num_cols = [
+                max(rowcol) for rowcol in zip(*self.data.keys())]
 
-    @property
-    def attrs(self):
-        rowcol = list(self._data)[0]
-        return self._data[rowcol].attrs
+    def cols(self, num_cols):
+        self_copy = cols(self, num_cols)
+        self_copy._cols = num_cols
+        return self_copy
 
     def __getitem__(self, key):
         return self.data[key]
@@ -219,10 +229,6 @@ class Data(Easing, Animation, Configuration):
 
     def copy(self):
         return deepcopy(self)
-
-    def cols(self, num_cols):
-        self_copy = cols(self, num_cols)
-        return self_copy
 
     def _stack(self, other, how):
         self_copy = _wrap_stack([self, other], how)
@@ -309,7 +315,7 @@ class Data(Easing, Animation, Configuration):
         return ds
 
     def _config_rotate_chart(self, ds):
-        num_states = self._canvas_kwds["num_states"]
+        num_states = self.num_states
         x_dim = "grid_x" if "grid_x" in ds else "x"
         central_lon = ds.attrs["projection_kwds"].get(
             "central_longitude", ds[x_dim].min()
@@ -317,7 +323,7 @@ class Data(Easing, Animation, Configuration):
         if is_scalar(central_lon):
             central_lon_end = ds[x_dim].max()
             central_lons = np.linspace(central_lon, central_lon_end, num_states)
-        elif len(to_1d(central_lon)) != num_states:
+        elif length(central_lon) != num_states:
             central_lons = np.linspace(
                 np.min(central_lon), np.max(central_lon), num_states
             )
@@ -375,7 +381,6 @@ class Data(Easing, Animation, Configuration):
             np.tile(ds[grid_axis][::scan_stride].values, num_states),
         )
         ds = ds.transpose(*VARS["item"], "state", ...)
-        self._canvas_kwds["num_states"] = len(ds["state"])
         return ds
 
     @staticmethod
@@ -434,10 +439,8 @@ class Data(Easing, Animation, Configuration):
     def _add_figsize(self, ds):
         figure_kwds = ds.attrs["figure_kwds"]
         if figure_kwds.get("figsize") is None:
-            rows = self._canvas_kwds["rows"]
-            cols = self._canvas_kwds["cols"]
-            width = 7.5 + 7.5 * (cols - 1)
-            height = 5 + 5 * (rows - 1)
+            width = 7.5 + 7.5 * (self.num_cols - 1)
+            height = 5 + 5 * (self.num_rows - 1)
             figsize = (width, height)
             ds.attrs["figure_kwds"]["figsize"] = figsize
         return ds
@@ -845,7 +848,7 @@ class Data(Easing, Animation, Configuration):
         if "fps" in ds.attrs["animate_kwds"]:
             return ds
 
-        num_states = self._canvas_kwds["num_states"]
+        num_states = self.num_states
         durations_kwds = load_defaults("durations_kwds", ds)
         transition_frames = durations_kwds.pop("transition_frames")
         aggregate = durations_kwds.pop("aggregate")
@@ -928,7 +931,10 @@ class Data(Easing, Animation, Configuration):
 
         num_states = len(ds["state"])
         ds["state"] = srange(num_states)
-        self._canvas_kwds["num_states"] = num_states
+
+        # do this here for rotate / scan preset
+        with param.edit_constant(self):
+            self.num_states = num_states
         return ds
 
     def _get_crs(self, crs_obj, crs_kwds, central_longitude=None):
@@ -1035,7 +1041,7 @@ class Data(Easing, Animation, Configuration):
         """
         w, e, s, n = bounds  # changed from w, s, e, n
         max_width, max_height = 256, 256
-        num_states = self._canvas_kwds["num_states"]
+        num_states = self.num_states
         ZOOM_MAX = np.repeat(21, num_states)
         ln2 = np.log(2)
         pi = np.repeat(np.pi, num_states)
@@ -1084,14 +1090,24 @@ class Data(Easing, Animation, Configuration):
 
             zoom = tiles_kwds.pop("zoom", None)
             if zoom is None:
-                bounds = np.vstack(
-                    [
-                        self._adapt_input(ds["xlim0s"].values),
-                        self._adapt_input(ds["xlim1s"].values),
-                        self._adapt_input(ds["ylim0s"].values),
-                        self._adapt_input(ds["ylim1s"].values),
-                    ]
-                )
+                if self.worldwide:
+                    bounds = np.vstack(
+                        [
+                            self._adapt_input(-179),
+                            self._adapt_input(179),
+                            self._adapt_input(-89),
+                            self._adapt_input(89),
+                        ]
+                    )
+                else:
+                    bounds = np.vstack(
+                        [
+                            self._adapt_input(ds["xlim0s"].values),
+                            self._adapt_input(ds["xlim1s"].values),
+                            self._adapt_input(ds["ylim0s"].values),
+                            self._adapt_input(ds["ylim1s"].values),
+                        ]
+                    )
                 width, height = np.array(figure_kwds["figsize"]) * figure_kwds.get(
                     "dpi", 75
                 )
@@ -1114,7 +1130,7 @@ class Data(Easing, Animation, Configuration):
 
     def _add_animate_kwds(self, ds):
         animate_kwds = {}
-        num_states = self._canvas_kwds["num_states"]  # after interpolation
+        num_states = self.num_states  # after interpolation
         if isinstance(self.animate, str):
             if "_" in self.animate:
                 animate, value = self.animate.split("_")
@@ -1165,12 +1181,11 @@ class Data(Easing, Animation, Configuration):
         if all(ds.attrs.get("finalized", False) for ds in self.data.values()):
             return self
 
-        rows, cols = [max(rowcol) for rowcol in zip(*self.data.keys())]
-        self._canvas_kwds["rows"] = rows
-        self._canvas_kwds["cols"] = cols
+        with param.edit_constant(self):
+            self.num_rows, self.num_cols = [max(rowcol) for rowcol in zip(*self.data.keys())]
 
         data = {}
-        self_copy = deepcopy(self)
+        self_copy = self.copy()
         for rowcol, ds in self_copy.data.items():
             chart = to_scalar(ds["chart"]) if "chart" in ds else ""
             ds = self._add_figsize(ds)
@@ -1178,25 +1193,26 @@ class Data(Easing, Animation, Configuration):
             ds = self._add_xy01_limits(ds, chart)
             ds = self._compress_vars(ds)
             ds = self._add_color_kwds(ds, chart)
-            ds = self._config_chart(ds, chart)
             ds = self._precompute_base(ds)
             ds = self._add_margins(ds)
             ds = self._add_durations(ds)
+            ds = self._config_chart(ds, chart)
+            ds = self._interp_dataset(ds)
             ds = self._add_geo_transforms(ds)
             if "projection" in ds.data_vars:
                 ds = self._add_geo_features(ds)
                 ds = self._add_geo_tiles(ds)
-            ds = self._interp_dataset(ds)
             ds = self._add_animate_kwds(ds)
             ds.attrs["finalized"] = True
             data[rowcol] = ds
 
         self_copy.data = data
+        print(self_copy.num_states)
         return self_copy
 
     def _adapt_input(self, val, num_items=None, reshape=True, shape=None):
         # TODO: add test
-        num_states = self._canvas_kwds["num_states"]
+        num_states = self.num_states
         val = np.array(val)
         if is_scalar(val):
             val = np.repeat(val, num_states)
@@ -1218,42 +1234,9 @@ class Data(Easing, Animation, Configuration):
             val = np.tile(val, (num_items, 1))
         return val
 
-    def _amend_input_vars(self, input_vars):
-        # TODO: add test
-        for key in list(input_vars.keys()):
-            if key == "c":
-                # won't show up if
-                continue
-            key_and_s = key + "s"
-            key_strip = key.rstrip("s")
-            expected_key = None
-            if key_and_s in self._parameters and key_and_s != key:
-                warnings.warn(f"Replacing unexpected {key} as {key_and_s}!")
-                expected_key = key_and_s
-            elif key_strip in self._parameters and key_strip != key:
-                warnings.warn(f"Replacing unexpected {key} as {key_strip}!")
-                expected_key = key_strip
-            if expected_key:
-                setattr(self, expected_key, input_vars.pop(key))
-
-        for lim in ITEMS["limit"]:
-            if lim in input_vars:
-                warnings.warn(f"Replacing unexpected {key} as {key_strip}!")
-                if "x" in lim and "0" in lim:
-                    expected_key = "xlim0s"
-                elif "x" in lim and "1" in lim:
-                    expected_key = "xlim1s"
-                elif "y" in lim and "0" in lim:
-                    expected_key = "ylim0s"
-                elif "y" in lim and "1" in lim:
-                    expected_key = "ylim1s"
-                setattr(self, expected_key, input_vars.pop(key))
-
-        return input_vars
-
     def _load_dataset(self, input_vars):
         # TODO: add test
-        num_states = self._canvas_kwds["num_states"]
+        num_states = self.num_states
         label = self.label or ""
         group = self.group or ""
 
@@ -1375,8 +1358,8 @@ class GeographicData(Data):
     tiles = CartopyTiles(doc="Whether to show web tiles")
     zoom = param.Integer(default=None, bounds=(0, 25), doc="Zoom level of tiles")
 
-    def __init__(self, **kwds):
-        super().__init__(**kwds)
+    def __init__(self, num_states, **kwds):
+        super().__init__(num_states, **kwds)
         self.configurables["geo"] = CONFIGURABLES["geo"]
 
 
@@ -1400,7 +1383,7 @@ class ReferenceArray(param.Parameterized):
         if rowcols is None:
             rowcols = self.data.keys()
 
-        self_copy = deepcopy(self)
+        self_copy = self.copy()
         for rowcol, ds in self_copy.data.items():
             if rowcol not in rowcols:
                 continue
@@ -1530,7 +1513,7 @@ class RemarkArray(param.Parameterized):
         if atol is not None and condition is not None:
             warnings.warn("Unable to use atol with condition!")
 
-        self_copy = deepcopy(self)
+        self_copy = self.copy()
         data = {}
         for rowcol, ds in self_copy.data.items():
             if rowcol not in rowcols:
@@ -1596,21 +1579,18 @@ class Array(GeographicData, ReferenceArray, ColorArray, RemarkArray):
                     f"{xys} must be an Iterable, but cannot be str; got {xys_arr}!"
                 )
 
-        num_xs = len(to_1d(xs))
-        num_ys = len(to_1d(ys))
+        num_xs = length(xs)
+        num_ys = length(ys)
         if num_xs != num_ys and num_xs != 1 and num_ys != 1:
             raise ValueError(
                 f"Length of x ({num_xs}) must match the length of y ({num_ys}) "
                 f"if not a scalar!"
             )
 
-        self._canvas_kwds["num_states"] = max([num_xs, num_ys])
+        num_states = max(num_xs, num_ys)
+        super().__init__(num_states, **kwds)
 
-        super().__init__(**kwds)
-        ds = self.data[self.rowcol]
-
-        num_states = self._canvas_kwds["num_states"]
-
+        ds = self._load_dataset(self._input_vars)
         ds = ds.assign(
             **{
                 "x": (DIMS["basic"], self._adapt_input(xs)),
@@ -1625,7 +1605,7 @@ class Array(GeographicData, ReferenceArray, ColorArray, RemarkArray):
 
     def invert(self, label=None, group=None, state_labels=None):
         data = {}
-        self_copy = deepcopy(self)
+        self_copy = self.copy()
         for rowcol, ds in self_copy.data.items():
             for item_dim in ["ref_item", "grid_item"]:
                 if item_dim in ds.dims:
@@ -1694,23 +1674,22 @@ class Array2D(GeographicData, ReferenceArray, ColorArray, RemarkArray):
                 shape = shape[::-1]  # TODO: auto figure out time dimension
         else:
             num_states = 1
-        self._canvas_kwds["num_states"] = num_states
-        
-        super().__init__(**kwds)
+
+        super().__init__(num_states, **kwds)
         self.configurables["grid"] = CONFIGURABLES["grid"]
 
-        ds = self.data[self.rowcol]
-        xs = np.array(xs)
-        ys = np.array(ys)
-        cs = np.array(cs)
-        ds = ds.assign_coords({"x": xs, "y": ys}).assign(
-            {
-                "c": (
-                    DIMS["grid"],
-                    self._adapt_input(cs, shape=shape),
-                )
+        ds = self._load_dataset(self._input_vars)
+        ds = ds.assign_coords(
+            **{
+                "x": np.array(xs),
+                "y": np.array(ys),
             }
-        )
+        ).assign({
+            "c": (
+                DIMS["grid"],
+                self._adapt_input(cs, shape=shape),
+            )
+        })
 
         if self.inline_labels is not None:
             inline_xs = self.inline_xs
@@ -1808,10 +1787,10 @@ class DataFrame(Array, DataStructure):
                     join,
                 )
 
-                num_rows = len(label_df)
-                if num_rows > 2000 and label_key is None:
+                num_states = len(label_df)
+                if num_states > 2000 and label_key is None:
                     warnings.warn(
-                        f"Found more than {num_rows} states "
+                        f"Found more than {num_states} states "
                         f"which may take a considerable time to animate; "
                         f"set label to group a set of rows as separate items."
                     )
@@ -1823,7 +1802,7 @@ class DataFrame(Array, DataStructure):
                     label=label,
                     **kwds_updated,
                 )
-                arrays.append(deepcopy(self))
+                arrays.append(self.copy())
         self.data = merge(arrays, join).data
 
 
@@ -1856,7 +1835,7 @@ class Dataset(Array2D, DataStructure):
                     label=label,
                     **kwds_updated,
                 )
-                arrays.append(deepcopy(self))
+                arrays.append(self.copy())
         self.data = merge(arrays, join).data
 
 
@@ -1924,18 +1903,16 @@ class Reference(GeographicData):
             if val is None:
                 ref_kwds.pop(key)
 
-        max_len = max(len(to_1d(val)) for val in ref_kwds.values())
-        if max_len > 1:
+        num_states = max(length(val) for val in ref_kwds.values())
+        if num_states > 1:
             for key, val in ref_kwds.items():
                 if is_scalar(val):
-                    ref_kwds[key] = np.repeat(val, max_len)
-        self._canvas_kwds["num_states"] = max_len
+                    ref_kwds[key] = np.repeat(val, num_states)
 
-        super().__init__(**kwds)
+        super().__init__(num_states, **kwds)
         self.configurables["ref"] = CONFIGURABLES["ref"]
 
-        ds = self.data[self.rowcol]
-
+        ds = self._load_dataset(self._input_vars)
         for key, val in ref_kwds.items():
             val = self._adapt_input(val)
             if val is not None:
