@@ -14,8 +14,8 @@ from .animation import Animation
 from .configuration import (
     CHARTS,
     CONFIGURABLES,
-    DIMS,
     DEFAULTS,
+    DIMS,
     ITEMS,
     NULL_VALS,
     OPTIONS,
@@ -37,9 +37,9 @@ from .util import (
     is_scalar,
     is_str,
     is_timedelta,
+    length,
     pop,
     srange,
-    length,
     to_1d,
     to_scalar,
 )

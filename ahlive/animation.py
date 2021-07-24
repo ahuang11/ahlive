@@ -1,10 +1,10 @@
 import base64
 import os
-import uuid
 import pathlib
+import uuid
 import warnings
-from collections.abc import Iterable
 from collections import defaultdict
+from collections.abc import Iterable
 from io import BytesIO
 
 import dask.delayed
@@ -34,8 +34,8 @@ from .util import (
     is_datetime,
     is_scalar,
     is_timedelta,
-    pop,
     length,
+    pop,
     srange,
     to_1d,
     to_num,
