@@ -975,10 +975,10 @@ class Data(Easing, Animation, Configuration):
                     ylim0s = -89
                     ylim1s = 89
                 else:
-                    xlim0s = self._adapt_input(ds["xlim0s"].values)
-                    xlim1s = self._adapt_input(ds["xlim1s"].values)
-                    ylim0s = self._adapt_input(ds["ylim0s"].values)
-                    ylim1s = self._adapt_input(ds["ylim1s"].values)
+                    xlim0s = ds["xlim0s"].values
+                    xlim1s = ds["xlim1s"].values
+                    ylim0s = ds["ylim0s"].values
+                    ylim1s = ds["ylim1s"].values
                 bounds = np.vstack(
                     [
                         self._adapt_input(xlim0s),
