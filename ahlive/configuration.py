@@ -252,7 +252,6 @@ SIZES = {
     "xxx-large": 48,
 }
 
-
 DEFAULTS = {}
 
 DEFAULTS["durations_kwds"] = {
