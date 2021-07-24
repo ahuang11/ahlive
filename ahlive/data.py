@@ -31,7 +31,7 @@ from .configuration import (
     load_defaults,
 )
 from .easing import Easing
-from .join import _get_item_dim, _drop_state, _wrap_stack, cols, layout, merge
+from .join import _drop_state, _get_item_dim, _wrap_stack, cols, layout, merge
 from .util import (
     fillna,
     is_datetime,
