@@ -131,6 +131,12 @@ PARAMS = {
     for param_ in CONFIGURABLES_KWDS[configurable]
 }
 
+CANVAS = {
+    param
+    for param, configurable in PARAMS.items()
+    if configurable in CONFIGURABLES["canvas"]
+}
+
 CHARTS = {
     "basic": ["scatter", "line", "barh", "bar"],
     "grid": ["pcolormesh", "pcolorfast", "contourf", "contour"],

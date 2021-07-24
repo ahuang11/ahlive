@@ -12,6 +12,7 @@ from matplotlib.colors import BoundaryNorm
 
 from .animation import Animation
 from .configuration import (
+    CANVAS,
     CHARTS,
     CONFIGURABLES,
     DEFAULTS,
@@ -30,7 +31,7 @@ from .configuration import (
     load_defaults,
 )
 from .easing import Easing
-from .join import _drop_state, _wrap_stack, cols, layout, merge
+from .join import _get_item_dim, _drop_state, _wrap_stack, cols, layout, merge
 from .util import (
     fillna,
     is_datetime,
@@ -137,12 +138,12 @@ class Data(Easing, Animation, Configuration):
         constant=True,
     )
 
-    _parameters = []
+    _parameters = set([])
     _crs_names = {}
     data = {}
 
     def __init__(self, num_states, **kwds):
-        self._parameters = [key for key in dir(self) if not key.startswith("_")]
+        self._parameters = set(key for key in dir(self) if not key.startswith("_"))
         self._input_vars = {
             key: kwds.pop(key) for key in list(kwds) if key not in self._parameters
         }
@@ -385,7 +386,9 @@ class Data(Easing, Animation, Configuration):
             "state",
             np.tile(ds[grid_axis][::scan_stride].values, num_states),
         )
-        ds = ds.transpose(*VARS["item"], "state", ...)
+
+        item_dim = _get_item_dim(ds)
+        ds = ds.transpose(item_dim, "state", ...)
         return ds
 
     @staticmethod
@@ -399,10 +402,8 @@ class Data(Easing, Animation, Configuration):
 
         show = legend_kwds.pop("show", None)
         if show is None:
-            for item_dim in ["item", "ref_item", "grid_item"]:
-                if item_dim in ds.dims:
-                    num_items = len(ds[item_dim])
-                    break
+            item_dim = _get_item_dim(ds)
+            num_items = len(ds[item_dim])
             if num_items > 10:
                 warnings.warn(
                     "More than 10 items in legend; setting legend=False; "
@@ -524,40 +525,13 @@ class Data(Easing, Animation, Configuration):
         if ds.attrs["limits_kwds"].get("worldwide"):
             return ds  # ax.set_global() will be called in animation.py
 
+        item_dim = _get_item_dim(ds)
         axes_kwds = load_defaults("axes_kwds", ds)
         for key, limit in limits.items():
             # example: xlim0s
             axis = key[0]  # x
             num = int(key[-2])  # 0
             is_lower_limit = num == 0
-
-            grid_var = f"grid_{axis}"
-            if grid_var in ds:
-                var = grid_var
-                item_dim = "grid_item"
-            elif axis in ds:
-                var = axis
-                item_dim = "item"
-            else:
-                if axis == "x":
-                    if "ref_x0" in ds and "ref_x1" in ds:
-                        var = "ref_x0" if num == 0 else "ref_x1"
-                    elif "ref_x0" in ds:
-                        var = "ref_x0"
-                    elif "ref_x1" in ds:
-                        var = "ref_x1"
-                    else:
-                        continue
-                elif axis == "y":
-                    if "ref_y0" in ds and "ref_y1" in ds:
-                        var = "ref_y0" if num == 0 else "ref_y1"
-                    elif "ref_y0" in ds:
-                        var = "ref_y0"
-                    elif "ref_y1" in ds:
-                        var = "ref_y1"
-                    else:
-                        continue
-                item_dim = "ref_item"
 
             axis_limit_key = f"{axis}lim"
             if axes_kwds is not None:
@@ -599,33 +573,15 @@ class Data(Easing, Animation, Configuration):
                         f"from {OPTIONS['limit']} or numeric values!"
                     )
 
-                grid_var = f"grid_{axis}"
-                if grid_var in ds:
-                    var = grid_var
-                    item_dim = "grid_item"
-                elif axis in ds:
-                    var = axis
-                    item_dim = "item"
-                else:
-                    if axis == "x":
-                        if "ref_x0" in ds and "ref_x1" in ds:
-                            var = "ref_x0" if num == 0 else "ref_x1"
-                        elif "ref_x0" in ds:
-                            var = "ref_x0"
-                        elif "ref_x1" in ds:
-                            var = "ref_x1"
-                        else:
-                            continue
-                    elif axis == "y":
-                        if "ref_y0" in ds and "ref_y1" in ds:
-                            var = "ref_y0" if num == 0 else "ref_y1"
-                        elif "ref_y0" in ds:
-                            var = "ref_y0"
-                        elif "ref_y1" in ds:
-                            var = "ref_y1"
-                        else:
-                            continue
-                    item_dim = "ref_item"
+                var = item_dim.replace("item", axis)
+                if item_dim == "ref_item":
+                    for n in [num, 0, 1]:
+                        ref_var = f"{var}{n}"
+                        if ref_var in ds.data_vars:
+                            var = ref_var
+                            break
+                    else:
+                        continue
 
                 da = ds[var]
                 if is_datetime(da) or is_timedelta(da):
@@ -687,10 +643,9 @@ class Data(Easing, Animation, Configuration):
         elif da.name in ["x", "y"]:
             return da
 
-        for item in VARS["item"]:
-            if item in da.dims:
-                if len(da[item]) > 1:
-                    return da
+        item_dim = _get_item_dim(da)
+        if item_dim and len(da[item_dim]) > 1:
+            return da
 
         vals = da.values
         unique_vals = np.unique(vals[~pd.isnull(vals)])
@@ -1186,11 +1141,6 @@ class Data(Easing, Animation, Configuration):
         if all(ds.attrs.get("finalized", False) for ds in self.data.values()):
             return self
 
-        with param.edit_constant(self):
-            self.num_rows, self.num_cols = [
-                max(rowcol) for rowcol in zip(*self.data.keys())
-            ]
-
         data = {}
         self_copy = self.copy()
         for rowcol, ds in self_copy.data.items():
@@ -1306,36 +1256,31 @@ class Data(Easing, Animation, Configuration):
 
     @staticmethod
     def _propagate_params(self_copy, other, layout=False):
-        canvas_params = [
-            param
-            for param, configurable in PARAMS.items()
-            if configurable in CONFIGURABLES["canvas"]
-        ]
         self_copy.configurables.update(**other.configurables)
         for param_ in self_copy._parameters:
-            not_canvas_param = param_ not in canvas_params
+            not_canvas_param = param_ not in CANVAS
             if callable(param_) or (layout and not_canvas_param):
                 continue
 
             try:
-                self_param = getattr(self_copy, param_)
-                other_param = getattr(other, param_)
+                self_value = getattr(self_copy, param_)
+                other_value = getattr(other, param_)
             except AttributeError:
                 continue
 
             try:
-                self_null = self_param in NULL_VALS
+                self_null = self_value in NULL_VALS
             except ValueError:
                 self_null = False
 
             try:
-                other_null = other_param in NULL_VALS
+                other_null = other_value in NULL_VALS
             except ValueError:
                 other_null = False
 
             if param_ in PARAMS:
                 if self_null and not other_null:
-                    setattr(self_copy, param_, other_param)
+                    setattr(self_copy, param_, other_value)
                     self_copy = self_copy.config(PARAMS[param_])
                 elif not self_null and other_null:
                     self_copy = self_copy.config(PARAMS[param_])
@@ -1667,7 +1612,6 @@ class Array2D(GeographicData, ReferenceArray, ColorArray, RemarkArray):
     )
 
     def __init__(self, xs, ys, cs, **kwds):
-
         cs = np.array(cs)
         shape = cs.shape[-2:]
         if cs.ndim > 2:

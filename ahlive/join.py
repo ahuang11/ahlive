@@ -13,8 +13,8 @@ def _get_rowcols(objs):
 
 
 def _get_item_dim(ds):
-    for item_dim in ds.dims:
-        if item_dim.endswith("item"):
+    for item_dim in VARS["item"]:
+        if item_dim in ds.dims:
             return item_dim
 
 
