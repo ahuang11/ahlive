@@ -321,6 +321,17 @@ class Data(Easing, Animation, Configuration):
             ds["y_discrete_trail"] = ds["y"].copy()
         return ds
 
+    def _config_grid_axes(self, ds, chart):
+        if self.style == "bare":
+            ds.attrs["grid_kwds"]["b"] = ds.attrs["grid_kwds"].get("b", False)
+        elif chart == "barh":
+            ds.attrs["grid_kwds"]["axis"] = ds.attrs["grid_kwds"].get("axis", "x")
+        elif chart == "bar":
+            ds.attrs["grid_kwds"]["axis"] = ds.attrs["grid_kwds"].get("axis", "y")
+        else:
+            ds.attrs["grid_kwds"]["axis"] = ds.attrs["grid_kwds"].get("axis", "both")
+        return ds
+    
     @staticmethod
     def _config_legend(ds):
         legend_kwds = load_defaults("legend_kwds", ds)
@@ -352,13 +363,8 @@ class Data(Easing, Animation, Configuration):
             ds = self._config_bar_chart(ds, preset)
         elif preset == "trail":
             ds = self._config_trail_chart(ds)
-        elif preset == "rotate":
-            ds = self._config_rotate_chart(ds)
-        elif preset.startswith("scan"):
-            ds = self._config_scan_chart(ds, preset)
-
-        ds = self._config_legend(ds)
         ds = self._config_grid_axes(ds, chart)
+        ds = self._config_legend(ds)
         return ds
 
     def _add_figsize(self, ds):
@@ -1672,17 +1678,14 @@ class Array2D(GeographicData, ReferenceArray, ColorArray, RemarkArray):
         ds = ds.transpose(item_dim, "state", ...)
         return ds
 
-    def _config_grid_axes(self, ds, chart):
-        if self.style == "bare":
-            ds.attrs["grid_kwds"]["b"] = ds.attrs["grid_kwds"].get("b", False)
-        elif chart == "barh":
-            ds.attrs["grid_kwds"]["axis"] = ds.attrs["grid_kwds"].get("axis", "x")
-        elif chart == "bar":
-            ds.attrs["grid_kwds"]["axis"] = ds.attrs["grid_kwds"].get("axis", "y")
-        else:
-            ds.attrs["grid_kwds"]["axis"] = ds.attrs["grid_kwds"].get("axis", "both")
+    def _config_chart(self, ds, chart):
+        ds = super()._config_chart(ds, chart)
+        preset = ds.attrs["preset_kwds"].get("preset", "")
+        if preset == "rotate":
+            ds = self._config_rotate_chart(ds)
+        elif preset.startswith("scan"):
+            ds = self._config_scan_chart(ds, preset)
         return ds
-
 
 class DataStructure(param.Parameterized):
 
