@@ -147,6 +147,7 @@ class Data(Easing, Animation, Configuration):
         self._input_vars = {
             key: kwds.pop(key) for key in list(kwds) if key not in self._parameters
         }
+        self._check_input_vars()
         super().__init__(**kwds)
         with param.edit_constant(self):
             self.num_states = num_states
@@ -320,77 +321,6 @@ class Data(Easing, Animation, Configuration):
             ds["y_discrete_trail"] = ds["y"].copy()
         return ds
 
-    def _config_rotate_chart(self, ds):
-        num_states = self.num_states
-        x_dim = "grid_x" if "grid_x" in ds else "x"
-        central_lon = ds.attrs["projection_kwds"].get(
-            "central_longitude", ds[x_dim].min()
-        )
-        if is_scalar(central_lon):
-            central_lon_end = ds[x_dim].max()
-            central_lons = np.linspace(central_lon, central_lon_end, num_states)
-        elif length(central_lon) != num_states:
-            central_lons = np.linspace(
-                np.min(central_lon), np.max(central_lon), num_states
-            )
-        else:
-            central_lons = central_lon
-        ds["central_longitude"] = ("state", central_lons)
-        if "projection" not in ds.attrs["projection_kwds"]:
-            ds.attrs["projection_kwds"]["projection"] = "Orthographic"
-        return ds
-
-    def _config_scan_chart(self, ds, preset):
-        preset, axis = preset.split("_")
-        grid_axis = f"grid_{axis}"
-        grid_scan_axis = f"grid_scan_{axis}"
-        if "state_label" in ds:
-            state_labels = list(pop(ds, "state_label"))
-            ds[f"grid_scan_{axis}_0_inline_label"] = ("state", state_labels)
-            ds[f"grid_scan_{axis}_1_inline_label"] = (
-                "state",
-                np.roll(state_labels, 1),
-            )
-            ds[f"grid_scan_{axis}_diff_inline_label"] = (
-                ds[f"grid_scan_{axis}_0_inline_label"]
-                - ds[f"grid_scan_{axis}_1_inline_label"]
-            )
-            other_axis = "y" if axis == "x" else "x"
-            ds.attrs["preset_kwds"]["inline_loc"] = ds[f"grid_{other_axis}"].median()
-
-        scan_ds_list = []
-        stateless_vars = [var for var in ds.data_vars if "state" not in ds[var].dims]
-        grid_vars = [var for var in ds.data_vars if grid_axis in ds[var].dims]
-        scan_stride = ds.attrs["preset_kwds"].pop("stride", 1)
-        states = srange(ds["state"])[:-1]
-        num_states = len(states)
-        for state in states:
-            curr_state_ds = ds.sel(state=state).drop_vars(stateless_vars)
-            next_state_ds = ds.sel(state=state + 1).drop_vars(stateless_vars)
-            for i in srange(curr_state_ds[grid_axis], stride=scan_stride):
-                scan_ds = curr_state_ds.where(
-                    ~curr_state_ds[grid_axis].isin(
-                        next_state_ds.isel(**{grid_axis: slice(None, i)})[
-                            grid_axis
-                        ].values
-                    ),
-                    next_state_ds,
-                )
-                scan_ds_list.append(scan_ds)
-
-        ds = xr.concat(scan_ds_list, "state").assign(**ds[stateless_vars])
-        for var in ds.data_vars:
-            if var not in grid_vars and grid_axis in ds[var].dims:
-                ds[var] = ds[var].isel(**{grid_axis: 0})
-        ds[grid_scan_axis] = (
-            "state",
-            np.tile(ds[grid_axis][::scan_stride].values, num_states),
-        )
-
-        item_dim = _get_item_dim(ds)
-        ds = ds.transpose(item_dim, "state", ...)
-        return ds
-
     @staticmethod
     def _config_legend(ds):
         legend_kwds = load_defaults("legend_kwds", ds)
@@ -414,17 +344,6 @@ class Data(Easing, Animation, Configuration):
                 ds.attrs["legend_kwds"]["show"] = False
             else:
                 ds.attrs["legend_kwds"]["show"] = True
-        return ds
-
-    def _config_grid_axes(self, ds, chart):
-        if self.style == "bare":
-            ds.attrs["grid_kwds"]["b"] = ds.attrs["grid_kwds"].get("b", False)
-        elif chart == "barh":
-            ds.attrs["grid_kwds"]["axis"] = ds.attrs["grid_kwds"].get("axis", "x")
-        elif chart == "bar":
-            ds.attrs["grid_kwds"]["axis"] = ds.attrs["grid_kwds"].get("axis", "y")
-        else:
-            ds.attrs["grid_kwds"]["axis"] = ds.attrs["grid_kwds"].get("axis", "both")
         return ds
 
     def _config_chart(self, ds, chart):
@@ -1166,6 +1085,29 @@ class Data(Easing, Animation, Configuration):
         self_copy.data = data
         return self_copy
 
+    def _check_input_vars(self):
+        # TODO: add test
+        for key in list(self._input_vars.keys()):
+            if key == "c":
+                # won't show up if
+                continue
+            key_and_s = key + "s"
+            key_strip = key.rstrip("s")
+            if key_and_s in self._parameters and key_and_s != key:
+                raise KeyError(
+                    f"Invalid param: '{key}', replace with expected '{key_and_s}'"
+                )
+            elif key_strip in self._parameters and key_strip != key:
+                raise KeyError(
+                    f"Invalid param: '{key}', replace with expected '{key_strip}'"
+                )
+
+        for lim in ITEMS["limit"]:
+            if lim in self._input_vars:
+                raise KeyError(
+                    f"Invalid param: '{key}', replace with expected '{key_strip}'"
+                )
+
     def _adapt_input(self, val, num_items=None, reshape=True, shape=None):
         # TODO: add test
         num_states = self.num_states
@@ -1658,6 +1600,88 @@ class Array2D(GeographicData, ReferenceArray, ColorArray, RemarkArray):
         )
 
         self.data = {self.rowcol: ds}
+
+    def _config_rotate_chart(self, ds):
+        num_states = self.num_states
+        x_dim = "grid_x" if "grid_x" in ds else "x"
+        central_lon = ds.attrs["projection_kwds"].get(
+            "central_longitude", ds[x_dim].min()
+        )
+        if is_scalar(central_lon):
+            central_lon_end = ds[x_dim].max()
+            central_lons = np.linspace(central_lon, central_lon_end, num_states)
+        elif length(central_lon) != num_states:
+            central_lons = np.linspace(
+                np.min(central_lon), np.max(central_lon), num_states
+            )
+        else:
+            central_lons = central_lon
+        ds["central_longitude"] = ("state", central_lons)
+        if "projection" not in ds.attrs["projection_kwds"]:
+            ds.attrs["projection_kwds"]["projection"] = "Orthographic"
+        return ds
+
+    def _config_scan_chart(self, ds, preset):
+        preset, axis = preset.split("_")
+        grid_axis = f"grid_{axis}"
+        grid_scan_axis = f"grid_scan_{axis}"
+        if "state_label" in ds:
+            state_labels = list(pop(ds, "state_label"))
+            ds[f"grid_scan_{axis}_0_inline_label"] = ("state", state_labels)
+            ds[f"grid_scan_{axis}_1_inline_label"] = (
+                "state",
+                np.roll(state_labels, 1),
+            )
+            ds[f"grid_scan_{axis}_diff_inline_label"] = (
+                ds[f"grid_scan_{axis}_0_inline_label"]
+                - ds[f"grid_scan_{axis}_1_inline_label"]
+            )
+            other_axis = "y" if axis == "x" else "x"
+            ds.attrs["preset_kwds"]["inline_loc"] = ds[f"grid_{other_axis}"].median()
+
+        scan_ds_list = []
+        stateless_vars = [var for var in ds.data_vars if "state" not in ds[var].dims]
+        grid_vars = [var for var in ds.data_vars if grid_axis in ds[var].dims]
+        scan_stride = ds.attrs["preset_kwds"].pop("stride", 1)
+        states = srange(ds["state"])[:-1]
+        num_states = len(states)
+        for state in states:
+            curr_state_ds = ds.sel(state=state).drop_vars(stateless_vars)
+            next_state_ds = ds.sel(state=state + 1).drop_vars(stateless_vars)
+            for i in srange(curr_state_ds[grid_axis], stride=scan_stride):
+                scan_ds = curr_state_ds.where(
+                    ~curr_state_ds[grid_axis].isin(
+                        next_state_ds.isel(**{grid_axis: slice(None, i)})[
+                            grid_axis
+                        ].values
+                    ),
+                    next_state_ds,
+                )
+                scan_ds_list.append(scan_ds)
+
+        ds = xr.concat(scan_ds_list, "state").assign(**ds[stateless_vars])
+        for var in ds.data_vars:
+            if var not in grid_vars and grid_axis in ds[var].dims:
+                ds[var] = ds[var].isel(**{grid_axis: 0})
+        ds[grid_scan_axis] = (
+            "state",
+            np.tile(ds[grid_axis][::scan_stride].values, num_states),
+        )
+
+        item_dim = _get_item_dim(ds)
+        ds = ds.transpose(item_dim, "state", ...)
+        return ds
+
+    def _config_grid_axes(self, ds, chart):
+        if self.style == "bare":
+            ds.attrs["grid_kwds"]["b"] = ds.attrs["grid_kwds"].get("b", False)
+        elif chart == "barh":
+            ds.attrs["grid_kwds"]["axis"] = ds.attrs["grid_kwds"].get("axis", "x")
+        elif chart == "bar":
+            ds.attrs["grid_kwds"]["axis"] = ds.attrs["grid_kwds"].get("axis", "y")
+        else:
+            ds.attrs["grid_kwds"]["axis"] = ds.attrs["grid_kwds"].get("axis", "both")
+        return ds
 
 
 class DataStructure(param.Parameterized):
