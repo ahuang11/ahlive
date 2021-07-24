@@ -723,7 +723,6 @@ def test_add_animate_kwds_str(animate, value):
 def test_add_animate_kwds_slice():
     ah_obj = ah.Array([0, 1, 2], [3, 4, 5], animate=slice(1, 10)).finalize()
     attrs = ah_obj.attrs
-    num_states = len(ah_obj[1, 1]["state"])
     animate_kwds = attrs["animate_kwds"]
     states = np.arange(1, 10)
     assert (animate_kwds["states"] == states).all()
@@ -735,7 +734,6 @@ def test_add_animate_kwds_slice():
 def test_add_animate_kwds_bool(animate):
     ah_obj = ah.Array([0, 1, 2], [3, 4, 5], animate=animate).finalize()
     attrs = ah_obj.attrs
-    num_states = len(ah_obj[1, 1]["state"])
     animate_kwds = attrs["animate_kwds"]
     assert animate_kwds["states"] is None
     assert animate_kwds["stitch"] == animate
@@ -745,7 +743,6 @@ def test_add_animate_kwds_bool(animate):
 def test_add_animate_kwds_int():
     ah_obj = ah.Array([0, 1, 2], [3, 4, 5], animate=1).finalize()
     attrs = ah_obj.attrs
-    num_states = len(ah_obj[1, 1]["state"])
     animate_kwds = attrs["animate_kwds"]
     assert animate_kwds["states"] == 1
     assert animate_kwds["stitch"]

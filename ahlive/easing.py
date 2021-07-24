@@ -51,8 +51,11 @@ class Easing(param.Parameterized):
     )
 
     num_steps = param.Integer(
-        default=1, bounds=(1, None), constant=True,
-        doc="Number of frames between each base state")
+        default=1,
+        bounds=(1, None),
+        constant=True,
+        doc="Number of frames between each base state",
+    )
 
     def __init__(self, **kwds):
         super().__init__(**kwds)

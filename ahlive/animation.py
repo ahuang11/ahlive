@@ -1,5 +1,6 @@
 import base64
 import os
+import uuid
 import pathlib
 import warnings
 from collections.abc import Iterable
@@ -118,7 +119,7 @@ class Animation(param.Parameterized):
     )
 
     _canvas_kwds = defaultdict(dict)
-    _temp_file = TEMP_FILE
+    _temp_file = f"{uuid.uuid4()}_{TEMP_FILE}"
     _path_effects = [withStroke(linewidth=2, alpha=0.5, foreground="white")]
 
     def __init__(self, **kwds):
@@ -1478,11 +1479,6 @@ class Animation(param.Parameterized):
         show = self._canvas_kwds["output_kwds"].get("show")
         if save is None and pygifsicle and ext == ".gif" and stitch and show:
             # write temporary file since pygifsicle only accepts file paths
-            for i in np.arange(0, 100):
-                if os.path.exists(self._temp_file):
-                    self._temp_file = f"{i:03d}{self._temp_file}"
-                else:
-                    break
             out_obj = self._temp_file
 
         if ext != ".gif":

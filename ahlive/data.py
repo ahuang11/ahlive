@@ -127,17 +127,21 @@ class Data(Easing, Animation, Configuration):
     num_cols = param.Integer(doc="Number of cols", **DEFAULTS["num_kwds"])
     num_states = param.Integer(doc="Number of states", **DEFAULTS["num_kwds"])
     attrs = param.Dict(doc="Attributes of the first dataset", constant=True)
-
-    _parameters = []
-    configurables = {}
-    data = {}
-
-    def __init__(self, num_states, **kwds):
-        self.configurables = {
+    configurables = param.Dict(
+        default={
             "canvas": CONFIGURABLES["canvas"],
             "subplot": CONFIGURABLES["subplot"],
             "label": CONFIGURABLES["label"],
-        }
+        },
+        doc="Possible configuration keys",
+        constant=True,
+    )
+
+    _parameters = []
+    _crs_names = {}
+    data = {}
+
+    def __init__(self, num_states, **kwds):
         self._parameters = [key for key in dir(self) if not key.startswith("_")]
         self._input_vars = {
             key: kwds.pop(key) for key in list(kwds) if key not in self._parameters
@@ -167,7 +171,8 @@ class Data(Easing, Animation, Configuration):
             self.attrs = ds.attrs
             self.num_states = len(ds["state"])
             self.num_rows, self.num_cols = [
-                max(rowcol) for rowcol in zip(*self.data.keys())]
+                max(rowcol) for rowcol in zip(*self.data.keys())
+            ]
 
     def cols(self, num_cols):
         self_copy = cols(self, num_cols)
@@ -944,8 +949,8 @@ class Data(Easing, Animation, Configuration):
         if isinstance(crs_obj, str):
             import cartopy.crs as ccrs
 
-            if not self._canvas_kwds["crs_names"]:
-                self._canvas_kwds["crs_names"] = {
+            if len(self._crs_names) == 0:
+                self._crs_names = {
                     name.lower(): name
                     for name, obj in vars(ccrs).items()
                     if isinstance(obj, type)
@@ -958,7 +963,7 @@ class Data(Easing, Animation, Configuration):
             if central_longitude is not None:
                 crs_kwds["central_longitude"] = central_longitude
 
-            crs_obj = getattr(ccrs, self._canvas_kwds["crs_names"][crs_obj.lower()])
+            crs_obj = getattr(ccrs, self._crs_names[crs_obj.lower()])
             if callable(crs_obj):  # else ccrs.GOOGLE_MERCATOR
                 crs_obj = crs_obj(**crs_kwds)
         else:
@@ -1182,7 +1187,9 @@ class Data(Easing, Animation, Configuration):
             return self
 
         with param.edit_constant(self):
-            self.num_rows, self.num_cols = [max(rowcol) for rowcol in zip(*self.data.keys())]
+            self.num_rows, self.num_cols = [
+                max(rowcol) for rowcol in zip(*self.data.keys())
+            ]
 
         data = {}
         self_copy = self.copy()
@@ -1207,7 +1214,6 @@ class Data(Easing, Animation, Configuration):
             data[rowcol] = ds
 
         self_copy.data = data
-        print(self_copy.num_states)
         return self_copy
 
     def _adapt_input(self, val, num_items=None, reshape=True, shape=None):
@@ -1262,9 +1268,7 @@ class Data(Easing, Animation, Configuration):
             data_vars[var] = dims, val
 
         if self.state_labels is not None:
-            state_labels = self._adapt_input(
-                self.state_labels, reshape=False
-            )
+            state_labels = self._adapt_input(self.state_labels, reshape=False)
             data_vars["state_label"] = ("state", state_labels)
 
         num_items = 1
@@ -1433,8 +1437,8 @@ class ColorArray(param.Parameterized):
     )
 
     def __init__(self, **kwds):
-        self.configurables["color"] = CONFIGURABLES["color"]
         super().__init__(**kwds)
+        self.configurables["color"] = CONFIGURABLES["color"]
 
 
 class RemarkArray(param.Parameterized):
@@ -1644,7 +1648,6 @@ class Array(GeographicData, ReferenceArray, ColorArray, RemarkArray):
 
             data[rowcol] = inv_ds
         self_copy.data = data
-        self_copy._canvas_kwds["num_states"] = len(inv_ds["state"])
         return self_copy
 
 
@@ -1679,17 +1682,14 @@ class Array2D(GeographicData, ReferenceArray, ColorArray, RemarkArray):
         self.configurables["grid"] = CONFIGURABLES["grid"]
 
         ds = self._load_dataset(self._input_vars)
-        ds = ds.assign_coords(
-            **{
-                "x": np.array(xs),
-                "y": np.array(ys),
+        ds = ds.assign_coords(**{"x": np.array(xs), "y": np.array(ys)}).assign(
+            {
+                "c": (
+                    DIMS["grid"],
+                    self._adapt_input(cs, shape=shape),
+                )
             }
-        ).assign({
-            "c": (
-                DIMS["grid"],
-                self._adapt_input(cs, shape=shape),
-            )
-        })
+        )
 
         if self.inline_labels is not None:
             inline_xs = self.inline_xs
