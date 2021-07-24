@@ -1096,23 +1096,23 @@ class Data(Easing, Animation, Configuration):
             zoom = tiles_kwds.pop("zoom", None)
             if zoom is None:
                 if self.worldwide:
-                    bounds = np.vstack(
-                        [
-                            self._adapt_input(-179),
-                            self._adapt_input(179),
-                            self._adapt_input(-89),
-                            self._adapt_input(89),
-                        ]
-                    )
+                    xlim0s = -179
+                    xlim1s = 179
+                    ylim0s = -89
+                    ylim1s = 89
                 else:
-                    bounds = np.vstack(
-                        [
-                            self._adapt_input(ds["xlim0s"].values),
-                            self._adapt_input(ds["xlim1s"].values),
-                            self._adapt_input(ds["ylim0s"].values),
-                            self._adapt_input(ds["ylim1s"].values),
-                        ]
-                    )
+                    xlim0s = self._adapt_input(ds["xlim0s"].values)
+                    xlim1s = self._adapt_input(ds["xlim1s"].values)
+                    ylim0s = self._adapt_input(ds["ylim0s"].values)
+                    ylim1s = self._adapt_input(ds["ylim1s"].values)
+                bounds = np.vstack(
+                    [
+                        self._adapt_input(xlim0s),
+                        self._adapt_input(xlim1s),
+                        self._adapt_input(ylim0s),
+                        self._adapt_input(ylim1s),
+                    ]
+                )
                 width, height = np.array(figure_kwds["figsize"]) * figure_kwds.get(
                     "dpi", 75
                 )
