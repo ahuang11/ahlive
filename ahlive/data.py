@@ -331,7 +331,7 @@ class Data(Easing, Animation, Configuration):
         else:
             ds.attrs["grid_kwds"]["axis"] = ds.attrs["grid_kwds"].get("axis", "both")
         return ds
-    
+
     @staticmethod
     def _config_legend(ds):
         legend_kwds = load_defaults("legend_kwds", ds)
@@ -1686,6 +1686,7 @@ class Array2D(GeographicData, ReferenceArray, ColorArray, RemarkArray):
         elif preset.startswith("scan"):
             ds = self._config_scan_chart(ds, preset)
         return ds
+
 
 class DataStructure(param.Parameterized):
 
