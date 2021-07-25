@@ -131,6 +131,12 @@ PARAMS = {
     for param_ in CONFIGURABLES_KWDS[configurable]
 }
 
+CANVAS = {
+    param
+    for param, configurable in PARAMS.items()
+    if configurable in CONFIGURABLES["canvas"]
+}
+
 CHARTS = {
     "basic": ["scatter", "line", "barh", "bar"],
     "grid": ["pcolormesh", "pcolorfast", "contourf", "contour"],
@@ -246,7 +252,6 @@ SIZES = {
     "xxx-large": 48,
 }
 
-
 DEFAULTS = {}
 
 DEFAULTS["durations_kwds"] = {
@@ -265,7 +270,6 @@ DEFAULTS["preset_kwds"]["trail"] = {
     "chart": "scatter",
     "expire": 100,
     "stride": 1,
-    "finish": True,
 }
 DEFAULTS["preset_kwds"]["race"] = {"bar_label": True, "limit": 5, "ascending": False}
 DEFAULTS["preset_kwds"]["delta"] = {"bar_label": True, "capsize": 6}
@@ -376,6 +380,8 @@ DEFAULTS["coastline_kwds"] = {"coastline": True}  # TODO: change to show
 DEFAULTS["tiles_kwds"] = {"style": "toner"}  # TODO: change to show
 
 DEFAULTS["land_kwds"] = {"facecolor": "whitesmoke"}
+
+DEFAULTS["num_kwds"] = {"default": 1, "bounds": (1, None), "constant": True}
 
 DEFAULTS["watermark_kwds"] = {
     "x": 0.995,

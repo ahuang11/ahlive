@@ -56,6 +56,9 @@ internal changes
 - Suppress warning from `util.fillna` (:pull:`47`).
   By `Andrew Huang <https://github.com/ahuang11>`_
 
+- Clean up and simplify internals (:pull:`64`).
+  By `Andrew Huang <https://github.com/ahuang11>`_
+
 v0.0.3 (15 February 2021)
 -------------------------
 

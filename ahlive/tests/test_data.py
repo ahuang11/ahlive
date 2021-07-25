@@ -718,42 +718,35 @@ def test_add_animate_kwds_str(animate, value):
     assert animate_kwds["fps"] == 1
     assert animate_kwds["stitch"]
     assert not animate_kwds["static"]
-    assert animate_kwds["num_states"] == num_states
 
 
 def test_add_animate_kwds_slice():
     ah_obj = ah.Array([0, 1, 2], [3, 4, 5], animate=slice(1, 10)).finalize()
     attrs = ah_obj.attrs
-    num_states = len(ah_obj[1, 1]["state"])
     animate_kwds = attrs["animate_kwds"]
     states = np.arange(1, 10)
     assert (animate_kwds["states"] == states).all()
     assert animate_kwds["stitch"]
     assert not animate_kwds["static"]
-    assert animate_kwds["num_states"] == num_states
 
 
 @pytest.mark.parametrize("animate", [True, False])
 def test_add_animate_kwds_bool(animate):
     ah_obj = ah.Array([0, 1, 2], [3, 4, 5], animate=animate).finalize()
     attrs = ah_obj.attrs
-    num_states = len(ah_obj[1, 1]["state"])
     animate_kwds = attrs["animate_kwds"]
     assert animate_kwds["states"] is None
     assert animate_kwds["stitch"] == animate
     assert not animate_kwds["static"]
-    assert animate_kwds["num_states"] == num_states
 
 
 def test_add_animate_kwds_int():
     ah_obj = ah.Array([0, 1, 2], [3, 4, 5], animate=1).finalize()
     attrs = ah_obj.attrs
-    num_states = len(ah_obj[1, 1]["state"])
     animate_kwds = attrs["animate_kwds"]
     assert animate_kwds["states"] == 1
     assert animate_kwds["stitch"]
     assert animate_kwds["static"]
-    assert animate_kwds["num_states"] == num_states
 
 
 def test_array_invert():

@@ -13,8 +13,8 @@ def _get_rowcols(objs):
 
 
 def _get_item_dim(ds):
-    for item_dim in ds.dims:
-        if item_dim.endswith("item"):
+    for item_dim in VARS["item"]:
+        if item_dim in ds.dims:
             return item_dim
 
 
@@ -154,13 +154,16 @@ def _wrap_stack(objs, join):
 
     obj0 = objs[0]
 
+    data = {}
     rowcols = _get_rowcols(objs)
     for rowcol in rowcols:
         data_list = [obj.data for obj in objs if obj.data.get(rowcol) is not None]
         if len(data_list) == 0:
             continue
-        obj0.data[rowcol] = _stack_data(data_list, join, rowcol)
+        ds = _stack_data(data_list, join, rowcol)
+        data[rowcol] = ds
 
+    obj0.data = data
     for obj in objs[1:]:
         obj0 = obj0._propagate_params(obj0, obj)
     return obj0

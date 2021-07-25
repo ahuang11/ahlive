@@ -50,6 +50,13 @@ class Easing(param.Parameterized):
         "original's path durations",
     )
 
+    num_steps = param.Integer(
+        default=1,
+        bounds=(1, None),
+        constant=True,
+        doc="Number of frames between each base state",
+    )
+
     def __init__(self, **kwds):
         super().__init__(**kwds)
 
@@ -96,7 +103,9 @@ class Easing(param.Parameterized):
                 num_steps = int(np.ceil(100 / num_states))
         else:
             num_steps = frames
-        self._num_steps = num_steps
+
+        with param.edit_constant(self):
+            self.num_steps = num_steps
 
         new_shape = (num_items, -1)
         has_revert = isinstance(revert, int) or revert is not None

@@ -129,6 +129,10 @@ def srange(length, start=1, stride=1):
     return np.arange(start, length + start, stride)
 
 
+def length(value):
+    return len(to_1d(value))
+
+
 def transpose(da, dims=None):
     if dims is None:
         item = "item" if "item" in da.dims else "ref_item"
