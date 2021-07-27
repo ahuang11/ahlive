@@ -178,7 +178,7 @@ class Animation(param.Parameterized):
                 sub_kwds = self._update_text(
                     sub_kwds, label_key, base=base, apply_format=apply_format
                 )
-                format_ = sub_kwds["format"]
+                format_ = sub_kwds.get("format", "auto")
                 labels.append(sub_kwds[label_key])
             kwds[label_key] = labels
             kwds["format"] = format_
@@ -1559,26 +1559,26 @@ class Animation(param.Parameterized):
         return out_obj
 
     def render(self):
-        self = self.finalize()
-        data = self.data
+        self_copy = self.finalize()
+        data = self_copy.data
 
         for ds in data.values():
             for configurable in CONFIGURABLES["canvas"]:
                 key = f"{configurable}_kwds"
-                self._canvas_kwds[key] = ds.attrs.pop(key)
+                self_copy._canvas_kwds[key] = ds.attrs.pop(key)
             break
-        stitch = self._canvas_kwds["animate_kwds"]["stitch"]
-        static = self._canvas_kwds["animate_kwds"]["static"]
-        show = self._canvas_kwds["output_kwds"].get("show")
+        stitch = self_copy._canvas_kwds["animate_kwds"]["stitch"]
+        static = self_copy._canvas_kwds["animate_kwds"]["static"]
+        show = self_copy._canvas_kwds["output_kwds"].get("show")
         if show is None:
             try:
                 get_ipython
                 show = True
             except NameError:
                 show = False
-        self._canvas_kwds["output_kwds"]["show"] = show
+        self_copy._canvas_kwds["output_kwds"]["show"] = show
 
-        if self.debug:
+        if self_copy.debug:
             print(data)
 
         # unrecognized durations keyword if not popped
@@ -1587,16 +1587,16 @@ class Animation(param.Parameterized):
                 (pop(ds, "duration", to_numpy=False) for ds in data.values()),
                 "item",
             )
-        if self._canvas_kwds["animate_kwds"].get("fps") is not None:
+        if self_copy._canvas_kwds["animate_kwds"].get("fps") is not None:
             durations = None
 
-        buf_list = self._create_frames(data)
-        out_obj, ext = self._write_rendered(buf_list, durations)
+        buf_list = self_copy._create_frames(data)
+        out_obj, ext = self_copy._write_rendered(buf_list, durations)
 
         if (stitch or static) and show:
-            out_obj = self._show_output_file(out_obj, ext)
+            out_obj = self_copy._show_output_file(out_obj, ext)
 
-        if os.path.exists(self._temp_file):
-            os.remove(self._temp_file)
+        if os.path.exists(self_copy._temp_file):
+            os.remove(self_copy._temp_file)
 
         return out_obj
