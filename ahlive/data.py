@@ -1011,7 +1011,9 @@ class Data(Easing, Animation, Configuration):
 
     def _add_animate_kwds(self, ds):
         animate_kwds = {}
-        num_states = self.num_states  # after interpolation
+
+        # after interpolation, haven't updated self.num_states
+        num_states = len(ds["state"])
         if isinstance(self.animate, str):
             if "_" in self.animate:
                 animate, value = self.animate.split("_")
