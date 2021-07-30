@@ -30,6 +30,9 @@ documentation
 - Fix documentation bugs by unpinning `cartopy=0.18.0` and adding a default for `tiles_kwds.pop("zoom")` (:pull:`63`).
   By `Andrew Huang <https://github.com/ahuang11>`_
 
+- Fix documentation crashes (:pull:`65`).
+  By `Andrew Huang <https://github.com/ahuang11>`_
+
 enhancements
 ~~~~~~~~~~~~
 

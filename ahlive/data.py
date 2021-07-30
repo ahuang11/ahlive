@@ -239,7 +239,7 @@ class Data(Easing, Animation, Configuration):
 
     def _stack(self, other, how):
         self_copy = _wrap_stack([self, other], how)
-        self_copy = self._propagate_params(self_copy, other)
+        self_copy = self_copy._propagate_params(self_copy, other)
         return self_copy
 
     def cascade(self, other):
@@ -256,7 +256,7 @@ class Data(Easing, Animation, Configuration):
 
     def layout(self, other, by="row", num_cols=None):
         self_copy = layout([self, other], by)
-        self_copy = self._propagate_params(self_copy, other, layout=True)
+        self_copy = self_copy._propagate_params(self_copy, other, layout=True)
         return self_copy
 
     def equals(self, other):
@@ -803,7 +803,7 @@ class Data(Easing, Animation, Configuration):
                             raise IndexError(e)
                     subgroup_ds_list.append(ease_ds)
 
-        ds = xr.combine_by_coords(subgroup_ds_list)
+        ds = xr.combine_by_coords(subgroup_ds_list, combine_attrs="override")
         ds = ds.drop_vars(
             var for var in ds.data_vars if "interp" in var or "ease" in var
         )
@@ -816,10 +816,6 @@ class Data(Easing, Animation, Configuration):
 
         num_states = len(ds["state"])
         ds["state"] = srange(num_states)
-
-        # do this here for rotate / scan preset
-        with param.edit_constant(self):
-            self.num_states = num_states
         return ds
 
     def _get_crs(self, crs_obj, crs_kwds, central_longitude=None):
@@ -1015,7 +1011,9 @@ class Data(Easing, Animation, Configuration):
 
     def _add_animate_kwds(self, ds):
         animate_kwds = {}
-        num_states = self.num_states  # after interpolation
+
+        # after interpolation, haven't updated self.num_states
+        num_states = len(ds["state"])
         if isinstance(self.animate, str):
             if "_" in self.animate:
                 animate, value = self.animate.split("_")
@@ -1070,21 +1068,20 @@ class Data(Easing, Animation, Configuration):
         self_copy = self.copy()
         for rowcol, ds in self_copy.data.items():
             chart = to_scalar(ds["chart"]) if "chart" in ds else ""
-            ds = self._add_figsize(ds)
-            ds = self._fill_null(ds)
-            ds = self._add_xy01_limits(ds, chart)
-            ds = self._compress_vars(ds)
-            ds = self._add_color_kwds(ds, chart)
-            ds = self._precompute_base(ds)
-            ds = self._add_margins(ds)
-            ds = self._add_durations(ds)
-            ds = self._config_chart(ds, chart)
-            ds = self._interp_dataset(ds)
-            ds = self._add_geo_transforms(ds)
-            if "projection" in ds.data_vars:
-                ds = self._add_geo_features(ds)
-                ds = self._add_geo_tiles(ds)
-            ds = self._add_animate_kwds(ds)
+            ds = self_copy._add_figsize(ds)
+            ds = self_copy._fill_null(ds)
+            ds = self_copy._add_xy01_limits(ds, chart)
+            ds = self_copy._compress_vars(ds)
+            ds = self_copy._add_color_kwds(ds, chart)
+            ds = self_copy._precompute_base(ds)
+            ds = self_copy._add_margins(ds)
+            ds = self_copy._add_durations(ds)
+            ds = self_copy._config_chart(ds, chart)
+            ds = self_copy._add_geo_features(ds)
+            ds = self_copy._add_geo_tiles(ds)  # before interp
+            ds = self_copy._interp_dataset(ds)
+            ds = self_copy._add_geo_transforms(ds)  # after interp
+            ds = self_copy._add_animate_kwds(ds)
             ds.attrs["finalized"] = True
             data[rowcol] = ds
 
@@ -1417,17 +1414,17 @@ class RemarkArray(param.Parameterized):
                 continue
 
             if xs is not None:
-                condition = self._match_values(ds["x"], xs, first, rtol, atol)
+                condition = self_copy._match_values(ds["x"], xs, first, rtol, atol)
             elif ys is not None:
-                condition = self._match_values(ds["y"], ys, first, rtol, atol)
+                condition = self_copy._match_values(ds["y"], ys, first, rtol, atol)
             elif cs is not None:
-                condition = self._match_values(ds["c"], cs, first, rtol, atol)
+                condition = self_copy._match_values(ds["c"], cs, first, rtol, atol)
             elif state_labels is not None:
-                condition = self._match_values(
+                condition = self_copy._match_values(
                     ds["state_label"], state_labels, first, rtol, atol
                 )
             elif inline_labels is not None:
-                condition = self._match_values(
+                condition = self_copy._match_values(
                     ds["inline_label"], inline_labels, first, rtol, atol
                 )
             else:
@@ -1449,7 +1446,7 @@ class RemarkArray(param.Parameterized):
                 if "duration" not in ds:
                     ds["duration"] = (
                         "state",
-                        self._adapt_input(
+                        self_copy._adapt_input(
                             np.zeros_like(ds["state"]),
                             len(ds["state"]),
                             reshape=False,

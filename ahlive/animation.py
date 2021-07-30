@@ -178,7 +178,7 @@ class Animation(param.Parameterized):
                 sub_kwds = self._update_text(
                     sub_kwds, label_key, base=base, apply_format=apply_format
                 )
-                format_ = sub_kwds["format"]
+                format_ = sub_kwds.get("format", "auto")
                 labels.append(sub_kwds[label_key])
             kwds[label_key] = labels
             kwds["format"] = format_
@@ -1017,8 +1017,8 @@ class Animation(param.Parameterized):
         return figure
 
     def _prep_axes(self, state_ds, irowcol):
-        axes_kwds = state_ds.attrs["axes_kwds"]
-        style = axes_kwds.pop("style", "")
+        axes_kwds = dict(state_ds.attrs["axes_kwds"])  # make a copy
+        style = axes_kwds.get("style", "")
         if style == "minimal":
             for axis in ["x", "y"]:
                 axis_min = float(state_ds[axis].values.min())
@@ -1034,12 +1034,15 @@ class Animation(param.Parameterized):
 
         axes_kwds["projection"] = pop(state_ds, "projection", squeeze=True)
         axes_kwds = load_defaults("axes_kwds", state_ds, **axes_kwds)
+        axes_kwds.pop("style", "")
 
         ax = plt.subplot(self.num_rows, self.num_cols, irowcol, **axes_kwds)
 
         if style == "bare":
             plt.subplots_adjust(left=0, right=1, bottom=0, top=1, hspace=0, wspace=0)
             ax.set_frame_on(False)
+            for spine in ax.spines.values():
+                spine.set_visible(False)
         return ax
 
     def _update_grid(self, state_ds, ax):
@@ -1379,7 +1382,6 @@ class Animation(param.Parameterized):
                         ds_sel["item"] = srange(len(ds_sel["item"]))
                 else:
                     ds_sel = ds.sel(state=state)
-
                 state_ds_rowcols.append(ds_sel)
             job = self._draw_frame(state_ds_rowcols)
             jobs.append(job)
@@ -1559,26 +1561,26 @@ class Animation(param.Parameterized):
         return out_obj
 
     def render(self):
-        self = self.finalize()
-        data = self.data
+        self_copy = self.finalize()
+        data = self_copy.data
 
         for ds in data.values():
             for configurable in CONFIGURABLES["canvas"]:
                 key = f"{configurable}_kwds"
-                self._canvas_kwds[key] = ds.attrs.pop(key)
+                self_copy._canvas_kwds[key] = ds.attrs.pop(key)
             break
-        stitch = self._canvas_kwds["animate_kwds"]["stitch"]
-        static = self._canvas_kwds["animate_kwds"]["static"]
-        show = self._canvas_kwds["output_kwds"].get("show")
+        stitch = self_copy._canvas_kwds["animate_kwds"]["stitch"]
+        static = self_copy._canvas_kwds["animate_kwds"]["static"]
+        show = self_copy._canvas_kwds["output_kwds"].get("show")
         if show is None:
             try:
                 get_ipython
                 show = True
             except NameError:
                 show = False
-        self._canvas_kwds["output_kwds"]["show"] = show
+        self_copy._canvas_kwds["output_kwds"]["show"] = show
 
-        if self.debug:
+        if self_copy.debug:
             print(data)
 
         # unrecognized durations keyword if not popped
@@ -1587,16 +1589,16 @@ class Animation(param.Parameterized):
                 (pop(ds, "duration", to_numpy=False) for ds in data.values()),
                 "item",
             )
-        if self._canvas_kwds["animate_kwds"].get("fps") is not None:
+        if self_copy._canvas_kwds["animate_kwds"].get("fps") is not None:
             durations = None
 
-        buf_list = self._create_frames(data)
-        out_obj, ext = self._write_rendered(buf_list, durations)
+        buf_list = self_copy._create_frames(data)
+        out_obj, ext = self_copy._write_rendered(buf_list, durations)
 
         if (stitch or static) and show:
-            out_obj = self._show_output_file(out_obj, ext)
+            out_obj = self_copy._show_output_file(out_obj, ext)
 
-        if os.path.exists(self._temp_file):
-            os.remove(self._temp_file)
+        if os.path.exists(self_copy._temp_file):
+            os.remove(self_copy._temp_file)
 
         return out_obj
