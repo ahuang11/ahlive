@@ -375,8 +375,6 @@ DEFAULTS["yticks_kwds"].update({"axis": "y"})
 DEFAULTS["cticks_kwds"] = DEFAULTS["ticks_kwds"].copy()
 DEFAULTS["cticks_kwds"].update({"num_colors": 11})
 
-DEFAULTS["coastline_kwds"] = {"coastline": True}  # TODO: change to show
-
 DEFAULTS["tiles_kwds"] = {"style": "toner"}  # TODO: change to show
 
 DEFAULTS["land_kwds"] = {"facecolor": "whitesmoke"}

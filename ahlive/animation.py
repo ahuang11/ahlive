@@ -1017,8 +1017,8 @@ class Animation(param.Parameterized):
         return figure
 
     def _prep_axes(self, state_ds, irowcol):
-        axes_kwds = state_ds.attrs["axes_kwds"]
-        style = axes_kwds.pop("style", "")
+        axes_kwds = dict(state_ds.attrs["axes_kwds"])  # make a copy
+        style = axes_kwds.get("style", "")
         if style == "minimal":
             for axis in ["x", "y"]:
                 axis_min = float(state_ds[axis].values.min())
@@ -1034,12 +1034,15 @@ class Animation(param.Parameterized):
 
         axes_kwds["projection"] = pop(state_ds, "projection", squeeze=True)
         axes_kwds = load_defaults("axes_kwds", state_ds, **axes_kwds)
+        axes_kwds.pop("style", "")
 
         ax = plt.subplot(self.num_rows, self.num_cols, irowcol, **axes_kwds)
 
         if style == "bare":
             plt.subplots_adjust(left=0, right=1, bottom=0, top=1, hspace=0, wspace=0)
             ax.set_frame_on(False)
+            for spine in ax.spines.values():
+                spine.set_visible(False)
         return ax
 
     def _update_grid(self, state_ds, ax):
@@ -1379,7 +1382,6 @@ class Animation(param.Parameterized):
                         ds_sel["item"] = srange(len(ds_sel["item"]))
                 else:
                     ds_sel = ds.sel(state=state)
-
                 state_ds_rowcols.append(ds_sel)
             job = self._draw_frame(state_ds_rowcols)
             jobs.append(job)
