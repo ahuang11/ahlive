@@ -50,6 +50,9 @@ bug fixes
 
 - Fixed bug with `ah.Array2D` when input arrays only had two dimensions (:pull:`58`).
 
+- Loosen restrictions on `inline_locs` in `reference` method when both `x0s` and `y0s` are passed (:pull:`66`).
+  By `Andrew Huang <https://github.com/ahuang11>`_
+
 internal changes
 ~~~~~~~~~~~~~~~~
 

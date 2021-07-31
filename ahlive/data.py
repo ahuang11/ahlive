@@ -1847,9 +1847,9 @@ class Reference(GeographicData):
             kwds["chart"] = "rectangle"
         elif has_kwds["x0"] and has_kwds["y0"]:
             kwds["chart"] = "scatter"
-        elif has_kwds["x0"] and has_kwds["x1"]:
+        elif has_xs:
             kwds["chart"] = "axvspan"
-        elif has_kwds["y0"] and has_kwds["y1"]:
+        elif has_ys:
             kwds["chart"] = "axhspan"
         elif has_kwds["x0"]:
             kwds["chart"] = "axvline"
@@ -1890,7 +1890,7 @@ class Reference(GeographicData):
         num_items = len(ds["ref_item"])
         if self.inline_labels is not None:
             inline_locs = self.inline_locs
-            if inline_locs is None:
+            if inline_locs is None and not (has_kwds["x0"] and has_kwds["y0"]):
                 raise ValueError(
                     "Must provide inline_locs if inline_labels is not None!"
                 )
