@@ -385,7 +385,7 @@ def test_add_xy01_limits_xlim0s(direction, limit, margin):
     ah_obj = ah.merge(ah_objs).finalize()
     ds = ah_obj[1, 1]
 
-    actual = ds["xlim0s"].values
+    actual = ds["xlim0"].values
     assert np.isclose(actual, expected).all()
 
 
@@ -415,7 +415,7 @@ def test_add_xy01_limits_xlim1s(direction, limit, margin):
     ah_obj = ah.merge(ah_objs).finalize()
     ds = ah_obj[1, 1]
 
-    actual = ds["xlim1s"].values
+    actual = ds["xlim1"].values
     assert np.isclose(actual, expected).all()
 
 
@@ -445,7 +445,7 @@ def test_add_xy01_limits_ylim0s(direction, limit, margin):
     ah_obj = ah.merge(ah_objs).finalize()
     ds = ah_obj[1, 1]
 
-    actual = ds["ylim0s"].values
+    actual = ds["ylim0"].values
     assert np.isclose(actual, expected).all()
 
 
@@ -475,7 +475,7 @@ def test_add_xy01_limits_ylim1s(direction, limit, margin):
     ah_obj = ah.merge(ah_objs).finalize()
     ds = ah_obj[1, 1]
 
-    actual = ds["ylim1s"].values
+    actual = ds["ylim1"].values
     assert np.isclose(actual, expected).all()
 
 
@@ -524,7 +524,7 @@ def test_add_color_kwds_none():
 def test_compress_var():
     ah_obj = (ah_array2 * ah_array1).finalize()
     ds = ah_obj[1, 1]
-    assert is_scalar(ds["xlim0s"])
+    assert is_scalar(ds["xlim0"])
 
 
 def test_precompute_base_ticks_numeric():
@@ -586,15 +586,15 @@ def test_precompute_base_size():
 def test_add_margins_xlims():
     ah_obj = ah.Array([0, 1, 2], [3, 4, 5], xlim0s=0, xlim1s=2, xmargins=1).finalize()
     ds = ah_obj[1, 1]
-    assert ds["xlim0s"] == -2
-    assert ds["xlim1s"] == 4
+    assert ds["xlim0"] == -2
+    assert ds["xlim1"] == 4
 
 
 def test_add_margins_ylims():
     ah_obj = ah.Array([0, 1, 2], [3, 4, 5], ylim0s=3, ylim1s=5, ymargins=1).finalize()
     ds = ah_obj[1, 1]
-    assert ds["ylim0s"] == -2
-    assert ds["ylim1s"] == 10
+    assert ds["ylim0"] == -2
+    assert ds["ylim1"] == 10
 
 
 def test_add_durations_default():

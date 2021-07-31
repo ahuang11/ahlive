@@ -548,7 +548,7 @@ class Data(Easing, Animation, Configuration):
                     axis = "x" if axis == "y" else "y"
                     key = axis + key[1:]
                     # do not overwrite user input
-                    if limits[key] is not None:
+                    if limits[f"{key}s"] is not None:
                         continue
 
             if limit is not None:
@@ -708,7 +708,7 @@ class Data(Easing, Animation, Configuration):
         margins_kwds = load_defaults("margins_kwds", ds)
         margins = {}
         for axis in ["x", "y"]:
-            keys = [key for key in [f"{axis}lim0s", f"{axis}lim1s"] if key in ds]
+            keys = [key for key in [f"{axis}lim0", f"{axis}lim1"] if key in ds]
             if keys:
                 if not is_str(ds[keys[0]]):
                     limit = ds[keys].to_array().max("variable")
