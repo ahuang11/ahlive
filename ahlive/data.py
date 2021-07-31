@@ -1890,7 +1890,7 @@ class Reference(GeographicData):
         num_items = len(ds["ref_item"])
         if self.inline_labels is not None:
             inline_locs = self.inline_locs
-            if inline_locs is None:
+            if inline_locs is None and not kwds["chart"] == "scatter":
                 raise ValueError(
                     "Must provide inline_locs if inline_labels is not None!"
                 )
