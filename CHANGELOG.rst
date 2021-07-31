@@ -42,6 +42,9 @@ enhancements
 - Cast labels input to str. (:pull:`60`).
   By `Andrew Huang <https://github.com/ahuang11>`_
 
+- Default `coastline` only if `crs` or `projection` is set, but not any other geo features (:pull:`67`).
+  By `Andrew Huang <https://github.com/ahuang11>`_
+
 bug fixes
 ~~~~~~~~~
 
