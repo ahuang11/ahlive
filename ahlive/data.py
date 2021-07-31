@@ -860,7 +860,9 @@ class Data(Easing, Animation, Configuration):
 
         tiles_kwds = load_defaults("tiles_kwds", ds)
         tiles = tiles_kwds.pop("tiles", None)
-        geo_features = {geo for geo in CONFIGURABLES["geo"] if ds.attrs[f"{geo}_kwds"].get(geo)}
+        geo_features = {
+            geo for geo in CONFIGURABLES["geo"] if ds.attrs[f"{geo}_kwds"].get(geo)
+        }
         if len(geo_features) > 0:
             projection = projection or ("GOOGLE_MERCATOR" if tiles else "PlateCarree")
 
