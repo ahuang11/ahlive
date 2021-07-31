@@ -776,3 +776,28 @@ def test_labels(key, label):
         assert ah_obj[1, 1].attrs[f"{key}_kwds"][sub_key] == label
     else:
         assert ah_obj[1, 1][key].values == [label]
+
+
+@pytest.mark.parametrize("x0s", [None, 0])
+@pytest.mark.parametrize("y0s", [None, 0])
+@pytest.mark.parametrize("inline_locs", [None, 0])
+def test_reference_method_inline_labels(x0s, y0s, inline_locs):
+    ah_obj = ah.Array([0, 1, 2], [3, 4, 5])
+    reference_kwds = dict(x0s=x0s, y0s=y0s, inline_locs=inline_locs, inline_labels="test")
+    if (x0s is None or y0s is None) and inline_locs is None or (x0s is None and y0s is None):
+        with pytest.raises(ValueError):
+            ah_obj.reference(**reference_kwds)
+    else:
+        ah_obj = ah_obj.reference(**reference_kwds).finalize()
+        ds = ah_obj[1, 1]
+
+        if x0s is not None:
+            assert (ds["ref_x0"] == x0s).all()
+
+        if y0s is not None:
+            assert (ds["ref_y0"] == y0s).all()
+
+        if inline_locs is not None:
+            assert (ds["ref_inline_loc"] == inline_locs).all()
+
+        assert (ds["ref_inline_label"] == "test").all()
