@@ -860,10 +860,14 @@ class Data(Easing, Animation, Configuration):
 
         tiles_kwds = load_defaults("tiles_kwds", ds)
         tiles = tiles_kwds.pop("tiles", None)
-        if any(ds.attrs[f"{geo}_kwds"].get(geo) for geo in CONFIGURABLES["geo"]):
+        geo_features = {geo for geo in CONFIGURABLES["geo"] if ds.attrs[f"{geo}_kwds"].get(geo)}
+        if len(geo_features) > 0:
             projection = projection or ("GOOGLE_MERCATOR" if tiles else "PlateCarree")
 
         if crs or projection:
+            if len(geo_features - set(["crs", "projection"])) == 0:
+                ds.attrs["coastline_kwds"]["coastline"] = True
+
             if "central_longitude" in ds:
                 central_lon = pop(ds, "central_longitude")
             elif "central_longitude" in projection_kwds:
@@ -1078,10 +1082,10 @@ class Data(Easing, Animation, Configuration):
             ds = self_copy._add_margins(ds)
             ds = self_copy._add_durations(ds)
             ds = self_copy._config_chart(ds, chart)
-            ds = self_copy._add_geo_features(ds)
             ds = self_copy._add_geo_tiles(ds)  # before interp
             ds = self_copy._interp_dataset(ds)
             ds = self_copy._add_geo_transforms(ds)  # after interp
+            ds = self_copy._add_geo_features(ds)
             ds = self_copy._add_animate_kwds(ds)
             ds.attrs["finalized"] = True
             data[rowcol] = ds

@@ -807,3 +807,13 @@ def test_reference_method_inline_labels(x0s, y0s, inline_locs):
             assert (ds["ref_inline_loc"] == inline_locs).all()
 
         assert (ds["ref_inline_label"] == "test").all()
+
+@pytest.mark.parametrize("crs", [True, False])
+@pytest.mark.parametrize("tiles", [True, None])
+def test_geo_default_coastline(crs, tiles):
+    ah_obj = ah.Array([0, 1, 2], [3, 4, 5], crs=crs, tiles=tiles).finalize()
+    ds = ah_obj[1, 1]
+    if tiles:
+        assert len(ds.attrs["coastline_kwds"]) == 0
+    elif crs:
+        assert len(ds.attrs["coastline_kwds"]) == 1
