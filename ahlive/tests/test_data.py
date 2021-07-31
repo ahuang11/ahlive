@@ -783,8 +783,14 @@ def test_labels(key, label):
 @pytest.mark.parametrize("inline_locs", [None, 0])
 def test_reference_method_inline_labels(x0s, y0s, inline_locs):
     ah_obj = ah.Array([0, 1, 2], [3, 4, 5])
-    reference_kwds = dict(x0s=x0s, y0s=y0s, inline_locs=inline_locs, inline_labels="test")
-    if (x0s is None or y0s is None) and inline_locs is None or (x0s is None and y0s is None):
+    reference_kwds = dict(
+        x0s=x0s, y0s=y0s, inline_locs=inline_locs, inline_labels="test"
+    )
+    if (
+        (x0s is None or y0s is None)
+        and inline_locs is None
+        or (x0s is None and y0s is None)
+    ):
         with pytest.raises(ValueError):
             ah_obj.reference(**reference_kwds)
     else:
