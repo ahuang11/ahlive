@@ -454,8 +454,9 @@ class Data(Easing, Animation, Configuration):
         axes_kwds = load_defaults("axes_kwds", ds)
         for key, limit in limits.items():
             # example: xlim0s
+            key = key.rstrip("s")
             axis = key[0]  # x
-            num = int(key[-2])  # 0
+            num = int(key[-1])  # 0
             is_lower_limit = num == 0
 
             axis_limit_key = f"{axis}lim"
@@ -467,7 +468,7 @@ class Data(Easing, Animation, Configuration):
             if in_axes_kwds:
                 limit = axes_kwds[axis_limit_key][num]
             elif unset_limit:
-                has_other_limit = limits[f"{key[:-2]}{1 - num}s"] is not None
+                has_other_limit = limits[f"{key[:-1]}{1 - num}s"] is not None
                 is_scatter = chart == "scatter"
                 is_line_y = chart == "line" and axis == "y"
                 is_bar_x = chart.startswith("bar") and axis == "x"
@@ -714,10 +715,10 @@ class Data(Easing, Animation, Configuration):
                     margin = margins_kwds.get(axis, 0)
                     margins[axis] = self._compute_limit_offset(limit, margin)
 
-        for key in ["xlim0s", "xlim1s", "ylim0s", "ylim1s"]:
+        for key in ["xlim0", "xlim1", "ylim0", "ylim1"]:
             if key in ds.data_vars:  # TODO: test str / dt
                 axis = key[0]
-                num = int(key[-2])  # 0
+                num = int(key[-1])  # 0
                 is_lower_limit = num == 0
                 margin = margins.get(axis)
                 if margin is None:
@@ -977,10 +978,10 @@ class Data(Easing, Animation, Configuration):
                     ylim0s = -89
                     ylim1s = 89
                 else:
-                    xlim0s = ds["xlim0s"].values
-                    xlim1s = ds["xlim1s"].values
-                    ylim0s = ds["ylim0s"].values
-                    ylim1s = ds["ylim1s"].values
+                    xlim0s = ds["xlim0"].values
+                    xlim1s = ds["xlim1"].values
+                    ylim0s = ds["ylim0"].values
+                    ylim1s = ds["ylim1"].values
                 bounds = np.vstack(
                     [
                         self._adapt_input(xlim0s),

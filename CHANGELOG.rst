@@ -65,6 +65,9 @@ internal changes
 - Clean up and simplify internals (:pull:`64`).
   By `Andrew Huang <https://github.com/ahuang11>`_
 
+- R-stripped limit data variable (xlim0s now xlim0) for consistency (:pull:`66`).
+  By `Andrew Huang <https://github.com/ahuang11>`_
+
 v0.0.3 (15 February 2021)
 -------------------------
 

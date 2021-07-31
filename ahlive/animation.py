@@ -1094,17 +1094,17 @@ class Animation(param.Parameterized):
             elif not unset_limits:
                 ax.set_extent(
                     [
-                        limits.get("xlim0s", -179),
-                        limits.get("xlim1s", 179),
-                        limits.get("ylim0s", -89),
-                        limits.get("ylim1s", 89),
+                        limits.get("xlim0", -179),
+                        limits.get("xlim1", 179),
+                        limits.get("ylim0", -89),
+                        limits.get("ylim1", 89),
                     ],
                     transform,
                 )
         else:
             for axis in ["x", "y"]:
-                axis_lim0 = to_scalar(limits.get(f"{axis}lim0s"))
-                axis_lim1 = to_scalar(limits.get(f"{axis}lim1s"))
+                axis_lim0 = to_scalar(limits.get(f"{axis}lim0"))
+                axis_lim1 = to_scalar(limits.get(f"{axis}lim1"))
                 if axis_lim0 is not None or axis_lim1 is not None:
                     getattr(ax, f"set_{axis}lim")(to_pydt(axis_lim0, axis_lim1))
         ax.margins(**margins_kwds)
