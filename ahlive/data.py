@@ -21,6 +21,7 @@ from .configuration import (
     NULL_VALS,
     OPTIONS,
     PARAMS,
+    PRECEDENCES,
     PRESETS,
     VARS,
     CartopyCRS,
@@ -48,86 +49,145 @@ from .util import (
 
 class Data(Easing, Animation, Configuration):
 
-    chart = param.ClassSelector(class_=Iterable)
+    chart = param.ClassSelector(
+        class_=Iterable,
+        doc=f"Type of plot; {CHARTS['all']}",
+        precedence=PRECEDENCES["common"],
+    )
     preset = param.ObjectSelector(
-        objects=list(chain(*PRESETS.values())), doc=f"Chart preset; {PRESETS}"
+        objects=list(chain(*PRESETS.values())),
+        doc=f"Chart preset; {PRESETS}",
+        precedence=PRECEDENCES["common"],
     )
-    style = param.ObjectSelector(
-        objects=OPTIONS["style"], doc=f"Chart style; {OPTIONS['style']}"
-    )
-    label = param.ClassSelector(
-        class_=(int, float, str), allow_None=True, doc="Legend label for each item"
-    )
-    group = param.String(doc="Group label for multiple items")
-
     state_labels = param.ClassSelector(
-        class_=(Iterable,), doc="Dynamic label per state (bottom right)"
+        class_=(Iterable,),
+        doc="Dynamic label per state (bottom right)",
+        precedence=PRECEDENCES["common"],
     )
     inline_labels = param.ClassSelector(
         class_=(Iterable,),
         doc="Dynamic label per item per state (item location)",
+        precedence=PRECEDENCES["common"],
     )
-
-    xmargins = param.Number(doc="Margins on the x-axis; ranges from 0-1")
-    ymargins = param.Number(doc="Margins on the y-axis; ranges from 0-1")
-    xlims = param.ClassSelector(class_=Iterable, doc="Limits for the x-axis")
-    ylims = param.ClassSelector(class_=Iterable, doc="Limits for the y-axis")
-    xlim0s = param.ClassSelector(
-        class_=(Iterable, int, float),
-        doc="Limits for the left bounds of the x-axis",
+    label = param.ClassSelector(
+        class_=(int, float, str),
+        allow_None=True,
+        doc="Legend label for each item",
+        precedence=PRECEDENCES["common"],
     )
-    xlim1s = param.ClassSelector(
-        class_=(Iterable, int, float),
-        doc="Limits for the right bounds of the x-axis",
-    )
-    ylim0s = param.ClassSelector(
-        class_=(Iterable, int, float),
-        doc="Limits for the bottom bounds of the y-axis",
-    )
-    ylim1s = param.ClassSelector(
-        class_=(Iterable, int, float),
-        doc="Limits for the top bounds of the y-axis",
-    )
-    hooks = param.HookList(
-        doc="List of customization functions to apply; "
-        "function must contain fig and ax as arguments"
+    group = param.String(
+        doc="Group label for multiple items", precedence=PRECEDENCES["misc"]
     )
 
     title = param.ClassSelector(
-        class_=(int, float, str), allow_None=True, doc="Title label (outer top left)"
+        class_=(int, float, str),
+        allow_None=True,
+        doc="Title label (outer top left)",
+        precedence=PRECEDENCES["label"],
+    )
+    xlabel = param.ClassSelector(
+        class_=(int, float, str),
+        allow_None=True,
+        doc="X-axis label (bottom center)",
+        precedence=PRECEDENCES["label"],
+    )
+    ylabel = param.ClassSelector(
+        class_=(int, float, str),
+        allow_None=True,
+        doc="Y-axis label (left center",
+        precedence=PRECEDENCES["label"],
     )
     subtitle = param.ClassSelector(
         class_=(int, float, str),
         allow_None=True,
         doc="Subtitle label (outer top right)",
-    )
-    xlabel = param.ClassSelector(
-        class_=(int, float, str), allow_None=True, doc="X-axis label (bottom center)"
-    )
-    ylabel = param.ClassSelector(
-        class_=(int, float, str), allow_None=True, doc="Y-axis label (left center"
+        precedence=PRECEDENCES["sub_label"],
     )
     note = param.ClassSelector(
-        class_=(int, float, str), allow_None=True, doc="Note label (bottom left)"
+        class_=(int, float, str),
+        allow_None=True,
+        doc="Note label (bottom left)",
+        precedence=PRECEDENCES["sub_label"],
     )
     caption = param.ClassSelector(
-        class_=(int, float, str), allow_None=True, doc="Caption label (outer left)"
+        class_=(int, float, str),
+        allow_None=True,
+        doc="Caption label (outer left)",
+        precedence=PRECEDENCES["sub_label"],
+    )
+    xlims = param.ClassSelector(
+        class_=Iterable, doc="Limits for the x-axis", precedence=PRECEDENCES["limit"]
+    )
+    ylims = param.ClassSelector(
+        class_=Iterable, doc="Limits for the y-axis", precedence=PRECEDENCES["limit"]
+    )
+    xlim0s = param.ClassSelector(
+        class_=(Iterable, int, float),
+        doc="Limits for the left bounds of the x-axis",
+        precedence=PRECEDENCES["limit"],
+    )
+    xlim1s = param.ClassSelector(
+        class_=(Iterable, int, float),
+        doc="Limits for the right bounds of the x-axis",
+        precedence=PRECEDENCES["limit"],
+    )
+    ylim0s = param.ClassSelector(
+        class_=(Iterable, int, float),
+        doc="Limits for the bottom bounds of the y-axis",
+        precedence=PRECEDENCES["limit"],
+    )
+    ylim1s = param.ClassSelector(
+        class_=(Iterable, int, float),
+        doc="Limits for the top bounds of the y-axis",
+        precedence=PRECEDENCES["limit"],
+    )
+    xmargins = param.Number(
+        doc="Margins on the x-axis; ranges from 0-1", precedence=PRECEDENCES["limit"]
+    )
+    ymargins = param.Number(
+        doc="Margins on the y-axis; ranges from 0-1", precedence=PRECEDENCES["limit"]
     )
 
-    xticks = param.ClassSelector(class_=(Iterable,), doc="X-axis tick locations")
-    yticks = param.ClassSelector(class_=(Iterable,), doc="Y-axis tick locations")
+    xticks = param.ClassSelector(
+        class_=(Iterable,), doc="X-axis tick locations", precedence=PRECEDENCES["style"]
+    )
+    yticks = param.ClassSelector(
+        class_=(Iterable,), doc="Y-axis tick locations", precedence=PRECEDENCES["style"]
+    )
 
-    legend = param.ObjectSelector(objects=OPTIONS["legend"], doc="Legend location")
-    grid = param.ObjectSelector(default=True, objects=OPTIONS["grid"], doc="Grid type")
+    legend = param.ObjectSelector(
+        objects=OPTIONS["legend"],
+        doc="Legend location",
+        precedence=PRECEDENCES["style"],
+    )
+    grid = param.ObjectSelector(
+        default=True,
+        objects=OPTIONS["grid"],
+        doc="Grid type",
+        precedence=PRECEDENCES["style"],
+    )
+    style = param.ObjectSelector(
+        objects=OPTIONS["style"],
+        doc=f"Chart style; {OPTIONS['style']}",
+        precedence=PRECEDENCES["style"],
+    )
+
+    hooks = param.HookList(
+        doc="List of customization functions to apply; "
+        "function must contain fig and ax as arguments",
+        precedence=PRECEDENCES["misc"],
+    )
 
     rowcol = param.NumericTuple(
-        default=(1, 1), length=2, doc="Subplot location as (row, column)"
+        default=(1, 1),
+        length=2,
+        doc="Subplot location as (row, column)",
+        precedence=PRECEDENCES["misc"],
     )
 
     num_rows = param.Integer(doc="Number of rows", **DEFAULTS["num_kwds"])
     num_cols = param.Integer(doc="Number of cols", **DEFAULTS["num_kwds"])
     num_states = param.Integer(doc="Number of states", **DEFAULTS["num_kwds"])
-    attrs = param.Dict(doc="Attributes of the first dataset", constant=True)
     configurables = param.Dict(
         default={
             "canvas": CONFIGURABLES["canvas"],
@@ -136,6 +196,12 @@ class Data(Easing, Animation, Configuration):
         },
         doc="Possible configuration keys",
         constant=True,
+        precedence=PRECEDENCES["attr"],
+    )
+    attrs = param.Dict(
+        doc="Attributes of the first dataset",
+        constant=True,
+        precedence=PRECEDENCES["attr"],
     )
 
     _parameters = set([])
@@ -1241,23 +1307,46 @@ class Data(Easing, Animation, Configuration):
 
 class GeographicData(Data):
 
-    crs = CartopyCRS(doc="The coordinate reference system to project from")
-    projection = CartopyCRS(doc="The coordinate reference system to project to")
+    crs = CartopyCRS(
+        doc="The coordinate reference system to project from",
+        precedence=PRECEDENCES["geo"],
+    )
+    projection = CartopyCRS(
+        doc="The coordinate reference system to project to",
+        precedence=PRECEDENCES["geo"],
+    )
     central_lon = param.ClassSelector(
-        class_=(Iterable, int, float), doc="Longitude to center the map on"
+        class_=(Iterable, int, float),
+        doc="Longitude to center the map on",
+        precedence=PRECEDENCES["geo"],
     )
 
-    borders = CartopyFeature(doc="Whether to show borders")
-    coastline = CartopyFeature(doc="Whether to show coastlines")
-    land = CartopyFeature(doc="Whether to show land surfaces")
-    ocean = CartopyFeature(doc="Whether to show ocean surfaces")
-    lakes = CartopyFeature(doc="Whether to show lakes")
-    rivers = CartopyFeature(doc="Whether to show rivers")
-    states = CartopyFeature(doc="Whether to show states")
-    worldwide = param.Boolean(doc="Whether to view globally")
+    borders = CartopyFeature(
+        doc="Whether to show borders", precedence=PRECEDENCES["geo"]
+    )
+    coastline = CartopyFeature(
+        doc="Whether to show coastlines", precedence=PRECEDENCES["geo"]
+    )
+    land = CartopyFeature(
+        doc="Whether to show land surfaces", precedence=PRECEDENCES["geo"]
+    )
+    ocean = CartopyFeature(
+        doc="Whether to show ocean surfaces", precedence=PRECEDENCES["geo"]
+    )
+    lakes = CartopyFeature(doc="Whether to show lakes", precedence=PRECEDENCES["geo"])
+    rivers = CartopyFeature(doc="Whether to show rivers", precedence=PRECEDENCES["geo"])
+    states = CartopyFeature(doc="Whether to show states", precedence=PRECEDENCES["geo"])
+    worldwide = param.Boolean(
+        doc="Whether to view globally", precedence=PRECEDENCES["geo"]
+    )
 
-    tiles = CartopyTiles(doc="Whether to show web tiles")
-    zoom = param.Integer(default=None, bounds=(0, 25), doc="Zoom level of tiles")
+    tiles = CartopyTiles(doc="Whether to show web tiles", precedence=PRECEDENCES["geo"])
+    zoom = param.Integer(
+        default=None,
+        bounds=(0, 25),
+        doc="Zoom level of tiles",
+        precedence=PRECEDENCES["geo"],
+    )
 
     def __init__(self, num_states, **kwds):
         super().__init__(num_states, **kwds)
@@ -1323,14 +1412,29 @@ class ReferenceArray(param.Parameterized):
 class ColorArray(param.Parameterized):
 
     cs = param.ClassSelector(
-        class_=(Iterable,), doc="Array to be mapped to the colorbar"
+        class_=(Iterable,),
+        doc="Array to be mapped to the colorbar",
+        precedence=PRECEDENCES["common"],
     )
 
-    cticks = param.ClassSelector(class_=(Iterable,), doc="Colorbar tick locations")
-    ctick_labels = param.ClassSelector(class_=(Iterable,), doc="Colorbar tick labels")
-    colorbar = param.Boolean(default=None, doc="Whether to show colorbar")
+    cticks = param.ClassSelector(
+        class_=(Iterable,),
+        doc="Colorbar tick locations",
+        precedence=PRECEDENCES["limit"],
+    )
+    ctick_labels = param.ClassSelector(
+        class_=(Iterable,),
+        doc="Colorbar tick labels",
+        precedence=PRECEDENCES["sub_label"],
+    )
+    colorbar = param.Boolean(
+        default=None, doc="Whether to show colorbar", precedence=PRECEDENCES["style"]
+    )
     clabel = param.ClassSelector(
-        class_=(int, float, str), allow_None=True, doc="Colorbar label"
+        class_=(int, float, str),
+        allow_None=True,
+        doc="Colorbar label",
+        precedence=PRECEDENCES["label"],
     )
 
     def __init__(self, **kwds):
@@ -1470,8 +1574,16 @@ class RemarkArray(param.Parameterized):
 
 class Array(GeographicData, ReferenceArray, ColorArray, RemarkArray):
 
-    xs = param.ClassSelector(class_=(Iterable,), doc="Array to be mapped to the x-axis")
-    ys = param.ClassSelector(class_=(Iterable,), doc="Array to be mapped to the y-axis")
+    xs = param.ClassSelector(
+        class_=(Iterable,),
+        doc="Array to be mapped to the x-axis",
+        precedence=PRECEDENCES["xy"],
+    )
+    ys = param.ClassSelector(
+        class_=(Iterable,),
+        doc="Array to be mapped to the y-axis",
+        precedence=PRECEDENCES["xy"],
+    )
 
     def __init__(self, xs, ys, **kwds):
         for xys, xys_arr in {"xs": xs, "ys": ys}.items():
@@ -1550,17 +1662,33 @@ class Array(GeographicData, ReferenceArray, ColorArray, RemarkArray):
 
 class Array2D(GeographicData, ReferenceArray, ColorArray, RemarkArray):
 
+    xs = param.ClassSelector(
+        class_=(Iterable,),
+        doc="Array to be mapped to the x-axis",
+        precedence=PRECEDENCES["xy"],
+    )
+    ys = param.ClassSelector(
+        class_=(Iterable,),
+        doc="Array to be mapped to the y-axis",
+        precedence=PRECEDENCES["xy"],
+    )
+
     chart = param.ObjectSelector(
         default=CHARTS["grid"][0],
         objects=CHARTS["grid"],
         doc=f"Type of chart; {CHARTS['grid']}",
+        precedence=PRECEDENCES["common"],
     )
 
     inline_xs = param.ClassSelector(
-        class_=(Iterable, int, float), doc="Inline label's x locations"
+        class_=(Iterable, int, float),
+        doc="Inline label's x locations",
+        precedence=PRECEDENCES["sub_label"],
     )
     inline_ys = param.ClassSelector(
-        class_=(Iterable, int, float), doc="Inline label's y locations"
+        class_=(Iterable, int, float),
+        doc="Inline label's y locations",
+        precedence=PRECEDENCES["sub_label"],
     )
 
     def __init__(self, xs, ys, cs, **kwds):
@@ -1695,7 +1823,9 @@ class Array2D(GeographicData, ReferenceArray, ColorArray, RemarkArray):
 class DataStructure(param.Parameterized):
 
     join = param.ObjectSelector(
-        objects=ITEMS["join"], doc=f"Method to join; {ITEMS['join']}"
+        objects=ITEMS["join"],
+        doc=f"Method to join; {ITEMS['join']}",
+        precedence=PRECEDENCES["common"],
     )
 
     def __init__(self, **kwds):
@@ -1743,7 +1873,7 @@ class DataStructure(param.Parameterized):
 
 class DataFrame(Array, DataStructure):
 
-    df = param.DataFrame(doc="Pandas DataFrame")
+    df = param.DataFrame(doc="Pandas DataFrame", precedence=PRECEDENCES["data"])
 
     def __init__(self, df, xs, ys, join="overlay", **kwds):
         df = df.reset_index()
@@ -1784,7 +1914,9 @@ class DataFrame(Array, DataStructure):
 
 class Dataset(Array2D, DataStructure):
 
-    ds = param.ClassSelector(class_=(xr.Dataset,), doc="Xarray Dataset")
+    ds = param.ClassSelector(
+        class_=(xr.Dataset,), doc="Xarray Dataset", precedence=PRECEDENCES["data"]
+    )
 
     def __init__(self, ds, xs, ys, cs, join="overlay", **kwds):
         group_key, label_key = self._validate_keys(xs, ys, kwds, ds)
@@ -1818,23 +1950,35 @@ class Dataset(Array2D, DataStructure):
 class Reference(GeographicData):
 
     chart = param.ObjectSelector(
-        objects=CHARTS["ref"], doc=f"Type of chart; {CHARTS['ref']}"
+        objects=CHARTS["ref"],
+        doc=f"Type of chart; {CHARTS['ref']}",
+        precedence=PRECEDENCES["common"],
     )
 
     x0s = param.ClassSelector(
-        class_=(Iterable,), doc="Array to be mapped to lower x-axis"
+        class_=(Iterable,),
+        doc="Array to be mapped to lower x-axis",
+        precedence=PRECEDENCES["xy"],
     )
     x1s = param.ClassSelector(
-        class_=(Iterable,), doc="Array to be mapped to upper x-axis"
+        class_=(Iterable,),
+        doc="Array to be mapped to upper x-axis",
+        precedence=PRECEDENCES["xy"],
     )
     y0s = param.ClassSelector(
-        class_=(Iterable,), doc="Array to be mapped to lower y-axis"
+        class_=(Iterable,),
+        doc="Array to be mapped to lower y-axis",
+        precedence=PRECEDENCES["xy"],
     )
     y1s = param.ClassSelector(
-        class_=(Iterable,), doc="Array to be mapped to lower y-axis"
+        class_=(Iterable,),
+        doc="Array to be mapped to lower y-axis",
+        precedence=PRECEDENCES["xy"],
     )
     inline_locs = param.ClassSelector(
-        class_=(Iterable, int, float), doc="Inline label's other axis' location"
+        class_=(Iterable, int, float),
+        doc="Inline label's other axis' location",
+        precedence=PRECEDENCES["label"],
     )
 
     def __init__(self, x0s=None, x1s=None, y0s=None, y1s=None, **kwds):

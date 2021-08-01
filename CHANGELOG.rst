@@ -33,6 +33,9 @@ documentation
 - Fix documentation crashes (:pull:`65`).
   By `Andrew Huang <https://github.com/ahuang11>`_
 
+- Re-order params by setting `precedence`s (:pull:`70`).
+  By `Andrew Huang <https://github.com/ahuang11>`_
+
 enhancements
 ~~~~~~~~~~~~
 
