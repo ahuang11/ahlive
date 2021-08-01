@@ -6,23 +6,13 @@ import param
 import xarray as xr
 from matplotlib.colors import LinearSegmentedColormap, rgb2hex
 
-INTERPS = [
-    "fill",
-    "linear",
-    "cubic",
-    "exponential",
-    "quadratic",
-    "quartic",
-    "quintic",
-    "circular",
-    "sine",
-    "bounce",
-    "elastic",
-    "back",
-]
-EASES = ["in_out", "in", "out"]
-
-REVERTS = ["boomerang", "traceback", "rollback"]
+from .configuration import (
+    DEFAULTS,
+    PRECEDENCES,
+    INTERPS,
+    EASES,
+    REVERTS
+)
 
 
 class Easing(param.Parameterized):
@@ -31,14 +21,17 @@ class Easing(param.Parameterized):
         default=None,
         class_=Iterable,
         doc=f"Interpolation method; {INTERPS}",
+        precedence=PRECEDENCES["interp"]
     )
     ease = param.ClassSelector(
-        default="in_out", class_=Iterable, doc=f"Type of easing; {EASES}"
+        default="in_out", class_=Iterable, doc=f"Type of easing; {EASES}",
+        precedence=PRECEDENCES["interp"]
     )
     frames = param.Integer(
         default=None,
         bounds=(1, None),
         doc="Number of frames between each base state",
+        precedence=PRECEDENCES["interp"]
     )
     revert = param.ObjectSelector(
         default=None,
@@ -48,13 +41,12 @@ class Easing(param.Parameterized):
         "traceback backtracks the original path to the initial state, and "
         "rollback is like traceback, but disregards the "
         "original's path durations",
+        precedence=PRECEDENCES["interp"]
     )
 
     num_steps = param.Integer(
-        default=1,
-        bounds=(1, None),
-        constant=True,
         doc="Number of frames between each base state",
+        **DEFAULTS["num_kwds"]
     )
 
     def __init__(self, **kwds):

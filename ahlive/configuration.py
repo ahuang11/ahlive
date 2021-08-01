@@ -7,6 +7,43 @@ import xarray as xr
 TEMP_FILE = "TEMP_AHLIVE_PYGIFSICLE_OUTPUT.gif"
 NULL_VALS = [(), {}, [], None, ""]
 
+PRECEDENCES = [
+    "data",
+    "xy",
+    "common",
+    "export",
+    "label",
+    "limit",
+    "style",
+    "geo",
+    "animate",
+    "sub_label",
+    "ticks",
+    "interp",
+    "compute",
+    "misc",
+    "attr"
+]
+PRECEDENCES = {label: precedence for precedence, label in enumerate(PRECEDENCES)}
+
+INTERPS = [
+    "fill",
+    "linear",
+    "cubic",
+    "exponential",
+    "quadratic",
+    "quartic",
+    "quintic",
+    "circular",
+    "sine",
+    "bounce",
+    "elastic",
+    "back",
+]
+EASES = ["in_out", "in", "out"]
+
+REVERTS = ["boomerang", "traceback", "rollback"]
+
 # a kind of grouping by intuition; doesn't really help code though
 CONFIGURABLES = {  # used for like .config('figure', **kwds)
     "canvas": [
@@ -379,7 +416,7 @@ DEFAULTS["tiles_kwds"] = {"style": "toner"}  # TODO: change to show
 
 DEFAULTS["land_kwds"] = {"facecolor": "whitesmoke"}
 
-DEFAULTS["num_kwds"] = {"default": 1, "bounds": (1, None), "constant": True}
+DEFAULTS["num_kwds"] = {"default": 1, "bounds": (1, None), "constant": True, "precedence": PRECEDENCES["attr"]}
 
 DEFAULTS["watermark_kwds"] = {
     "x": 0.995,
