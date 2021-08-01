@@ -26,8 +26,8 @@ from .configuration import (
     CONFIGURABLES,
     ITEMS,
     OPTIONS,
-    TEMP_FILE,
     PRECEDENCES,
+    TEMP_FILE,
     defaults,
     load_defaults,
 )
@@ -48,38 +48,49 @@ from .util import (
 class Animation(param.Parameterized):
 
     save = param.ClassSelector(
-        default=None, class_=(str, pathlib.Path), doc="Output file path",
-        precedence=PRECEDENCES["export"]
+        default=None,
+        class_=(str, pathlib.Path),
+        doc="Output file path",
+        precedence=PRECEDENCES["export"],
     )
 
     figsize = param.NumericTuple(
-        default=None, length=2, doc="Figure's size as width and height", precedence=PRECEDENCES["style"]
+        default=None,
+        length=2,
+        doc="Figure's size as width and height",
+        precedence=PRECEDENCES["style"],
     )
     spacing = param.Dict(
         default=None,
-        doc=f"Subplot spacing; {OPTIONS['spacing']}", precedence=PRECEDENCES["style"]
+        doc=f"Subplot spacing; {OPTIONS['spacing']}",
+        precedence=PRECEDENCES["style"],
     )
     suptitle = param.String(
-        allow_None=True, doc="Figure's super title (outer top center)", precedence=PRECEDENCES["sub_label"]
+        allow_None=True,
+        doc="Figure's super title (outer top center)",
+        precedence=PRECEDENCES["sub_label"],
     )
     watermark = param.String(
-        allow_None=True, doc="Figure's watermark (outer bottom right)", precedence=PRECEDENCES["sub_label"]
+        allow_None=True,
+        doc="Figure's watermark (outer bottom right)",
+        precedence=PRECEDENCES["sub_label"],
     )
 
     # compute kwds
     workers = param.Integer(
         default=None,
         bounds=(1, None),
-        doc="Number of workers used to render separate static states", precedence=PRECEDENCES["compute"]
+        doc="Number of workers used to render separate static states",
+        precedence=PRECEDENCES["compute"],
     )
     scheduler = param.ObjectSelector(
         default=None,
         objects=OPTIONS["scheduler"],
-        doc=f"Type of workers; {OPTIONS['scheduler']}", precedence=PRECEDENCES["compute"]
+        doc=f"Type of workers; {OPTIONS['scheduler']}",
+        precedence=PRECEDENCES["compute"],
     )
     progress = param.Boolean(
-        default=None,
-        doc="Show progress bar", precedence=PRECEDENCES["compute"]
+        default=None, doc="Show progress bar", precedence=PRECEDENCES["compute"]
     )
 
     # animate kwds
@@ -92,32 +103,46 @@ class Animation(param.Parameterized):
         "select states equally ranged from beginning to ending, and "
         "number of states to animate can be specified by specfiying _{int}; "
         "int renders a single states, slice renders a range of states "
-        "bool enables or disables the stitched animation", precedence=PRECEDENCES["animate"]
+        "bool enables or disables the stitched animation",
+        precedence=PRECEDENCES["animate"],
     )
-    fps = param.Number(default=None, doc="frames (states) animated per second", precedence=PRECEDENCES["animate"])
+    fps = param.Number(
+        default=None,
+        doc="frames (states) animated per second",
+        precedence=PRECEDENCES["animate"],
+    )
     fmt = param.ObjectSelector(
-        default=None, objects=OPTIONS["fmt"], doc="Output file format", precedence=PRECEDENCES["export"]
+        default=None,
+        objects=OPTIONS["fmt"],
+        doc="Output file format",
+        precedence=PRECEDENCES["export"],
     )
     loop = param.ObjectSelector(
         default=None,
         objects=list(np.arange(0, 9999)) + [True, False],
         doc="Number of times the animation plays; "
-        "0 or True plays the animation indefinitely", precedence=PRECEDENCES["animate"]
+        "0 or True plays the animation indefinitely",
+        precedence=PRECEDENCES["animate"],
     )
     durations = param.ClassSelector(
         class_=(Iterable, int, float),
-        doc="Seconds to delay per state; Iterables must match number of states", precedence=PRECEDENCES["animate"]
+        doc="Seconds to delay per state; Iterables must match number of states",
+        precedence=PRECEDENCES["animate"],
     )
     pygifsicle = param.Boolean(
         default=None,
         doc="Whether to use pygifsicle to reduce file size. "
-        "If save is not set, will temporarily write file to disk first.", precedence=PRECEDENCES["misc"]
+        "If save is not set, will temporarily write file to disk first.",
+        precedence=PRECEDENCES["misc"],
     )
-    show = param.Boolean(default=None, doc="Whether to show in Jupyter", precedence=PRECEDENCES["misc"])
+    show = param.Boolean(
+        default=None, doc="Whether to show in Jupyter", precedence=PRECEDENCES["misc"]
+    )
 
     debug = param.Boolean(
         default=False,
-        doc="Show additional debugging info and set scheduler to single-threaded", precedence=PRECEDENCES["misc"]
+        doc="Show additional debugging info and set scheduler to single-threaded",
+        precedence=PRECEDENCES["misc"],
     )
 
     _canvas_kwds = defaultdict(dict)

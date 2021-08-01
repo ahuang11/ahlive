@@ -22,7 +22,7 @@ PRECEDENCES = [
     "interp",
     "compute",
     "misc",
-    "attr"
+    "attr",
 ]
 PRECEDENCES = {label: precedence for precedence, label in enumerate(PRECEDENCES)}
 
@@ -416,7 +416,12 @@ DEFAULTS["tiles_kwds"] = {"style": "toner"}  # TODO: change to show
 
 DEFAULTS["land_kwds"] = {"facecolor": "whitesmoke"}
 
-DEFAULTS["num_kwds"] = {"default": 1, "bounds": (1, None), "constant": True, "precedence": PRECEDENCES["attr"]}
+DEFAULTS["num_kwds"] = {
+    "default": 1,
+    "bounds": (1, None),
+    "constant": True,
+    "precedence": PRECEDENCES["attr"],
+}
 
 DEFAULTS["watermark_kwds"] = {
     "x": 0.995,
