@@ -1132,7 +1132,7 @@ class Animation(param.Parameterized):
             for axis in ["x", "y"]:
                 axis_lim0 = to_scalar(limits.get(f"{axis}lim0"))
                 axis_lim1 = to_scalar(limits.get(f"{axis}lim1"))
-                if (axis_lim0 is not None or axis_lim1 is not None):
+                if axis_lim0 is not None or axis_lim1 is not None:
                     if not np.isnan([axis_lim0, axis_lim1]).any():
                         getattr(ax, f"set_{axis}lim")(to_pydt(axis_lim0, axis_lim1))
         ax.margins(**margins_kwds)

@@ -78,7 +78,7 @@ class Data(Easing, Animation, Configuration):
     group = param.String(
         default=None,
         doc="Group label for multiple items",
-        precedence=PRECEDENCES["misc"]
+        precedence=PRECEDENCES["misc"],
     )
 
     title = param.ClassSelector(
@@ -207,18 +207,22 @@ class Data(Easing, Animation, Configuration):
     def __init__(self, **kwds):
         self._ds = None
         self._parameters = set(
-            key for key in dir(self) if not key.startswith("_") and
-            key not in ["xs", "ys", "cs", "x0s", "y0s", "x1s", "y1s"]
+            key
+            for key in dir(self)
+            if not key.startswith("_")
+            and key not in ["xs", "ys", "cs", "x0s", "y0s", "x1s", "y1s"]
         )
         kwds = self._set_input_vars(**kwds)
         super().__init__(**kwds)
         self._init_num_states()
         self._load_dataset()
-        self.configurables.update({
-            "canvas": CONFIGURABLES["canvas"],
-            "subplot": CONFIGURABLES["subplot"],
-            "label": CONFIGURABLES["label"],
-        })
+        self.configurables.update(
+            {
+                "canvas": CONFIGURABLES["canvas"],
+                "subplot": CONFIGURABLES["subplot"],
+                "label": CONFIGURABLES["label"],
+            }
+        )
 
     def _init_num_states(self):
         cs = self._input_vars.get("cs")
@@ -916,15 +920,17 @@ class Data(Easing, Animation, Configuration):
             import cartopy.crs as ccrs
 
             if len(self._crs_names) == 0:
-                self._crs_names.update({
-                    name.lower(): name
-                    for name, obj in vars(ccrs).items()
-                    if isinstance(obj, type)
-                    and issubclass(obj, ccrs.Projection)
-                    and not name.startswith("_")
-                    and name not in ["Projection"]
-                    or name == "GOOGLE_MERCATOR"
-                })
+                self._crs_names.update(
+                    {
+                        name.lower(): name
+                        for name, obj in vars(ccrs).items()
+                        if isinstance(obj, type)
+                        and issubclass(obj, ccrs.Projection)
+                        and not name.startswith("_")
+                        and name not in ["Projection"]
+                        or name == "GOOGLE_MERCATOR"
+                    }
+                )
 
             if central_longitude is not None:
                 crs_kwds["central_longitude"] = central_longitude
@@ -1187,7 +1193,9 @@ class Data(Easing, Animation, Configuration):
     def _set_input_vars(self, **kwds):
         # TODO: add test
         self._input_vars = {
-            key: np.array(kwds.pop(key)) for key in list(kwds) if key not in self._parameters
+            key: np.array(kwds.pop(key))
+            for key in list(kwds)
+            if key not in self._parameters
         }
 
         for key in list(self._input_vars.keys()):
@@ -1739,7 +1747,6 @@ class Array2D(Array):
         )
         self._ds = ds
 
-
     def _config_rotate_chart(self, ds):
         num_states = self.num_states
         x_dim = "grid_x" if "grid_x" in ds else "x"
@@ -1996,12 +2003,14 @@ class Reference(GeographicData):
         if y0s is None and y1s is not None:
             y0s, y1s = y1s, y0s
 
-        kwds.update({
-            "x0": x0s,
-            "x1": x1s,
-            "y0": y0s,
-            "y1": y1s,
-        })
+        kwds.update(
+            {
+                "x0": x0s,
+                "x1": x1s,
+                "y0": y0s,
+                "y1": y1s,
+            }
+        )
 
         has_kwds = {key: val is not None for key, val in kwds.items()}
         if not any(has_kwds.values()):
@@ -2052,6 +2061,10 @@ class Reference(GeographicData):
                 )
 
         ds = ds.rename(
-            {var: f"ref_{var}" for var in list(ds.data_vars) if ds[var].dims != ("state",)}
+            {
+                var: f"ref_{var}"
+                for var in list(ds.data_vars)
+                if ds[var].dims != ("state",)
+            }
         )
         self._ds = ds
