@@ -1239,7 +1239,7 @@ class Data(Easing, Animation, Configuration):
         if reshape:
             if ndim == 3:
                 val = val.reshape(-1, *val.shape)
-            elif ndim == 2:
+            elif ndim == 2 and val.shape[0] > 1:
                 val = val.reshape(-1, num_states, *val.shape)
             elif shape is not None:
                 val = val.reshape(-1, num_states, *shape)
