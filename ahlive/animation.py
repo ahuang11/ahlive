@@ -183,7 +183,7 @@ class Animation(param.Parameterized):
             else:
                 return "%Y"
 
-        if num == 0:
+        if num == 0 or np.isnan(num):
             return ".1f"
 
         order_of_magnitude = int(np.floor(np.log10(abs(num))))
@@ -1133,7 +1133,8 @@ class Animation(param.Parameterized):
                 axis_lim0 = to_scalar(limits.get(f"{axis}lim0"))
                 axis_lim1 = to_scalar(limits.get(f"{axis}lim1"))
                 if axis_lim0 is not None or axis_lim1 is not None:
-                    getattr(ax, f"set_{axis}lim")(to_pydt(axis_lim0, axis_lim1))
+                    if not np.isnan([axis_lim0, axis_lim1]).any():
+                        getattr(ax, f"set_{axis}lim")(to_pydt(axis_lim0, axis_lim1))
         ax.margins(**margins_kwds)
 
     def _update_geo(self, state_ds, ax):

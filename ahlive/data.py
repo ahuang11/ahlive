@@ -76,7 +76,9 @@ class Data(Easing, Animation, Configuration):
         precedence=PRECEDENCES["common"],
     )
     group = param.String(
-        doc="Group label for multiple items", precedence=PRECEDENCES["misc"]
+        default=None,
+        doc="Group label for multiple items",
+        precedence=PRECEDENCES["misc"],
     )
 
     title = param.ClassSelector(
@@ -189,32 +191,56 @@ class Data(Easing, Animation, Configuration):
     num_cols = param.Integer(doc="Number of cols", **DEFAULTS["num_kwds"])
     num_states = param.Integer(doc="Number of states", **DEFAULTS["num_kwds"])
     configurables = param.Dict(
-        default={
-            "canvas": CONFIGURABLES["canvas"],
-            "subplot": CONFIGURABLES["subplot"],
-            "label": CONFIGURABLES["label"],
-        },
+        default={},
         doc="Possible configuration keys",
         constant=True,
         precedence=PRECEDENCES["attr"],
     )
-    attrs = param.Dict(
+    _attrs = param.Dict(
         doc="Attributes of the first dataset",
         constant=True,
         precedence=PRECEDENCES["attr"],
     )
 
-    _parameters = set([])
     _crs_names = {}
-    data = {}
 
-    def __init__(self, num_states, **kwds):
-        self._parameters = set(key for key in dir(self) if not key.startswith("_"))
-        self._input_vars = {
-            key: kwds.pop(key) for key in list(kwds) if key not in self._parameters
-        }
-        self._check_input_vars()
+    def __init__(self, **kwds):
+        self._ds = None
+        self._parameters = set(
+            key
+            for key in dir(self)
+            if not key.startswith("_")
+            and key not in ["xs", "ys", "cs", "x0s", "y0s", "x1s", "y1s"]
+        )
+        kwds = self._set_input_vars(**kwds)
         super().__init__(**kwds)
+        self._init_num_states()
+        self._load_dataset()
+        self.configurables.update(
+            {
+                "canvas": CONFIGURABLES["canvas"],
+                "subplot": CONFIGURABLES["subplot"],
+                "label": CONFIGURABLES["label"],
+            }
+        )
+
+    def _init_num_states(self):
+        cs = self._input_vars.get("cs")
+        if cs is not None:
+            cs = np.array(cs)
+            shape = cs.shape[-2:]
+            if cs.ndim > 2:
+                num_states = len(cs)
+                if shape[0] != len(self._input_vars["ys"]):
+                    cs = np.swapaxes(cs, -1, -2)
+                    shape = shape[::-1]  # TODO: auto figure out time dimension
+            elif cs.ndim == 2:
+                num_states = 1
+            else:
+                num_states = len(cs)
+        else:
+            num_states = max(length(val) for val in self._input_vars.values())
+
         with param.edit_constant(self):
             self.num_states = num_states
 
@@ -236,6 +262,7 @@ class Data(Easing, Animation, Configuration):
         self._data = self._config_data(data)
         with param.edit_constant(self):
             ds = list(self._data.values())[0]
+            self._ds = ds
             self.attrs = ds.attrs
             self.num_states = len(ds["state"])
             self.num_rows, self.num_cols = [
@@ -893,15 +920,17 @@ class Data(Easing, Animation, Configuration):
             import cartopy.crs as ccrs
 
             if len(self._crs_names) == 0:
-                self._crs_names = {
-                    name.lower(): name
-                    for name, obj in vars(ccrs).items()
-                    if isinstance(obj, type)
-                    and issubclass(obj, ccrs.Projection)
-                    and not name.startswith("_")
-                    and name not in ["Projection"]
-                    or name == "GOOGLE_MERCATOR"
-                }
+                self._crs_names.update(
+                    {
+                        name.lower(): name
+                        for name, obj in vars(ccrs).items()
+                        if isinstance(obj, type)
+                        and issubclass(obj, ccrs.Projection)
+                        and not name.startswith("_")
+                        and name not in ["Projection"]
+                        or name == "GOOGLE_MERCATOR"
+                    }
+                )
 
             if central_longitude is not None:
                 crs_kwds["central_longitude"] = central_longitude
@@ -1161,8 +1190,14 @@ class Data(Easing, Animation, Configuration):
         self_copy.data = data
         return self_copy
 
-    def _check_input_vars(self):
+    def _set_input_vars(self, **kwds):
         # TODO: add test
+        self._input_vars = {
+            key: np.array(kwds.pop(key))
+            for key in list(kwds)
+            if key not in self._parameters
+        }
+
         for key in list(self._input_vars.keys()):
             if key == "c":
                 # won't show up if
@@ -1184,10 +1219,13 @@ class Data(Easing, Animation, Configuration):
                     f"Invalid param: '{key}', replace with expected '{key_strip}'"
                 )
 
+        return kwds
+
     def _adapt_input(self, val, num_items=None, reshape=True, shape=None):
         # TODO: add test
         num_states = self.num_states
         val = np.array(val)
+        ndim = val.ndim
         if is_scalar(val):
             val = np.repeat(val, num_states)
 
@@ -1199,17 +1237,22 @@ class Data(Easing, Animation, Configuration):
                 pass
 
         if reshape:
-            if shape is None:
-                val = val.reshape(-1, num_states)
-            else:
+            if ndim == 3:
+                val = val.reshape(-1, *val.shape)
+            elif ndim == 2 and val.shape[0] > 1:
+                val = val.reshape(-1, num_states, *val.shape)
+            elif shape is not None:
                 val = val.reshape(-1, num_states, *shape)
+            else:
+                val = val.reshape(-1, num_states)
 
         if num_items is not None and val.shape[0] != num_items:
             val = np.tile(val, (num_items, 1))
         return val
 
-    def _load_dataset(self, input_vars):
+    def _load_dataset(self, **kwds):
         # TODO: add test
+        input_vars = self._input_vars
         num_states = self.num_states
         label = self.label or ""
         group = self.group or ""
@@ -1228,49 +1271,58 @@ class Data(Easing, Animation, Configuration):
         else:
             chart = self.chart
 
-        data_vars = {key: val for key, val in input_vars.items() if val is not None}
+        coords = {}
+        data_vars = {}
+        dims = DIMS[self._dim_type]
+        for key, val in input_vars.items():
+            if len(key) > 1 and key.endswith("s"):
+                key = key[:-1]
+            data_vars[key] = val
+
         for var in list(data_vars.keys()):
             val = data_vars.pop(var)
-            val = self._adapt_input(val)
-            dims = DIMS["ref"] if var.startswith("ref") else DIMS["basic"]
-            data_vars[var] = dims, val
+            if self._dim_type == "grid" and var in ["x", "y"]:
+                coords[var] = val
+            else:
+                data_vars[var] = dims, self._adapt_input(val)
 
         if self.state_labels is not None:
             state_labels = self._adapt_input(self.state_labels, reshape=False)
             data_vars["state_label"] = ("state", state_labels)
 
+        dims = DIMS["basic"] if self._dim_type == "grid" else dims
         num_items = 1
         if self.inline_labels is not None:
             inline_labels = self._adapt_input(self.inline_labels)
             num_items = inline_labels.shape[0]
-            data_vars["inline_label"] = DIMS["basic"], inline_labels
+            data_vars["inline_label"] = dims, inline_labels
 
         # pass unique for dataframe
         data_vars["chart"] = (
-            DIMS["basic"],
+            dims,
             self._adapt_input(chart, num_items=num_items),
         )
         data_vars["label"] = (
-            DIMS["basic"],
+            dims,
             self._adapt_input(label, num_items=num_items),
         )
         data_vars["group"] = (
-            DIMS["basic"],
+            dims,
             self._adapt_input(group, num_items=num_items),
         )
         data_vars["interp"] = (
-            DIMS["basic"],
+            dims,
             self._adapt_input(interp, num_items=num_items),
         )
         data_vars["ease"] = (
-            DIMS["basic"],
+            dims,
             self._adapt_input(ease, num_items=num_items),
         )
 
-        coords = {"item": srange(num_items), "state": srange(num_states)}
+        coords.update({dims[0]: srange(num_items), "state": srange(num_states)})
         ds = xr.Dataset(coords=coords, data_vars=data_vars)
         ds = _drop_state(ds)
-        return ds
+        self._ds = ds
 
     @staticmethod
     def _propagate_params(self_copy, other, layout=False):
@@ -1348,8 +1400,8 @@ class GeographicData(Data):
         precedence=PRECEDENCES["geo"],
     )
 
-    def __init__(self, num_states, **kwds):
-        super().__init__(num_states, **kwds)
+    def __init__(self, **kwds):
+        super().__init__(**kwds)
         self.configurables["geo"] = CONFIGURABLES["geo"]
 
 
@@ -1414,7 +1466,7 @@ class ColorArray(param.Parameterized):
     cs = param.ClassSelector(
         class_=(Iterable,),
         doc="Array to be mapped to the colorbar",
-        precedence=PRECEDENCES["common"],
+        precedence=PRECEDENCES["xyc"],
     )
 
     cticks = param.ClassSelector(
@@ -1575,15 +1627,17 @@ class RemarkArray(param.Parameterized):
 class Array(GeographicData, ReferenceArray, ColorArray, RemarkArray):
 
     xs = param.ClassSelector(
-        class_=(Iterable,),
+        class_=(Iterable, int, float, str),
         doc="Array to be mapped to the x-axis",
-        precedence=PRECEDENCES["xy"],
+        precedence=PRECEDENCES["xyc"],
     )
     ys = param.ClassSelector(
-        class_=(Iterable,),
+        class_=(Iterable, int, float, str),
         doc="Array to be mapped to the y-axis",
-        precedence=PRECEDENCES["xy"],
+        precedence=PRECEDENCES["xyc"],
     )
+
+    _dim_type = "basic"
 
     def __init__(self, xs, ys, **kwds):
         for xys, xys_arr in {"xs": xs, "ys": ys}.items():
@@ -1592,29 +1646,8 @@ class Array(GeographicData, ReferenceArray, ColorArray, RemarkArray):
                     f"{xys} must be an Iterable, but cannot be str; got {xys_arr}!"
                 )
 
-        num_xs = length(xs)
-        num_ys = length(ys)
-        if num_xs != num_ys and num_xs != 1 and num_ys != 1:
-            raise ValueError(
-                f"Length of x ({num_xs}) must match the length of y ({num_ys}) "
-                f"if not a scalar!"
-            )
-
-        num_states = max(num_xs, num_ys)
-        super().__init__(num_states, **kwds)
-
-        ds = self._load_dataset(self._input_vars)
-        ds = ds.assign(
-            **{
-                "x": (DIMS["basic"], self._adapt_input(xs)),
-                "y": (DIMS["basic"], self._adapt_input(ys)),
-            }
-        )
-        if "cs" in kwds:
-            cs = kwds.pop("cs")
-            ds["c"] = (DIMS["basic"], self._adapt_input(cs))
-
-        self.data = {self.rowcol: ds}
+        super().__init__(xs=xs, ys=ys, **kwds)
+        self.data = {self.rowcol: self._ds}
 
     def invert(self, label=None, group=None, state_labels=None):
         data = {}
@@ -1660,18 +1693,7 @@ class Array(GeographicData, ReferenceArray, ColorArray, RemarkArray):
         return self_copy
 
 
-class Array2D(GeographicData, ReferenceArray, ColorArray, RemarkArray):
-
-    xs = param.ClassSelector(
-        class_=(Iterable,),
-        doc="Array to be mapped to the x-axis",
-        precedence=PRECEDENCES["xy"],
-    )
-    ys = param.ClassSelector(
-        class_=(Iterable,),
-        doc="Array to be mapped to the y-axis",
-        precedence=PRECEDENCES["xy"],
-    )
+class Array2D(Array):
 
     chart = param.ObjectSelector(
         default=CHARTS["grid"][0],
@@ -1691,30 +1713,17 @@ class Array2D(GeographicData, ReferenceArray, ColorArray, RemarkArray):
         precedence=PRECEDENCES["sub_label"],
     )
 
+    _dim_type = "grid"
+
     def __init__(self, xs, ys, cs, **kwds):
-        cs = np.array(cs)
-        shape = cs.shape[-2:]
-        if cs.ndim > 2:
-            num_states = len(cs)
-            if shape[0] != len(ys):
-                cs = np.swapaxes(cs, -1, -2)
-                shape = shape[::-1]  # TODO: auto figure out time dimension
-        else:
-            num_states = 1
-
-        super().__init__(num_states, **kwds)
+        super().__init__(xs, ys, cs=cs, **kwds)
         self.configurables["grid"] = CONFIGURABLES["grid"]
+        self.data = {self.rowcol: self._ds}
 
-        ds = self._load_dataset(self._input_vars)
-        ds = ds.assign_coords(**{"x": np.array(xs), "y": np.array(ys)}).assign(
-            {
-                "c": (
-                    DIMS["grid"],
-                    self._adapt_input(cs, shape=shape),
-                )
-            }
-        )
+    def _load_dataset(self, **kwds):
+        super()._load_dataset(**kwds)
 
+        ds = self._ds
         if self.inline_labels is not None:
             inline_xs = self.inline_xs
             inline_ys = self.inline_ys
@@ -1732,12 +1741,11 @@ class Array2D(GeographicData, ReferenceArray, ColorArray, RemarkArray):
                     self._adapt_input(inline_ys),
                 )
 
-        grid_vars = list(ds.data_vars) + ["x", "y", "item"]
+        grid_vars = list(ds.data_vars) + list(ds.coords)
         ds = ds.rename(
             {var: f"grid_{var}" for var in grid_vars if ds[var].dims != ("state",)}
         )
-
-        self.data = {self.rowcol: ds}
+        self._ds = ds
 
     def _config_rotate_chart(self, ds):
         num_states = self.num_states
@@ -1820,7 +1828,18 @@ class Array2D(GeographicData, ReferenceArray, ColorArray, RemarkArray):
         return ds
 
 
-class DataStructure(param.Parameterized):
+class DataStructure(Array):
+
+    xs = param.ClassSelector(
+        class_=(Iterable,),
+        doc="Variable name to be mapped to the x-axis",
+        precedence=PRECEDENCES["xyc"],
+    )
+    ys = param.ClassSelector(
+        class_=(Iterable,),
+        doc="Variable name to be mapped to the y-axis",
+        precedence=PRECEDENCES["xyc"],
+    )
 
     join = param.ObjectSelector(
         objects=ITEMS["join"],
@@ -1828,8 +1847,45 @@ class DataStructure(param.Parameterized):
         precedence=PRECEDENCES["common"],
     )
 
-    def __init__(self, **kwds):
-        super().__init__(**kwds)
+    def __init__(self, dataset, xs, ys, join="overlay", **kwds):
+        if hasattr(dataset, "reset_coords"):
+            keys = dataset
+        else:
+            dataset = dataset.reset_index()
+            keys = dataset.columns
+        group_key, label_key = self._validate_keys(xs, ys, kwds, keys)
+
+        arrays = []
+        for group, group_dataset in self._groupby_key(dataset, group_key):
+            for label, label_dataset in self._groupby_key(group_dataset, label_key):
+                kwds_updated = self._update_kwds(
+                    label_dataset,
+                    keys,
+                    kwds,
+                    xs,
+                    ys,
+                    kwds.get("c", ""),
+                    label,
+                    join,
+                )
+
+                num_states = len(label_dataset)
+                if num_states > 2000 and label_key is None:
+                    warnings.warn(
+                        f"Found more than {num_states} states "
+                        f"which may take a considerable time to animate; "
+                        f"set label to group a set of rows as separate items."
+                    )
+
+                super().__init__(
+                    xs=label_dataset[xs],
+                    ys=label_dataset[ys],
+                    group=group,
+                    label=label,
+                    **kwds_updated,
+                )
+                arrays.append(self.copy())
+        self.data = merge(arrays, join).data
 
     @staticmethod
     def _validate_keys(xs, ys, kwds, keys):
@@ -1871,80 +1927,31 @@ class DataStructure(param.Parameterized):
         return kwds_updated
 
 
-class DataFrame(Array, DataStructure):
+class DataFrame(DataStructure):
 
     df = param.DataFrame(doc="Pandas DataFrame", precedence=PRECEDENCES["data"])
 
+    _dim_type = "basic"
+
     def __init__(self, df, xs, ys, join="overlay", **kwds):
-        df = df.reset_index()
-        group_key, label_key = self._validate_keys(xs, ys, kwds, df.columns)
-
-        arrays = []
-        for group, group_df in self._groupby_key(df, group_key):
-            for label, label_df in self._groupby_key(group_df, label_key):
-                kwds_updated = self._update_kwds(
-                    label_df,
-                    label_df.columns,
-                    kwds,
-                    xs,
-                    ys,
-                    kwds.get("c", ""),
-                    label,
-                    join,
-                )
-
-                num_states = len(label_df)
-                if num_states > 2000 and label_key is None:
-                    warnings.warn(
-                        f"Found more than {num_states} states "
-                        f"which may take a considerable time to animate; "
-                        f"set label to group a set of rows as separate items."
-                    )
-
-                super().__init__(
-                    label_df[xs],
-                    label_df[ys],
-                    group=group,
-                    label=label,
-                    **kwds_updated,
-                )
-                arrays.append(self.copy())
-        self.data = merge(arrays, join).data
+        super().__init__(df, xs, ys, join=join, **kwds)
 
 
-class Dataset(Array2D, DataStructure):
+class Dataset(DataStructure, Array2D):
 
-    ds = param.ClassSelector(
-        class_=(xr.Dataset,), doc="Xarray Dataset", precedence=PRECEDENCES["data"]
+    ds = param.DataFrame(doc="XArray Dataset", precedence=PRECEDENCES["data"])
+
+    cs = param.ClassSelector(
+        class_=(Iterable,),
+        default=None,
+        doc="Variable name to be mapped to the colorbar",
+        precedence=PRECEDENCES["xyc"],
     )
 
+    _dim_type = "grid"
+
     def __init__(self, ds, xs, ys, cs, join="overlay", **kwds):
-        group_key, label_key = self._validate_keys(xs, ys, kwds, ds)
-
-        arrays = []
-        for group, group_ds in self._groupby_key(ds, group_key):
-            for label, label_ds in self._groupby_key(group_ds, label_key):
-                kwds_updated = self._update_kwds(
-                    label_ds,
-                    list(label_ds.data_vars) + list(label_ds.coords),
-                    kwds,
-                    xs,
-                    ys,
-                    cs,
-                    label,
-                    join,
-                )
-
-                super().__init__(
-                    label_ds[xs],
-                    label_ds[ys],
-                    label_ds[cs],
-                    group=group,
-                    label=label,
-                    **kwds_updated,
-                )
-                arrays.append(self.copy())
-        self.data = merge(arrays, join).data
+        super().__init__(ds, xs, ys, cs=cs, join=join, **kwds)
 
 
 class Reference(GeographicData):
@@ -1958,22 +1965,22 @@ class Reference(GeographicData):
     x0s = param.ClassSelector(
         class_=(Iterable,),
         doc="Array to be mapped to lower x-axis",
-        precedence=PRECEDENCES["xy"],
+        precedence=PRECEDENCES["xyc"],
     )
     x1s = param.ClassSelector(
         class_=(Iterable,),
         doc="Array to be mapped to upper x-axis",
-        precedence=PRECEDENCES["xy"],
+        precedence=PRECEDENCES["xyc"],
     )
     y0s = param.ClassSelector(
         class_=(Iterable,),
         doc="Array to be mapped to lower y-axis",
-        precedence=PRECEDENCES["xy"],
+        precedence=PRECEDENCES["xyc"],
     )
     y1s = param.ClassSelector(
         class_=(Iterable,),
         doc="Array to be mapped to lower y-axis",
-        precedence=PRECEDENCES["xy"],
+        precedence=PRECEDENCES["xyc"],
     )
     inline_locs = param.ClassSelector(
         class_=(Iterable, int, float),
@@ -1981,19 +1988,37 @@ class Reference(GeographicData):
         precedence=PRECEDENCES["label"],
     )
 
+    _dim_type = "ref"
+
     def __init__(self, x0s=None, x1s=None, y0s=None, y1s=None, **kwds):
-        ref_kwds = {
-            "x0": x0s,
-            "x1": x1s,
-            "y0": y0s,
-            "y1": y1s,
-        }
-        has_kwds = {key: val is not None for key, val in ref_kwds.items()}
+        kwds = self._prep_kwds(x0s, x1s, y0s, y1s, **kwds)
+        super().__init__(**kwds)
+        self.configurables["ref"] = CONFIGURABLES["ref"]
+        self.data = {self.rowcol: self._ds}
+
+    def _prep_kwds(self, x0s, x1s, y0s, y1s, **kwds):
+        if x0s is None and x1s is not None:
+            x0s, x1s = x1s, x0s
+
+        if y0s is None and y1s is not None:
+            y0s, y1s = y1s, y0s
+
+        kwds.update(
+            {
+                "x0": x0s,
+                "x1": x1s,
+                "y0": y0s,
+                "y1": y1s,
+            }
+        )
+
+        has_kwds = {key: val is not None for key, val in kwds.items()}
         if not any(has_kwds.values()):
             raise ValueError("Must provide either x0s, x1s, y0s, y1s!")
 
         has_xs = has_kwds["x0"] and has_kwds["x1"]
         has_ys = has_kwds["y0"] and has_kwds["y1"]
+
         if has_xs and has_ys:
             kwds["chart"] = "rectangle"
         elif has_kwds["x0"] and has_kwds["y0"]:
@@ -2002,46 +2027,30 @@ class Reference(GeographicData):
             kwds["chart"] = "axvspan"
         elif has_ys:
             kwds["chart"] = "axhspan"
-        elif has_kwds["x0"]:
+        elif has_kwds["x0"] or has_kwds["x1"]:
             kwds["chart"] = "axvline"
-        elif has_kwds["x1"]:
-            kwds["chart"] = "axvline"
-            ref_kwds["x0"], ref_kwds["x1"] = ref_kwds["x1"], ref_kwds["x0"]
-        elif has_kwds["y0"]:
+        elif has_kwds["y0"] or has_kwds["y1"]:
             kwds["chart"] = "axhline"
-        elif has_kwds["y1"]:
-            kwds["chart"] = "axhline"
-            ref_kwds["y0"], ref_kwds["y1"] = ref_kwds["y1"], ref_kwds["y0"]
         else:
-            raise NotImplementedError(
+            raise ValueError(
                 "One of the following combinations must be provided: "
                 "x0s, x1s, y0s, y1s"
             )
 
-        for key in list(ref_kwds):
-            val = ref_kwds[key]
+        for key in list(kwds):
+            val = kwds[key]
             if val is None:
-                ref_kwds.pop(key)
+                kwds.pop(key)
 
-        num_states = max(length(val) for val in ref_kwds.values())
-        if num_states > 1:
-            for key, val in ref_kwds.items():
-                if is_scalar(val):
-                    ref_kwds[key] = np.repeat(val, num_states)
+        return kwds
 
-        super().__init__(num_states, **kwds)
-        self.configurables["ref"] = CONFIGURABLES["ref"]
-
-        ds = self._load_dataset(self._input_vars)
-        for key, val in ref_kwds.items():
-            val = self._adapt_input(val)
-            if val is not None:
-                ds[key] = DIMS["ref"], val
-
+    def _load_dataset(self, **kwds):
+        super()._load_dataset(**kwds)
+        ds = self._ds
         num_items = len(ds["ref_item"])
         if self.inline_labels is not None:
             inline_locs = self.inline_locs
-            if inline_locs is None and not (has_kwds["x0"] and has_kwds["y0"]):
+            if inline_locs is None and not ("x0" in ds and "y0" in ds):
                 raise ValueError(
                     "Must provide inline_locs if inline_labels is not None!"
                 )
@@ -2051,21 +2060,11 @@ class Reference(GeographicData):
                     self._adapt_input(inline_locs, num_items=num_items),
                 )
 
-        for var in ds.data_vars:
-            ref_var = f"ref_{var}"
-            if "item" in ds[var].dims and "state" not in ds[var].dims:
-                if len(ds[var]["item"]) != num_items:
-                    values = np.repeat(ds[var].values, num_items)
-                else:
-                    values = ds[var].values
-                ds[ref_var] = ("ref_item", values)
-                ds = ds.drop_vars(var)
-            elif "item" in ds[var].dims:
-                ds[ref_var] = (DIMS["ref"], ds[var].values)
-                ds = ds.drop_vars(var)
-            elif ds[var].dims != ("state",):
-                ds = ds.rename({var: ref_var})
-
-        ds["ref_item"] = srange(len(ds["ref_item"]))
-        ds = ds.drop_vars("item")
-        self.data = {self.rowcol: ds}
+        ds = ds.rename(
+            {
+                var: f"ref_{var}"
+                for var in list(ds.data_vars)
+                if ds[var].dims != ("state",)
+            }
+        )
+        self._ds = ds

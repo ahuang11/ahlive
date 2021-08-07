@@ -88,6 +88,7 @@ def test_ah_dataframe(x, y, label, join):
                     {key: val[i] for key, val in var_dict.items()},
                 )
         else:
+            print(ds)
             assert_values(ds, var_dict)
 
         configurables = CONFIGURABLES.copy()

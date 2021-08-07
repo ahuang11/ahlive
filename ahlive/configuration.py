@@ -9,7 +9,7 @@ NULL_VALS = [(), {}, [], None, ""]
 
 PRECEDENCES = [
     "data",
-    "xy",
+    "xyc",
     "common",
     "export",
     "label",
