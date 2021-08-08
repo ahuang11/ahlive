@@ -323,7 +323,7 @@ class Animation(param.Parameterized):
         elif chart.startswith("bar"):
             plot = getattr(ax, chart)(xs, ys, **plot_kwds)
         else:
-            valid_charts = CHARTS['basic']
+            valid_charts = CHARTS["basic"]
             raise ValueError(f"{chart} not supported; select from {valid_charts}")
         color = self._get_color(overlay_ds, plot)
 
@@ -802,8 +802,10 @@ class Animation(param.Parameterized):
                 trail_plot_kwds["alpha"] = to_scalar(trail_plot_kwds["alpha"])
 
             plot_kwds = self._strip_dict(
-                {key: to_scalar(val) if key not in ["c", "s"] else val
-                 for key, val in trail_plot_kwds.items()}
+                {
+                    key: to_scalar(val) if key not in ["c", "s"] else val
+                    for key, val in trail_plot_kwds.items()
+                }
             )
 
             if "label" in plot_kwds:
