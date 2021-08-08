@@ -23,6 +23,7 @@ from matplotlib.ticker import FixedLocator, FormatStrFormatter
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 
 from .configuration import (
+    CHARTS,
     CONFIGURABLES,
     ITEMS,
     OPTIONS,
