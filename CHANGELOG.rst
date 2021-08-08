@@ -59,6 +59,9 @@ bug fixes
 - Loosen restrictions on `inline_locs` in `reference` method when both `x0s` and `y0s` are passed (:pull:`66`).
   By `Andrew Huang <https://github.com/ahuang11>`_
 
+- Various bug fixes, primarily with simultaneous usage of `c` and `color` plus `preset=trail`.
+  By `Andrew Huang <https://github.com/ahuang11>`_
+
 internal changes
 ~~~~~~~~~~~~~~~~
 
@@ -72,6 +75,9 @@ internal changes
   By `Andrew Huang <https://github.com/ahuang11>`_
 
 - R-stripped limit data variable (xlim0s now xlim0) for consistency (:pull:`66`).
+  By `Andrew Huang <https://github.com/ahuang11>`_
+
+- Refactor class inheritance (:pull:`71`).
   By `Andrew Huang <https://github.com/ahuang11>`_
 
 v0.0.3 (15 February 2021)

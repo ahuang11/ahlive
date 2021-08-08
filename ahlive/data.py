@@ -693,6 +693,7 @@ class Data(Easing, Animation, Configuration):
             plot_key = "grid_plot_kwds"
 
         cticks_kwds = load_defaults("cticks_kwds", ds)
+        colorbar_kwds = load_defaults("colorbar_kwds", ds)
         if c_var in ds:
             cticks = cticks_kwds.get("ticks")
             if cticks is None:
@@ -735,7 +736,7 @@ class Data(Easing, Animation, Configuration):
                     "norm", BoundaryNorm(cticks, num_colors)
                 )
 
-            ds.attrs["colorbar_kwds"]["show"] = ds.attrs[plot_key].get("colorbar", True)
+            ds.attrs["colorbar_kwds"]["show"] = colorbar_kwds.get("show", True)
         elif "colorbar_kwds" in ds.attrs:
             ds.attrs["colorbar_kwds"]["show"] = False
         return ds

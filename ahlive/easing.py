@@ -157,7 +157,7 @@ class Easing(param.Parameterized):
                 num_items,
                 new_shape,
             )
-        elif name in ["c", "color"]:
+        elif name in "c":
             results = []
             for colors in array:
                 cmap = LinearSegmentedColormap.from_list("eased", colors)
