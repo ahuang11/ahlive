@@ -16,6 +16,7 @@ import pandas as pd
 import param
 import xarray as xr
 from matplotlib import pyplot as plt
+from matplotlib.colors import to_hex
 from matplotlib.dates import AutoDateLocator, ConciseDateFormatter
 from matplotlib.patches import Rectangle
 from matplotlib.patheffects import withStroke
@@ -306,13 +307,16 @@ class Animation(param.Parameterized):
                     except AttributeError:
                         color = plot[0].get_edgecolor()
 
-            if isinstance(color, np.ndarray):
+        if isinstance(color, np.ndarray):
+            if len(color) == 1:
                 color = color[0]
+            color = to_hex(color)
+
         return color
 
     def _pop_invalid_kwds(self, plot_kwds):
         for key in ["c", "cmap", "vmin", "vmax"]:
-            plot_kwds.pop(key)
+            plot_kwds.pop(key, None)
         return plot_kwds
 
     def _plot_chart(self, overlay_ds, ax, chart, xs, ys, plot_kwds):
