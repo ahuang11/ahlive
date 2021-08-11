@@ -191,7 +191,7 @@ class Animation(param.Parameterized):
         order_of_magnitude = int(np.floor(np.log10(abs(num))))
         if order_of_magnitude >= 1:
             return ".0f"
-        if order_of_magnitude > 0:
+        elif order_of_magnitude > 0:
             return ".1f"
         else:
             return f".{abs(order_of_magnitude)}f"

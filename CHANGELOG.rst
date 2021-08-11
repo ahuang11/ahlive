@@ -62,6 +62,9 @@ bug fixes
 - Various bug fixes, primarily with simultaneous usage of `c` and `color` plus `preset=trail` (:pull:`75`).
   By `Andrew Huang <https://github.com/ahuang11>`_
 
+- Move `_config_chart` before `_precompute_base` to fix automated preset text format (:pull:`76`).
+  By `Andrew Huang <https://github.com/ahuang11>`_
+
 internal changes
 ~~~~~~~~~~~~~~~~
 

@@ -1176,10 +1176,10 @@ class Data(Easing, Animation, Configuration):
             ds = self_copy._add_xy01_limits(ds, chart)
             ds = self_copy._compress_vars(ds)
             ds = self_copy._add_color_kwds(ds, chart)
-            ds = self_copy._precompute_base(ds)
             ds = self_copy._add_margins(ds)
             ds = self_copy._add_durations(ds)
             ds = self_copy._config_chart(ds, chart)
+            ds = self_copy._precompute_base(ds)  # must be after config chart
             ds = self_copy._add_geo_tiles(ds)  # before interp
             ds = self_copy._interp_dataset(ds)
             ds = self_copy._add_geo_transforms(ds)  # after interp
