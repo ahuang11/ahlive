@@ -27,7 +27,6 @@ from ahlive.tests.test_configuration import (  # noqa: F401
     ah_array2,
 )
 from ahlive.tests.test_util import assert_attrs, assert_types, assert_values
-from ahlive.util import is_scalar
 
 
 @pytest.mark.parametrize("container", CONTAINERS)
@@ -821,9 +820,9 @@ def test_config_wave_chart(how):
     y1 = [4, 5, 6, 7, 8]
     y2 = [8, 4, 2, 3, 4]
     ah_obj = (
-        ah.Array(x, y1, preset="morph", chart="line", label="A", group="C") *
-        ah.Array(x, y2, chart="line", label="A", group="C") *
-        ah.Array(x, y2, label="B", group="C")
+        ah.Array(x, y1, preset="morph", chart="line", label="A", group="C")
+        * ah.Array(x, y2, chart="line", label="A", group="C")
+        * ah.Array(x, y2, label="B", group="C")
     )
     if how == "even":
         ah_obj *= ah.Array(x, y1, chart="line", label="B", group="C")

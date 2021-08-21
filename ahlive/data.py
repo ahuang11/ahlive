@@ -416,9 +416,6 @@ class Data(Easing, Animation, Configuration):
 
     @staticmethod
     def _config_wave_chart(ds):
-        preset_kwds = load_defaults("preset_kwds", ds, base_chart="morph"
-)
-
         label_ds_list = []
         for label, label_ds in ds.groupby("label"):
             label_ds = label_ds.rename({"state": "batch", "item": "state"})
