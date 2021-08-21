@@ -1427,13 +1427,15 @@ class Animation(param.Parameterized):
         for state in states:
             state_ds_rowcols = []
             for ds in data.values():
+                preset = ds.attrs["preset_kwds"].get("preset")
                 is_stateless = "state" not in ds.dims
                 is_line = np.any(ds.get("chart", "") == "line")
-                is_trail = ds.attrs["preset_kwds"].get("preset") == "trail"
-                is_series = ds.attrs["preset_kwds"].get("preset", "") == "series"
+                is_wave = preset == "wave"
+                is_trail = preset == "trail"
+                is_series = preset == "series"
                 if is_stateless:
                     ds_sel = ds
-                elif is_line or is_trail or is_series:
+                elif (is_line and not is_wave) or is_trail or is_series:
                     ds_sel = ds.sel(state=slice(None, state))
                     # this makes legend labels appear in order if values exist
                     if "item" in ds_sel.dims:
@@ -1645,13 +1647,13 @@ class Animation(param.Parameterized):
             print(data)
 
         # unrecognized durations keyword if not popped
-        if "duration" in ds.data_vars:
+        durations = None
+        has_fps = "fps" in self_copy._canvas_kwds["animate_kwds"]
+        if "duration" in ds.data_vars and not has_fps:
             durations = xr.concat(
                 (pop(ds, "duration", to_numpy=False) for ds in data.values()),
                 "item",
             )
-        if self_copy._canvas_kwds["animate_kwds"].get("fps") is not None:
-            durations = None
 
         buf_list = self_copy._create_frames(data)
         out_obj, ext = self_copy._write_rendered(buf_list, durations)

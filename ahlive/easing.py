@@ -63,7 +63,7 @@ class Easing(param.Parameterized):
 
             for item_dim in da.dims:
                 if "item" in item_dim:
-                    da = da.transpose(item_dim, "state", ...)
+                    da = da.transpose(item_dim, "batch", "state", ...)
                     break
 
             frames = da.attrs.get("frames", None)
@@ -71,7 +71,7 @@ class Easing(param.Parameterized):
             interp = da.attrs.get("interp", None)
             ease = da.attrs.get("ease", None)
 
-            if len(da.dims) > 2:  # more than (item, state)
+            if da.ndim > 2 and "batch" not in da.dims:  # more than (item, state)
                 da = da.stack({"stacked": ["grid_item", "grid_y", "grid_x"]})
                 da = da.transpose("stacked", "state")
             coords = da.drop_vars("state", errors="ignore").coords
@@ -82,7 +82,12 @@ class Easing(param.Parameterized):
         if revert == "boomerang":
             array = np.hstack([array, array[:, :1]])
 
-        num_items, num_states = array.shape
+        if array.ndim > 2:
+            num_items, num_batches, num_states = array.shape
+        else:
+            num_items, num_states = array.shape
+            num_batches = 0
+
         if frames is None:
             if num_states < 10:
                 num_steps = int(np.ceil(60 / num_states))
@@ -94,7 +99,11 @@ class Easing(param.Parameterized):
         with param.edit_constant(self):
             self.num_steps = num_steps
 
-        new_shape = (num_items, -1)
+        if num_batches > 0:
+            new_shape = (num_items, num_batches, -1)
+        else:
+            new_shape = (num_items, -1)
+
         has_revert = isinstance(revert, int) or revert is not None
         if num_steps == 1 and not has_revert:
             return da_origin
@@ -126,6 +135,7 @@ class Easing(param.Parameterized):
                 num_states,
                 num_steps,
                 num_items,
+                num_batches,
                 new_shape,
             )
             result = pd.to_datetime(result.ravel()).values
@@ -140,6 +150,7 @@ class Easing(param.Parameterized):
                 num_states,
                 num_steps,
                 num_items,
+                num_batches,
                 new_shape,
             )
             result = pd.to_timedelta(result.ravel()).values
@@ -155,6 +166,7 @@ class Easing(param.Parameterized):
                 num_states,
                 num_steps,
                 num_items,
+                num_batches,
                 new_shape,
             )
         elif name in "c":
@@ -164,7 +176,7 @@ class Easing(param.Parameterized):
                 results.append([rgb2hex(rgb) for rgb in cmap(np.arange(num_steps))])
             result = np.array(results)
         else:
-            result = np.repeat(array, num_steps, axis=1)
+            result = np.repeat(array, num_steps, axis=-1)
             num_roll = -int(np.ceil(num_steps / num_states * 2))
             if num_states > 2:
                 result = np.roll(result, num_roll, axis=-1)
@@ -181,7 +193,7 @@ class Easing(param.Parameterized):
             else:
                 result_back = result[:, ::-1]
             if name == "duration" and revert == "rollback":
-                result_back = np.repeat(1 / 60, result_back.shape[1]).reshape(1, -1)
+                result_back = np.repeat(1 / 60, result_back.shape[-1]).reshape(1, -1)
             result = np.hstack([result, result_back])
 
         if is_xarray:
@@ -219,13 +231,14 @@ class Easing(param.Parameterized):
         ease,
         num_states,
         num_steps,
+        num_batches,
         num_items,
         new_shape,
     ):
-        init = np.repeat(array[:, :-1], num_steps, axis=1)
+        init = np.repeat(array[:, :, :-1], num_steps, axis=-1)
         init_nans = np.isnan(init)
         init[init_nans] = 0  # temporarily fill the nans
-        stop = np.repeat(array[:, 1:], num_steps, axis=1)
+        stop = np.repeat(array[:, :, 1:], num_steps, axis=-1)
         stop_nans = np.isnan(stop)
         tiled_steps = np.tile(steps, (num_states - 1) * num_items).reshape(*new_shape)
         weights = getattr(self, f"_{interp.lower()}")(tiled_steps, ease)

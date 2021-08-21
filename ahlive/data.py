@@ -414,6 +414,22 @@ class Data(Easing, Animation, Configuration):
             ds["y_discrete_trail"] = ds["y"].copy()
         return ds
 
+    @staticmethod
+    def _config_wave_chart(ds):
+        preset_kwds = load_defaults("preset_kwds", ds, base_chart="wave")
+        label_ds_list = []
+        for label, label_ds in ds.groupby("label"):
+            label_ds = label_ds.rename({"state": "batch", "item": "state"})
+            if len(label_ds["state"]) == 1:
+                label_ds = label_ds.squeeze("state")
+            label_ds_list.append(label_ds)
+        ds = xr.concat(label_ds_list, "item")
+        if "state" not in ds.dims:
+            ds = ds.drop("state").expand_dims("state")
+        ds["item"] = srange(ds["item"])
+        ds = ds.transpose("item", "batch", "state")
+        return ds
+
     def _config_grid_axes(self, ds, chart):
         if self.style == "bare":
             ds.attrs["grid_kwds"]["b"] = ds.attrs["grid_kwds"].get("b", False)
@@ -456,6 +472,8 @@ class Data(Easing, Animation, Configuration):
             ds = self._config_bar_chart(ds, preset)
         elif preset == "trail":
             ds = self._config_trail_chart(ds)
+        elif preset == "wave":
+            ds = self._config_wave_chart(ds)
         ds = self._config_grid_axes(ds, chart)
         ds = self._config_legend(ds)
         return ds
@@ -663,16 +681,16 @@ class Data(Easing, Animation, Configuration):
             return da
 
         item_dim = _get_item_dim(da)
-        if item_dim and len(da[item_dim]) > 1:
+        if item_dim and len(da[item_dim]) > 2:
             return da
 
-        vals = da.values
+        vals = da.values.ravel()
         unique_vals = np.unique(vals[~pd.isnull(vals)])
         if len(unique_vals) == 1 and len(vals) > 1:
             dim = da.dims[0]
             if dim != "state":
-                item = da[dim][0]
-                return xr.DataArray(unique_vals[0], dims=(dim,), coords={dim: [item]})
+                item = da[item_dim][0]
+                return xr.DataArray(unique_vals[0], dims=(item_dim,), coords={dim: [item]})
             else:
                 return unique_vals[0]
         else:
@@ -1174,11 +1192,11 @@ class Data(Easing, Animation, Configuration):
             ds = self_copy._add_figsize(ds)
             ds = self_copy._fill_null(ds)
             ds = self_copy._add_xy01_limits(ds, chart)
-            ds = self_copy._compress_vars(ds)
             ds = self_copy._add_color_kwds(ds, chart)
             ds = self_copy._add_margins(ds)
             ds = self_copy._add_durations(ds)
             ds = self_copy._config_chart(ds, chart)
+            # ds = self_copy._compress_vars(ds)
             ds = self_copy._precompute_base(ds)  # must be after config chart
             ds = self_copy._add_geo_tiles(ds)  # before interp
             ds = self_copy._interp_dataset(ds)
