@@ -1658,6 +1658,8 @@ class Animation(param.Parameterized):
                 (pop(ds, "duration", to_numpy=False) for ds in data.values()),
                 "item",
             )
+        elif "duration" in ds.data_vars:
+            pop(ds, "duration")
 
         buf_list = self_copy._create_frames(data)
         out_obj, ext = self_copy._write_rendered(buf_list, durations)
