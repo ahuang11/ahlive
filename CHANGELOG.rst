@@ -18,6 +18,9 @@ new features
 - Add `tiles`, `zoom`, and allow passing cartopy.crs + cartopy.feature instances to geographic params (:pull:`62`).
   By `Andrew Huang <https://github.com/ahuang11>`_
 
+- Add `morph` preset (:pull:`76`).
+  By `Andrew Huang <https://github.com/ahuang11>`_
+
 documentation
 ~~~~~~~~~~~~~
 

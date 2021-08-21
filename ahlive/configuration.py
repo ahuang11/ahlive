@@ -183,7 +183,8 @@ CHARTS["all"] = CHARTS["basic"] + CHARTS["grid"] + CHARTS["ref"]
 
 PRESETS = {
     "none": [None],
-    "scatter": ["trail"],
+    "line": ["morph"],
+    "scatter": ["trail", "morph"],
     **{chart: ["race", "delta", "series"] for chart in ["bar", "barh"]},
     **{chart: ["rotate", "scan_x", "scan_y"] for chart in CHARTS["grid"]},
 }

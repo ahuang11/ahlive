@@ -189,7 +189,7 @@ class Data(Easing, Animation, Configuration):
 
     num_rows = param.Integer(doc="Number of rows", **DEFAULTS["num_kwds"])
     num_cols = param.Integer(doc="Number of cols", **DEFAULTS["num_kwds"])
-    num_states = param.Integer(doc="Number of states", **DEFAULTS["num_kwds"])
+
     configurables = param.Dict(
         default={},
         doc="Possible configuration keys",
@@ -414,6 +414,23 @@ class Data(Easing, Animation, Configuration):
             ds["y_discrete_trail"] = ds["y"].copy()
         return ds
 
+    @staticmethod
+    def _config_wave_chart(ds):
+        label_ds_list = []
+        for label, label_ds in ds.groupby("label"):
+            label_ds = label_ds.rename({"state": "batch", "item": "state"})
+            label_ds["state"] = srange(label_ds["state"])
+            if len(label_ds["state"]) == 1:
+                label_ds = label_ds.squeeze("state", drop=True)
+            label_ds_list.append(label_ds)
+
+        ds = xr.concat(label_ds_list, "item")
+        if "state" not in ds.dims:
+            ds = ds.drop("state", errors="ignore").expand_dims("state")
+        ds["item"] = srange(ds["item"])
+        ds = ds.transpose("item", "batch", "state")
+        return ds
+
     def _config_grid_axes(self, ds, chart):
         if self.style == "bare":
             ds.attrs["grid_kwds"]["b"] = ds.attrs["grid_kwds"].get("b", False)
@@ -456,6 +473,8 @@ class Data(Easing, Animation, Configuration):
             ds = self._config_bar_chart(ds, preset)
         elif preset == "trail":
             ds = self._config_trail_chart(ds)
+        elif preset == "morph":
+            ds = self._config_wave_chart(ds)
         ds = self._config_grid_axes(ds, chart)
         ds = self._config_legend(ds)
         return ds
@@ -663,19 +682,25 @@ class Data(Easing, Animation, Configuration):
             return da
 
         item_dim = _get_item_dim(da)
-        if item_dim and len(da[item_dim]) > 1:
+        if item_dim and len(da[item_dim]) > 2:
             return da
 
-        vals = da.values
-        unique_vals = np.unique(vals[~pd.isnull(vals)])
-        if len(unique_vals) == 1 and len(vals) > 1:
-            dim = da.dims[0]
-            if dim != "state":
-                item = da[dim][0]
-                return xr.DataArray(unique_vals[0], dims=(dim,), coords={dim: [item]})
+        vals = da.values.ravel()
+        try:
+            unique_vals = np.unique(vals[~pd.isnull(vals)])
+
+            items = da[item_dim].values
+            if len(unique_vals) == 1 and len(vals) > 1 and len(items) == 1:
+                dim = da.dims[0]
+                if dim != "state":
+                    return xr.DataArray(
+                        unique_vals[0], dims=(item_dim,), coords={dim: [items[0]]}
+                    )
+                else:
+                    return unique_vals[0]
             else:
-                return unique_vals[0]
-        else:
+                return da
+        except Exception:
             return da
 
     @staticmethod
@@ -685,7 +710,7 @@ class Data(Easing, Animation, Configuration):
                 if set(np.unique(ds["label"])) == set(np.unique(ds["x"])):
                     ds.attrs["legend_kwds"]["show"] = False
 
-        if "c" in ds:
+        if "c" in ds and np.issubdtype(ds["c"], np.number):
             c_var = "c"
             plot_key = "plot_kwds"
         else:
@@ -1174,7 +1199,6 @@ class Data(Easing, Animation, Configuration):
             ds = self_copy._add_figsize(ds)
             ds = self_copy._fill_null(ds)
             ds = self_copy._add_xy01_limits(ds, chart)
-            ds = self_copy._compress_vars(ds)
             ds = self_copy._add_color_kwds(ds, chart)
             ds = self_copy._add_margins(ds)
             ds = self_copy._add_durations(ds)
@@ -1185,6 +1209,7 @@ class Data(Easing, Animation, Configuration):
             ds = self_copy._add_geo_transforms(ds)  # after interp
             ds = self_copy._add_geo_features(ds)
             ds = self_copy._add_animate_kwds(ds)
+            ds = self_copy._compress_vars(ds)
             ds.attrs["finalized"] = True
             data[rowcol] = ds
 

@@ -27,7 +27,6 @@ from ahlive.tests.test_configuration import (  # noqa: F401
     ah_array2,
 )
 from ahlive.tests.test_util import assert_attrs, assert_types, assert_values
-from ahlive.util import is_scalar
 
 
 @pytest.mark.parametrize("container", CONTAINERS)
@@ -522,12 +521,6 @@ def test_add_color_kwds_none():
     assert not attrs["colorbar_kwds"]
 
 
-def test_compress_var():
-    ah_obj = (ah_array2 * ah_array1).finalize()
-    ds = ah_obj[1, 1]
-    assert is_scalar(ds["xlim0"])
-
-
 def test_precompute_base_ticks_numeric():
     ah_obj = ah.Array([0.01, 0.02, 1], [5, 6, 7]).finalize()
     attrs = ah_obj.attrs
@@ -587,15 +580,15 @@ def test_precompute_base_size():
 def test_add_margins_xlims():
     ah_obj = ah.Array([0, 1, 2], [3, 4, 5], xlim0s=0, xlim1s=2, xmargins=1).finalize()
     ds = ah_obj[1, 1]
-    assert ds["xlim0"] == -2
-    assert ds["xlim1"] == 4
+    assert (ds["xlim0"] == -2).all()
+    assert (ds["xlim1"] == 4).all()
 
 
 def test_add_margins_ylims():
     ah_obj = ah.Array([0, 1, 2], [3, 4, 5], ylim0s=3, ylim1s=5, ymargins=1).finalize()
     ds = ah_obj[1, 1]
-    assert ds["ylim0"] == -2
-    assert ds["ylim1"] == 10
+    assert (ds["ylim0"] == -2).all()
+    assert (ds["ylim1"] == 10).all()
 
 
 def test_add_durations_default():
@@ -819,3 +812,24 @@ def test_geo_default_coastline(crs, tiles):
         assert len(ds.attrs["coastline_kwds"]) == 0
     elif crs:
         assert len(ds.attrs["coastline_kwds"]) == 1
+
+
+@pytest.mark.parametrize("how", ["even", "uneven"])
+def test_config_wave_chart(how):
+    x = [0, 1, 2, 3, 4]
+    y1 = [4, 5, 6, 7, 8]
+    y2 = [8, 4, 2, 3, 4]
+    ah_obj = (
+        ah.Array(x, y1, preset="morph", chart="line", label="A", group="C")
+        * ah.Array(x, y2, chart="line", label="A", group="C")
+        * ah.Array(x, y2, label="B", group="C")
+    )
+    if how == "even":
+        ah_obj *= ah.Array(x, y1, chart="line", label="B", group="C")
+    ah_obj = ah_obj.finalize()
+    ds = ah_obj[1, 1]
+    assert len(ds["item"] == 2)
+    assert len(ds["batch"] == 5)
+    assert len(ds["state"] == 30)
+    assert (ds["label"].values == ["A", "B"]).all()
+    assert (ds["group"].values == ["C", "C"]).all()
