@@ -651,6 +651,7 @@ class Animation(param.Parameterized):
             return zip([""], [data])
 
     def _get_iter_ds(self, state_ds):
+        preset = state_ds.attrs["preset_kwds"].get("preset")
         if len(state_ds.data_vars) == 0:
             return zip([], []), -1
         elif any(group for group in to_1d(state_ds["group"])):
@@ -659,7 +660,10 @@ class Animation(param.Parameterized):
             key = "label"
         else:
             state_ds = state_ds.drop_vars("group", errors="ignore")
-            get = -1
+            if preset == "morph":
+                get = None
+            else:
+                get = -1
             key = "item"
         iter_ds = self._groupby_key(state_ds, key)
         return iter_ds, get
@@ -1430,12 +1434,12 @@ class Animation(param.Parameterized):
                 preset = ds.attrs["preset_kwds"].get("preset")
                 is_stateless = "state" not in ds.dims
                 is_line = np.any(ds.get("chart", "") == "line")
-                is_wave = preset == "wave"
+                is_morph = preset == "morph"
                 is_trail = preset == "trail"
                 is_series = preset == "series"
                 if is_stateless:
                     ds_sel = ds
-                elif (is_line and not is_wave) or is_trail or is_series:
+                elif (is_line and not is_morph) or is_trail or is_series:
                     ds_sel = ds.sel(state=slice(None, state))
                     # this makes legend labels appear in order if values exist
                     if "item" in ds_sel.dims:

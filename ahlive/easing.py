@@ -40,6 +40,7 @@ class Easing(param.Parameterized):
         precedence=PRECEDENCES["interp"],
     )
 
+    num_states = param.Integer(doc="Number of states", **DEFAULTS["num_kwds"])
     num_steps = param.Integer(
         doc="Number of frames between each base state", **DEFAULTS["num_kwds"]
     )
@@ -48,173 +49,136 @@ class Easing(param.Parameterized):
         super().__init__(**kwds)
 
     def interpolate(self, da, name=""):
-        interp = self.interp
-        if interp is None:
-            interp = "cubic"
+        interp = self.interp or "cubic"
         ease = self.ease
-        frames = self.frames
-        revert = self.revert
-        is_xarray = isinstance(da, xr.DataArray)
+
         da_origin = da.copy()
+
+        is_xarray = isinstance(da, xr.DataArray)
         if is_xarray:
-            name = da.name
             if "state" not in da.dims:
                 return da_origin
+            da, name, dims, coords, interp, ease = self._prep_xarray(da)
 
-            for item_dim in da.dims:
-                if "item" in item_dim:
-                    da = da.transpose(item_dim, "batch", "state", ...)
-                    break
+        array = self._prep_array(da)
 
-            frames = da.attrs.get("frames", None)
-            revert = da.attrs.get("revert", None)
-            interp = da.attrs.get("interp", None)
-            ease = da.attrs.get("ease", None)
+        num_items, num_states, num_steps, num_result = self._calc_shapes(array)
+        if num_steps == 1 and self.revert is None:
+            return da_origin
 
-            if da.ndim > 2 and "batch" not in da.dims:  # more than (item, state)
+        steps = np.linspace(0, 1, num_steps)
+        interp_args = (steps, interp, ease, num_states, num_steps, num_items)
+        array_dtype = array.dtype
+        if name == "duration":
+            result = self._interp_duration(array, num_states, num_steps, num_result)
+        elif interp == "fill" or name.endswith(("zoom", "discrete_trail")):
+            result = self._interp_fill(array, num_states, num_steps, name)
+        elif np.issubdtype(array_dtype, np.datetime64):
+            result = self._interp_time(array, pd.to_datetime, *interp_args)
+        elif np.issubdtype(array_dtype, np.timedelta64):
+            result = self._interp_time(array, pd.to_timedelta, *interp_args)
+        elif np.issubdtype(array_dtype, np.number):
+            if name == "central_longitude":
+                interp = "linear"
+            result = self._interp_numeric(array, *interp_args)
+        elif name in "c":  # must be after number
+            result = self._interp_color(array, num_result)
+        else:  # str
+            result = self._interp_text(array, num_states, num_steps, num_result)
+
+        if self.revert in ["traceback", "rollback"]:
+            result = self._apply_revert(result, name)
+
+        if is_xarray:
+            result = self._rebuild_da(result, da, dims, coords)
+
+        return result
+
+    def _prep_xarray(self, da):
+        name = da.name
+        interp = da.attrs.get("interp")
+        ease = da.attrs.get("ease")
+
+        for item_dim in da.dims:
+            if "item" in item_dim:
+                da = da.transpose(
+                    item_dim, "batch", "state", ..., missing_dims="ignore"
+                )
+                break
+
+        dims = da.dims
+        if da.ndim > 2:  # more than (item, state)
+            if "grid_item" in dims:
                 da = da.stack({"stacked": ["grid_item", "grid_y", "grid_x"]})
-                da = da.transpose("stacked", "state")
-            coords = da.drop_vars("state", errors="ignore").coords
+            elif "batch" in dims:
+                da = da.stack({"stacked": ["item", "batch"]})
+            da = da.transpose("stacked", "state")
+        coords = da.drop_vars("state", errors="ignore").coords
+        return da, name, dims, coords, interp, ease
 
+    def _prep_array(self, da):
         array = np.array(da)
+
         if array.ndim == 1:
-            array = array.reshape(-1, len(array))
-        if revert == "boomerang":
+            array = array[np.newaxis, :]
+
+        if self.revert == "boomerang":
             array = np.hstack([array, array[:, :1]])
 
-        if array.ndim > 2:
-            num_items, num_batches, num_states = array.shape
-        else:
-            num_items, num_states = array.shape
-            num_batches = 0
+        return array
 
-        if frames is None:
+    def _calc_shapes(self, array):
+        num_items, num_states = array.shape
+
+        if self.frames is None:
             if num_states < 10:
                 num_steps = int(np.ceil(60 / num_states))
             else:
                 num_steps = int(np.ceil(100 / num_states))
         else:
-            num_steps = frames
+            num_steps = self.frames
 
         with param.edit_constant(self):
             self.num_steps = num_steps
 
-        if num_batches > 0:
-            new_shape = (num_items, num_batches, -1)
-        else:
-            new_shape = (num_items, -1)
-
-        has_revert = isinstance(revert, int) or revert is not None
-        if num_steps == 1 and not has_revert:
-            return da_origin
-
-        steps = np.linspace(0, 1, num_steps)
         num_result = (num_states - 1) * num_steps
-        if name in ["duration", "root"]:
-            result = np.full(num_result, 0.0)
-            indices = np.arange(num_states) * num_steps
-            indices[-1] -= 1
-            result[indices] = array[0]  # (1, num_states)
-            result = result.reshape(1, -1)
-        elif interp == "fill" or name.endswith(("zoom", "discrete_trail")):
-            result = self._fill(array, num_states, num_steps)
-            if interp == "fill" or name == "zoom":
-                result = result.ffill(axis=1)
-                result.iloc[:, -1] = array[:, -1]
-            result = result.values
-        elif "remark" in name:
-            result = self._fill(array, num_states, num_steps).fillna("").values
-            result[:, -1] = array[:, -1]
-        elif np.issubdtype(array.dtype, np.datetime64):
-            array = array.astype(float)
-            result = self._interp(
-                array,
-                steps,
-                interp,
-                ease,
-                num_states,
-                num_steps,
-                num_items,
-                num_batches,
-                new_shape,
-            )
-            result = pd.to_datetime(result.ravel()).values
-            result = result.reshape(new_shape)
-        elif np.issubdtype(array.dtype, np.timedelta64):
-            array = array.astype(float)
-            result = self._interp(
-                array,
-                steps,
-                interp,
-                ease,
-                num_states,
-                num_steps,
-                num_items,
-                num_batches,
-                new_shape,
-            )
-            result = pd.to_timedelta(result.ravel()).values
-            result = result.reshape(new_shape)
-        elif np.issubdtype(array.dtype, np.number):
-            if name == "central_longitude":
-                interp = "linear"
-            result = self._interp(
-                array,
-                steps,
-                interp,
-                ease,
-                num_states,
-                num_steps,
-                num_items,
-                num_batches,
-                new_shape,
-            )
-        elif name in "c":
-            results = []
-            for colors in array:
-                cmap = LinearSegmentedColormap.from_list("eased", colors)
-                results.append([rgb2hex(rgb) for rgb in cmap(np.arange(num_steps))])
-            result = np.array(results)
+        return num_items, num_states, num_steps, num_result
+
+    def _apply_revert(self, result, name):
+        if result.ndim == 1:
+            result_back = result[::-1]
         else:
-            result = np.repeat(array, num_steps, axis=-1)
-            num_roll = -int(np.ceil(num_steps / num_states * 2))
-            if num_states > 2:
-                result = np.roll(result, num_roll, axis=-1)
-                result = result[:, :num_result]
-            else:
-                half_way = int(num_result / 2)
-                result = result[:, half_way:-half_way]
-                if num_steps % 2 != 0:
-                    result = result[:, :-1]
+            result_back = result[:, ::-1]
+        if name == "duration" and self.revert == "rollback":
+            result_back = np.repeat(1 / 60, result_back.shape[-1])[np.newaxis, :]
+        result = np.hstack([result, result_back])
+        return result
 
-        if revert in ["traceback", "rollback"]:
-            if result.ndim == 1:
-                result_back = result[::-1]
-            else:
-                result_back = result[:, ::-1]
-            if name == "duration" and revert == "rollback":
-                result_back = np.repeat(1 / 60, result_back.shape[-1]).reshape(1, -1)
-            result = np.hstack([result, result_back])
+    def _rebuild_da(self, result, da, dims, coords):
+        if len(dims) == 1:
+            result = result.squeeze()
+        result = xr.DataArray(
+            result,
+            dims=da.dims,
+            coords=coords,
+            name=da.name,
+            attrs=da.attrs,
+        )
+        if "stacked" in result.dims:
+            result = result.unstack().transpose(*dims)
+        return result
 
-        if is_xarray:
-            if len(da.dims) == 1:
-                result = result.squeeze()
-            da_result = xr.DataArray(
-                result,
-                dims=da.dims,
-                coords=coords,
-                name=da.name,
-                attrs=da.attrs,
-            )
-            if "stacked" in da_result.dims:
-                da_result = da_result.unstack()
-            return da_result
-        else:
-            return result
+    def _interp_duration(self, array, num_states, num_steps, num_result):
+        result = np.full(num_result, 0.0)
+        indices = np.arange(num_states) * num_steps
+        indices[-1] -= 1
+        result[indices] = array[0]  # (1, num_states)
+        result = result[np.newaxis, :]
+        return result
 
-    def _fill(self, array, num_states, num_steps):
+    def _interp_fill(self, array, num_states, num_steps, name):
         indices = np.arange(num_states * num_steps - num_steps)
-        return (
+        result = (
             pd.DataFrame(
                 array,
                 columns=np.arange(0, num_states * num_steps, num_steps),
@@ -222,25 +186,56 @@ class Easing(param.Parameterized):
             .T.reindex(indices)
             .T
         )
+        if name == "zoom" or "remark" in name:
+            result = result.ffill(axis=1).fillna("").values
+            result[:, -1] = array[:, -1]
+        else:
+            result = result.values
+        return result
 
-    def _interp(
-        self,
-        array,
-        steps,
-        interp,
-        ease,
-        num_states,
-        num_steps,
-        num_batches,
-        num_items,
-        new_shape,
+    def _interp_color(self, array, num_result):
+        results = []
+        for colors in array:  # item, state
+            cmap = LinearSegmentedColormap.from_list("eased", colors, N=num_result)
+            results.append([rgb2hex(rgb) for rgb in cmap(np.arange(num_result))])
+        result = np.array(results)
+        return result
+
+    def _interp_text(self, array, num_states, num_steps, num_result):
+        result = np.repeat(array, num_steps, axis=-1)
+        num_roll = -int(np.ceil(num_steps / num_states * 2))
+        if num_states > 2:
+            result = np.roll(result, num_roll, axis=-1)
+            result = result[:, :num_result]
+        else:
+            half_way = int(num_result / 2)
+            result = result[:, half_way:-half_way]
+            if num_steps % 2 != 0:
+                result = result[:, :-1]
+        return result
+
+    def _interp_time(
+        self, array, conversion, steps, interp, ease, num_states, num_steps, num_items
     ):
-        init = np.repeat(array[:, :, :-1], num_steps, axis=-1)
+        array = array.astype(float)
+        result = self._interp_numeric(
+            array, steps, interp, ease, num_states, num_steps, num_items
+        )
+        result = conversion(result.ravel()).values
+        result = result.reshape(num_items, -1)
+        return result
+
+    def _interp_numeric(
+        self, array, steps, interp, ease, num_states, num_steps, num_items
+    ):
+        init = np.repeat(array[:, :-1], num_steps, axis=-1)
         init_nans = np.isnan(init)
         init[init_nans] = 0  # temporarily fill the nans
-        stop = np.repeat(array[:, :, 1:], num_steps, axis=-1)
+        stop = np.repeat(array[:, 1:], num_steps, axis=-1)
         stop_nans = np.isnan(stop)
-        tiled_steps = np.tile(steps, (num_states - 1) * num_items).reshape(*new_shape)
+        tiled_steps = np.tile(steps, (num_states - 1) * num_items).reshape(
+            num_items, -1
+        )
         weights = getattr(self, f"_{interp.lower()}")(tiled_steps, ease)
         result = stop * weights + init * (1 - weights)
         result[init_nans | stop_nans] = np.nan  # replace nans
