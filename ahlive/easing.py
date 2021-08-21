@@ -101,9 +101,10 @@ class Easing(param.Parameterized):
 
         for item_dim in da.dims:
             if "item" in item_dim:
-                da = da.transpose(
-                    item_dim, "batch", "state", ..., missing_dims="ignore"
-                )
+                if "batch" in da.dims:
+                    da = da.transpose(item_dim, "batch", "state", ...)
+                else:
+                    da = da.transpose(item_dim, "state", ...)
                 break
 
         dims = da.dims
