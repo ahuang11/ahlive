@@ -69,8 +69,8 @@ class Easing(param.Parameterized):
         steps = np.linspace(0, 1, num_steps)
         interp_args = (steps, interp, ease, num_states, num_steps, num_items)
         array_dtype = array.dtype
-        if name == "duration":
-            result = self._interp_duration(array, num_states, num_steps, num_result)
+        if name in ["duration", "remark"]:
+            result = self._interp_first(array, num_states, num_steps, num_items, num_result, name)
         elif interp == "fill" or name.endswith(("zoom", "discrete_trail")):
             result = self._interp_fill(array, num_states, num_steps, name)
         elif np.issubdtype(array_dtype, np.datetime64):
@@ -169,12 +169,12 @@ class Easing(param.Parameterized):
             result = result.unstack().transpose(*dims)
         return result
 
-    def _interp_duration(self, array, num_states, num_steps, num_result):
-        result = np.full(num_result, 0.0)
+    def _interp_first(self, array, num_states, num_steps, num_items, num_result, name):
+        fill = 0.0 if name != "remark" else ""
+        result = np.full((num_items, num_result), fill)
         indices = np.arange(num_states) * num_steps
         indices[-1] -= 1
-        result[indices] = array[0]  # (1, num_states)
-        result = result[np.newaxis, :]
+        result[:, indices] = array  # (1, num_states)
         return result
 
     def _interp_fill(self, array, num_states, num_steps, name):
@@ -187,7 +187,7 @@ class Easing(param.Parameterized):
             .T.reindex(indices)
             .T
         )
-        if name == "zoom" or "remark" in name:
+        if name == "zoom":
             result = result.ffill(axis=1).fillna("").values
             result[:, -1] = array[:, -1]
         else:

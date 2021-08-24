@@ -833,3 +833,46 @@ def test_config_wave_chart(how):
     assert len(ds["state"] == 30)
     assert (ds["label"].values == ["A", "B"]).all()
     assert (ds["group"].values == ["C", "C"]).all()
+
+
+@pytest.mark.parametrize("dtype", ["numeric", "datetime"])
+@pytest.mark.parametrize("chart", ["line", "scatter"])
+@pytest.mark.parametrize("first", [False, True])
+def test_remark(dtype, chart, first):
+    if dtype == "numeric":
+        x = np.array([0., 1, 1, 3])
+        xs_condition = [0, 1]
+    elif dtype == "datetime":
+        x = pd.to_datetime(["2017-02-01", "2017-02-02", "2017-02-02", "2017-02-03"]).values
+        xs_condition = pd.to_datetime(["2017-02-01", "2017-02-02"])
+    y = [4, 5, 6, 7]
+
+    ah_obj = ah.Array(
+        x, y, chart=chart
+    ).remark(
+        "x", xs=xs_condition
+    ).remark(
+        "abcdef", ys=7
+    )
+    ds = ah_obj[1, 1]
+    remarks = ds["remark"].squeeze().values
+    assert ds["remark"].ndim == 2
+    if not first:
+        assert (remarks[:3] == x[:3].astype(str)).all()
+        assert (remarks[-1] == "abcdef")
+    else:
+        assert (remarks[:2] == x[:2].astype(str)).all()
+        assert (remarks[-1] == "abcdef")
+
+
+def test_remark_overlay():
+    x = np.array([0, 1, 1, 3])
+    y1 = [4, 5, 6, 7]
+    y2 = [8, 9, 10, 11]
+
+    ah_obj = ah.Array(x, y1) * ah.Array(x, y2)
+    ah_obj = ah_obj.remark("abc", ys=[4, 11])
+    ds = ah_obj[1, 1]
+    remarks = ds["remark"]
+    assert remarks.isel(item=0, state=0).item() == "abc"
+    assert remarks.isel(item=1, state=-1).item() == "abc"

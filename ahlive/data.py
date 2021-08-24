@@ -687,10 +687,11 @@ class Data(Easing, Animation, Configuration):
 
         vals = da.values.ravel()
         try:
-            unique_vals = np.unique(vals[~pd.isnull(vals)])
+            null_vals = pd.isnull(vals)
+            unique_vals = np.unique(vals[~null_vals])
 
             items = da[item_dim].values
-            if len(unique_vals) == 1 and len(vals) > 1 and len(items) == 1:
+            if len(unique_vals) == 1 and len(vals) > 1 and len(items) == 1 and len(null_vals) == 0:
                 dim = da.dims[0]
                 if dim != "state":
                     return xr.DataArray(
@@ -1526,34 +1527,40 @@ class RemarkArray(param.Parameterized):
         self.configurables["remark"] = CONFIGURABLES["remark"]
 
     def _match_values(self, da, values, first, rtol, atol):
-        if is_datetime(da):
-            values = pd.to_datetime(values)
-        values = to_1d(values)
-        if first:
-            # + 1 because state starts counting at 1
-            return xr.concat(
-                (da["state"] == (da >= value).argmax() + 1 for value in values),
-                "stack",
-            ).sum("stack")
+        if is_datetime(da) or is_timedelta(da):
+            da = da.astype(float)
+            if hasattr(values, "values"):
+                values = values.values
+            values = values.astype(float)
+        values = np.array(to_1d(values))  # np.array required or else crash
+
         try:
-            rtol = rtol or 1e-05
-            atol = atol or 1e-08
-            return xr.concat(
-                (
-                    da.where(
-                        xr.DataArray(
-                            np.isclose(da, value, rtol=rtol, atol=atol),
-                            dims=da.dims,
+            diff = np.abs(
+                da.expand_dims("match").transpose(..., "match") - values
+            )
+            ctol = (atol + rtol * np.abs(values))  # combined tol
+            condition = (diff <= ctol).any("match")
+
+            if first:
+                # + 1 because state starts counting at 1
+                da_masked = da.where(condition)
+                for value in values:
+                    test = (da_masked >= value).argmax("state")
+                condition = xr.concat(
+                    (
+                        da_masked.where(
+                            da_masked["state"] == (da_masked >= value).argmax("state") + 1
                         )
-                    )
-                    for value in to_1d(values)
-                ),
-                "stack",
-            ).sum("stack")
+                        for value in values
+                    ),
+                    "match",
+                ).sum("match")
         except TypeError as e:
             if self.debug:
                 warnings.warn(e)
-            return da.isin(values)
+            condition = da.isin(values)
+
+        return condition
 
     def remark(
         self,
@@ -1566,8 +1573,8 @@ class RemarkArray(param.Parameterized):
         state_labels=None,
         inline_labels=None,
         first=False,
-        rtol=None,
-        atol=None,
+        rtol=1e-8,
+        atol=1e-5,
         rowcols=None,
     ):
         args = (xs, ys, cs, state_labels, inline_labels, condition)
@@ -1626,6 +1633,8 @@ class RemarkArray(param.Parameterized):
                         DIMS["basic"],
                         np.full((len(ds["item"].values), len(ds["state"])), ""),
                     )
+
+                to_dtype = None
                 if isinstance(remarks, str):
                     if remarks in ds.data_vars:
                         remarks = ds[remarks].astype(str)
@@ -1645,7 +1654,7 @@ class RemarkArray(param.Parameterized):
                 if "item" in ds["duration"].dims:
                     ds["duration"] = ds["duration"].max("item")
 
-            data[rowcol] = ds
+            data[rowcol] = ds.transpose(..., "state")
         self_copy.data = data
         return self_copy
 
