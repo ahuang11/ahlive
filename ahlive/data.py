@@ -1547,8 +1547,6 @@ class RemarkArray(param.Parameterized):
             if first:
                 # + 1 because state starts counting at 1
                 da_masked = da.where(condition)
-                for value in values:
-                    test = (da_masked >= value).argmax("state")
                 condition = xr.concat(
                     (
                         da_masked.where(
@@ -1638,7 +1636,6 @@ class RemarkArray(param.Parameterized):
                         np.full((len(ds["item"].values), len(ds["state"])), ""),
                     )
 
-                to_dtype = None
                 if isinstance(remarks, str):
                     if remarks in ds.data_vars:
                         remarks = ds[remarks].astype(str)
