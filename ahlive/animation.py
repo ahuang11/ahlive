@@ -232,7 +232,9 @@ class Animation(param.Parameterized):
                     label = f"{label:{format_}}"
                 except (ValueError, TypeError) as e:
                     if not pd.isnull(label):
-                        warnings.warn(f"Could not apply {format_} on {label} due to {e}")
+                        warnings.warn(
+                            f"Could not apply {format_} on {label} due to {e}"
+                        )
             else:
                 kwds["format"] = format_
 

@@ -70,7 +70,9 @@ class Easing(param.Parameterized):
         interp_args = (steps, interp, ease, num_states, num_steps, num_items)
         array_dtype = array.dtype
         if name in ["duration", "remark"]:
-            result = self._interp_first(array, num_states, num_steps, num_items, num_result, name)
+            result = self._interp_first(
+                array, num_states, num_steps, num_items, num_result, name
+            )
         elif interp == "fill" or name.endswith(("zoom", "discrete_trail")):
             result = self._interp_fill(array, num_states, num_steps, name)
         elif np.issubdtype(array_dtype, np.datetime64):

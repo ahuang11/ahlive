@@ -691,7 +691,12 @@ class Data(Easing, Animation, Configuration):
             unique_vals = np.unique(vals[~null_vals])
 
             items = da[item_dim].values
-            if len(unique_vals) == 1 and len(vals) > 1 and len(items) == 1 and len(null_vals) == 0:
+            if (
+                len(unique_vals) == 1
+                and len(vals) > 1
+                and len(items) == 1
+                and len(null_vals) == 0
+            ):
                 dim = da.dims[0]
                 if dim != "state":
                     return xr.DataArray(
@@ -1535,10 +1540,8 @@ class RemarkArray(param.Parameterized):
         values = np.array(to_1d(values))  # np.array required or else crash
 
         try:
-            diff = np.abs(
-                da.expand_dims("match").transpose(..., "match") - values
-            )
-            ctol = (atol + rtol * np.abs(values))  # combined tol
+            diff = np.abs(da.expand_dims("match").transpose(..., "match") - values)
+            ctol = atol + rtol * np.abs(values)  # combined tol
             condition = (diff <= ctol).any("match")
 
             if first:
@@ -1549,7 +1552,8 @@ class RemarkArray(param.Parameterized):
                 condition = xr.concat(
                     (
                         da_masked.where(
-                            da_masked["state"] == (da_masked >= value).argmax("state") + 1
+                            da_masked["state"]
+                            == (da_masked >= value).argmax("state") + 1
                         )
                         for value in values
                     ),
