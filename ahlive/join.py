@@ -138,9 +138,14 @@ def _stack_data(data_list, join, rowcol):
         joined_ds["state"] = srange(joined_ds["state"])
         joined_ds = joined_ds.map(fillna, keep_attrs=True)
     elif join == "overlay":
-        joined_ds = _combine_ds_list(
-            ds_list, concat_dim=item_dim, method="combine_by_coords"
-        )
+        try:
+            joined_ds = _combine_ds_list(
+                ds_list, concat_dim=item_dim, method="concat"
+            )
+        except Exception:
+            joined_ds = _combine_ds_list(
+                ds_list, concat_dim=item_dim, method="combine_by_coords"
+            )
         joined_ds["state"] = srange(joined_ds["state"])
     else:
         joined_ds = _combine_ds_list(ds_list, method="merge")
