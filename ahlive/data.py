@@ -358,8 +358,7 @@ class Data(Easing, Animation, Configuration):
             other_rowcol, other_ds = other_items
             return self_items == other_items and self_ds.equals(other_ds)
 
-    @staticmethod
-    def _config_bar_chart(ds, preset):
+    def _config_bar_chart(self, ds, preset):
         if preset is None or preset == "series":
             if len(ds["item"]) == 1:
                 ds.attrs["preset_kwds"]["preset"] = "series"
@@ -391,7 +390,15 @@ class Data(Easing, Animation, Configuration):
             if ascending:
                 ds["y"] *= -1
         else:
-            ds["x"] = ds["x"].rank("item")
+            if not is_str(ds["x"]):
+                ds["x"] = ds["x"].rank("item")
+            else:
+                num_items = len(ds["item"])
+                xs = np.repeat(
+                    np.arange(num_items).reshape(1, -1), self.num_states
+                ).reshape(num_items, self.num_states)
+                ds["x"] = DIMS["basic"], xs
+
             if preset == "delta":
                 x_delta = ds["x"].diff("item").mean() / 2
                 ds["x_center"] = ds["x"] - x_delta
@@ -415,16 +422,16 @@ class Data(Easing, Animation, Configuration):
         return ds
 
     @staticmethod
-    def _config_wave_chart(ds):
-        label_ds_list = []
-        for label, label_ds in ds.groupby("label"):
-            label_ds = label_ds.rename({"state": "batch", "item": "state"})
-            label_ds["state"] = srange(label_ds["state"])
-            if len(label_ds["state"]) == 1:
-                label_ds = label_ds.squeeze("state", drop=True)
-            label_ds_list.append(label_ds)
+    def _config_moprh_chart(ds):
+        group_ds_list = []
+        for group, group_ds in ds.groupby("group"):
+            group_ds = group_ds.rename({"state": "batch", "item": "state"})
+            group_ds["state"] = srange(group_ds["state"])
+            if len(group_ds["state"]) == 1:
+                group_ds = group_ds.squeeze("state", drop=True)
+            group_ds_list.append(group_ds)
 
-        ds = xr.concat(label_ds_list, "item")
+        ds = xr.concat(group_ds_list, "item")
         if "state" not in ds.dims:
             ds = ds.drop("state", errors="ignore").expand_dims("state")
         ds["item"] = srange(ds["item"])
@@ -468,13 +475,13 @@ class Data(Easing, Animation, Configuration):
         return ds
 
     def _config_chart(self, ds, chart):
-        preset = ds.attrs["preset_kwds"].get("preset", "")
-        if chart.startswith("bar") or preset in PRESETS["bar"]:
+        preset = ds.attrs["preset_kwds"].get("preset")
+        if preset == "morph":
+            ds = self._config_moprh_chart(ds)
+        elif chart.startswith("bar") or preset in PRESETS["bar"]:
             ds = self._config_bar_chart(ds, preset)
         elif preset == "trail":
             ds = self._config_trail_chart(ds)
-        elif preset == "morph":
-            ds = self._config_wave_chart(ds)
         ds = self._config_grid_axes(ds, chart)
         ds = self._config_legend(ds)
         return ds
@@ -577,6 +584,7 @@ class Data(Easing, Animation, Configuration):
             else:
                 in_axes_kwds = False
             unset_limit = limit is None and not in_axes_kwds
+            auto_zero = False
             if in_axes_kwds:
                 limit = axes_kwds[axis_limit_key][num]
             elif unset_limit:
@@ -588,6 +596,7 @@ class Data(Easing, Animation, Configuration):
                 is_fixed = any([is_scatter, is_line_y, is_bar_y, has_other_limit])
                 if is_bar_y and is_lower_limit:
                     limit = "zero"
+                    auto_zero = True
                 elif is_bar_x:
                     continue
                 elif item_dim == "grid_item":
@@ -626,7 +635,11 @@ class Data(Easing, Animation, Configuration):
                     da = fillna(da, how="both")
 
                 if limit == "zero":
-                    limit = 0
+                    min_val = da.min().values
+                    if auto_zero and min_val < 0:
+                        limit = min_val
+                    else:
+                        limit = 0
                 elif limit == "fixed":
                     # fixed bounds, da.min()
                     stat = "min" if is_lower_limit else "max"
@@ -774,6 +787,7 @@ class Data(Easing, Animation, Configuration):
 
     @staticmethod
     def _precompute_base_ticks(ds, base_kwds):
+        # for x y c
         for xyc in ITEMS["axes"]:
             if xyc in ds:
                 if is_str(ds[xyc]):
@@ -793,12 +807,18 @@ class Data(Easing, Animation, Configuration):
                 ds.attrs[f"{xyc}ticks_kwds"]["is_datetime"] = is_datetime(ds[xyc])
         return ds, base_kwds
 
-    def _precompute_base_labels(self, ds, base_kwds):
+    def _precompute_base_labels(self, ds, chart, base_kwds):
+        # for inline_label, state_label, etc
         for key in ITEMS["base"]:
             key_label = f"{key}_label"
             base = None
             if key_label in ds:
                 try:
+                    # make bar width wide enough to be visible
+                    if chart.startswith("bar") and key_label == "bar_label":
+                        ds.attrs["plot_kwds"]["width"] = (
+                            ds[key_label].sortby("item").diff("item"))
+
                     if is_scalar(ds[key_label]):
                         base = np.nanmin(ds[key_label]) / 10
                     else:
@@ -818,10 +838,10 @@ class Data(Easing, Animation, Configuration):
                         warnings.warn(str(e))
         return ds, base_kwds
 
-    def _precompute_base(self, ds):
+    def _precompute_base(self, ds, chart):
         base_kwds = {}
         ds, base_kwds = self._precompute_base_ticks(ds, base_kwds)
-        ds, base_kwds = self._precompute_base_labels(ds, base_kwds)
+        ds, base_kwds = self._precompute_base_labels(ds, chart, base_kwds)
         for key in ["s"]:  # for the legend
             if key in ds:
                 base_kwds[key] = np.nanmedian(ds[key])
@@ -1209,7 +1229,7 @@ class Data(Easing, Animation, Configuration):
             ds = self_copy._add_margins(ds)
             ds = self_copy._add_durations(ds)
             ds = self_copy._config_chart(ds, chart)
-            ds = self_copy._precompute_base(ds)  # must be after config chart
+            ds = self_copy._precompute_base(ds, chart)  # must be after config chart
             ds = self_copy._add_geo_tiles(ds)  # before interp
             ds = self_copy._interp_dataset(ds)
             ds = self_copy._add_geo_transforms(ds)  # after interp
@@ -1936,6 +1956,8 @@ class DataStructure(Array):
     @staticmethod
     def _update_kwds(label_ds, keys, kwds, xs, ys, cs, label, join):
         kwds_updated = kwds.copy()
+
+        # get labels from kwds
         if kwds_updated.get("style") != "bare":
             if "xlabel" not in kwds:
                 kwds_updated["xlabel"] = str(xs).title()
@@ -1946,6 +1968,7 @@ class DataStructure(Array):
             if "title" not in kwds and join == "layout":
                 kwds_updated["title"] = label
 
+        # swap xlabel and ylabel
         if kwds_updated.get("chart") == "barh":
             kwds_updated["xlabel"], kwds_updated["ylabel"] = (
                 kwds_updated["ylabel"],

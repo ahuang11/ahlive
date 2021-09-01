@@ -185,7 +185,7 @@ PRESETS = {
     "none": [None],
     "line": ["morph"],
     "scatter": ["trail", "morph"],
-    **{chart: ["race", "delta", "series"] for chart in ["bar", "barh"]},
+    **{chart: ["race", "delta", "series", "morph"] for chart in ["bar", "barh"]},
     **{chart: ["rotate", "scan_x", "scan_y"] for chart in CHARTS["grid"]},
 }
 PRESETS["all"] = PRESETS["scatter"] + PRESETS["bar"] + PRESETS["pcolormesh"]
@@ -220,6 +220,8 @@ ITEMS = {
     "limit": ["xlim0s", "xlim1s", "ylim0s", "ylim1s", "xlims", "ylims"],
     "label": ["xlabel", "ylabel", "title", "subtitle"],
     "base": [
+        "bar",
+        "tick",
         "inline",
         "state",
         "delta",
@@ -438,7 +440,7 @@ DEFAULTS["savefig_kwds"] = {
     "format": "png",
     "backend": "agg",
     "facecolor": "white",
-    "transparent": False,
+    "transparent": False
 }
 
 DEFAULTS["compute_kwds"] = {

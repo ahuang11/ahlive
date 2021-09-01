@@ -185,7 +185,9 @@ class Animation(param.Parameterized):
             else:
                 return "%Y"
 
-        if num == 0 or np.isnan(num):
+        if num == 0:
+            return ".0f"
+        elif np.isnan(num):
             return ".1f"
 
         order_of_magnitude = int(np.floor(np.log10(abs(num))))
@@ -1263,13 +1265,15 @@ class Animation(param.Parameterized):
                 limit1 = len(xs) + 0.5
                 limit0 = limit1 - limit if limit is not None else -1
                 if chart == "bar":
-                    ax.set_xticks(xs)
-                    ax.set_xticklabels(xticks_labels)
+                    if xticks_labels is not None:
+                        ax.set_xticks(xs)
+                        ax.set_xticklabels(xticks_labels)
                     if limit0 >= 0:
                         ax.set_xlim(limit0, limit1)
                 elif chart == "barh":
-                    ax.set_yticks(xs)
-                    ax.set_yticklabels(yticks_labels)
+                    if yticks_labels is not None:
+                        ax.set_yticks(xs)
+                        ax.set_yticklabels(yticks_labels)
                     if limit0 >= 0:
                         ax.set_ylim(limit0, limit1)
             else:
