@@ -6,8 +6,8 @@ import param
 import xarray as xr
 from matplotlib.colors import LinearSegmentedColormap, rgb2hex
 
-from .util import is_str
 from .configuration import DEFAULTS, EASES, INTERPS, PRECEDENCES, REVERTS
+from .util import is_str
 
 
 class Easing(param.Parameterized):
@@ -74,7 +74,9 @@ class Easing(param.Parameterized):
             result = self._interp_first(
                 array, num_states, num_steps, num_items, num_result, name
             )
-        elif interp == "fill" or name.endswith(("zoom", "discrete_trail", "tick_label", "bar_label")):
+        elif interp == "fill" or name.endswith(
+            ("zoom", "discrete_trail", "tick_label", "bar_label")
+        ):
             result = self._interp_fill(array, num_states, num_steps, name)
         elif np.issubdtype(array_dtype, np.datetime64):
             result = self._interp_time(array, pd.to_datetime, *interp_args)

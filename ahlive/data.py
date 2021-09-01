@@ -817,7 +817,8 @@ class Data(Easing, Animation, Configuration):
                     # make bar width wide enough to be visible
                     if chart.startswith("bar") and key_label == "bar_label":
                         ds.attrs["plot_kwds"]["width"] = (
-                            ds[key_label].sortby("item").diff("item"))
+                            ds[key_label].sortby("item").diff("item")
+                        )
 
                     if is_scalar(ds[key_label]):
                         base = np.nanmin(ds[key_label]) / 10

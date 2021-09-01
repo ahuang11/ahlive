@@ -440,7 +440,7 @@ DEFAULTS["savefig_kwds"] = {
     "format": "png",
     "backend": "agg",
     "facecolor": "white",
-    "transparent": False
+    "transparent": False,
 }
 
 DEFAULTS["compute_kwds"] = {

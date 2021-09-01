@@ -73,7 +73,6 @@ def _drop_state(joined_ds):
 def _combine_ds_list(ds_list, method="concat", concat_dim="state", **kwds):
     joined_attrs = {}
 
-    num_states = set([])
     for ds in ds_list:
         item_dim = _get_item_dim(ds)
         for key, val in ds.attrs.items():
@@ -139,7 +138,9 @@ def _stack_data(data_list, join, rowcol):
         joined_ds["state"] = srange(joined_ds["state"])
         joined_ds = joined_ds.map(fillna, keep_attrs=True)
     elif join == "overlay":
-        joined_ds = _combine_ds_list(ds_list, concat_dim=item_dim, method="combine_by_coords")
+        joined_ds = _combine_ds_list(
+            ds_list, concat_dim=item_dim, method="combine_by_coords"
+        )
         joined_ds["state"] = srange(joined_ds["state"])
     else:
         joined_ds = _combine_ds_list(ds_list, method="merge")
