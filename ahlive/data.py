@@ -422,7 +422,7 @@ class Data(Easing, Animation, Configuration):
         return ds
 
     @staticmethod
-    def _config_moprh_chart(ds):
+    def _config_morph_chart(ds):
         group_ds_list = []
         for group, group_ds in ds.groupby("group"):
             group_ds = group_ds.rename({"state": "batch", "item": "state"})
@@ -477,7 +477,7 @@ class Data(Easing, Animation, Configuration):
     def _config_chart(self, ds, chart):
         preset = ds.attrs["preset_kwds"].get("preset")
         if preset == "morph":
-            ds = self._config_moprh_chart(ds)
+            ds = self._config_morph_chart(ds)
         elif chart.startswith("bar") or preset in PRESETS["bar"]:
             ds = self._config_bar_chart(ds, preset)
         elif preset == "trail":

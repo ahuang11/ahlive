@@ -237,7 +237,7 @@ def test_config_bar_chart(preset):
         assert (actual == expected).all()
     else:
         actual = ds["x"].values.ravel()
-        expected = [1, 1, 1, 2, 2, 2]
+        expected = [0, 0, 0, 1, 1, 1]
         assert (actual == expected).all()
 
     actual = ds["y"].values.ravel()
@@ -820,19 +820,18 @@ def test_config_wave_chart(how):
     y1 = [4, 5, 6, 7, 8]
     y2 = [8, 4, 2, 3, 4]
     ah_obj = (
-        ah.Array(x, y1, preset="morph", chart="line", label="A", group="C")
-        * ah.Array(x, y2, chart="line", label="A", group="C")
-        * ah.Array(x, y2, label="B", group="C")
+        ah.Array(x, y1, preset="morph", chart="line", group="A")
+        * ah.Array(x, y2, chart="line", group="A")
+        * ah.Array(x, y2, group="B")
     )
     if how == "even":
-        ah_obj *= ah.Array(x, y1, chart="line", label="B", group="C")
+        ah_obj *= ah.Array(x, y1, chart="line", group="B")
     ah_obj = ah_obj.finalize()
     ds = ah_obj[1, 1]
     assert len(ds["item"] == 2)
     assert len(ds["batch"] == 5)
     assert len(ds["state"] == 30)
-    assert (ds["label"].values == ["A", "B"]).all()
-    assert (ds["group"].values == ["C", "C"]).all()
+    assert (ds["group"].values == ["A", "B"]).all()
 
 
 @pytest.mark.parametrize("dtype", ["numeric", "datetime"])
