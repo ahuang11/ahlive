@@ -185,7 +185,9 @@ class Animation(param.Parameterized):
             else:
                 return "%Y"
 
-        if num == 0 or np.isnan(num):
+        if num == 0:
+            return ".0f"
+        elif np.isnan(num):
             return ".1f"
 
         order_of_magnitude = int(np.floor(np.log10(abs(num))))
@@ -214,7 +216,7 @@ class Animation(param.Parameterized):
             kwds = {key: val for key, val in kwds.items() if key in sub_kwds.keys()}
             return kwds
 
-        format_ = kwds.pop("format", "auto")
+        format_ = kwds.pop("format", "auto").lstrip(":")
         if base is not None and format_ == "auto":
             try:
                 format_ = self._get_base_format(base)
@@ -231,7 +233,10 @@ class Animation(param.Parameterized):
                 try:
                     label = f"{label:{format_}}"
                 except (ValueError, TypeError) as e:
-                    warnings.warn(f"Could not apply {format_} on {label} due to {e}")
+                    if not pd.isnull(label):
+                        warnings.warn(
+                            f"Could not apply {format_} on {label} due to {e}"
+                        )
             else:
                 kwds["format"] = format_
 
@@ -530,7 +535,13 @@ class Animation(param.Parameterized):
         for x, y, remark in zip(xs, ys, remarks):
             if remark == "":
                 continue
-            remark = to_num(remark)
+
+            try:
+                remark = pd.to_datetime(remark)
+            except TypeError:
+                if remark.isdigit():
+                    remark = float(remark)
+
             remark_inline_kwds = dict(
                 text=remark,
                 xy=(x, y),
@@ -1254,13 +1265,15 @@ class Animation(param.Parameterized):
                 limit1 = len(xs) + 0.5
                 limit0 = limit1 - limit if limit is not None else -1
                 if chart == "bar":
-                    ax.set_xticks(xs)
-                    ax.set_xticklabels(xticks_labels)
+                    if xticks_labels is not None:
+                        ax.set_xticks(xs)
+                        ax.set_xticklabels(xticks_labels)
                     if limit0 >= 0:
                         ax.set_xlim(limit0, limit1)
                 elif chart == "barh":
-                    ax.set_yticks(xs)
-                    ax.set_yticklabels(yticks_labels)
+                    if yticks_labels is not None:
+                        ax.set_yticks(xs)
+                        ax.set_yticklabels(yticks_labels)
                     if limit0 >= 0:
                         ax.set_ylim(limit0, limit1)
             else:

@@ -72,11 +72,13 @@ def _drop_state(joined_ds):
 
 def _combine_ds_list(ds_list, method="concat", concat_dim="state", **kwds):
     joined_attrs = {}
+
     for ds in ds_list:
         item_dim = _get_item_dim(ds)
-        for (key, val) in ds.attrs.items():
+        for key, val in ds.attrs.items():
             if key not in joined_attrs:
                 joined_attrs[key] = val
+
     if method == "concat":
         kwds["dim"] = concat_dim
     elif method == "combine_nested":
@@ -136,7 +138,12 @@ def _stack_data(data_list, join, rowcol):
         joined_ds["state"] = srange(joined_ds["state"])
         joined_ds = joined_ds.map(fillna, keep_attrs=True)
     elif join == "overlay":
-        joined_ds = _combine_ds_list(ds_list, concat_dim=item_dim, method="merge")
+        try:
+            joined_ds = _combine_ds_list(ds_list, concat_dim=item_dim, method="concat")
+        except Exception:
+            joined_ds = _combine_ds_list(
+                ds_list, concat_dim=item_dim, method="combine_by_coords"
+            )
         joined_ds["state"] = srange(joined_ds["state"])
     else:
         joined_ds = _combine_ds_list(ds_list, method="merge")
@@ -146,6 +153,7 @@ def _stack_data(data_list, join, rowcol):
 
     joined_ds = _drop_state(joined_ds).map(fillna, keep_attrs=True)
     joined_ds[item_dim] = srange(joined_ds[item_dim])
+    joined_ds = joined_ds.transpose(..., "state")
     return joined_ds
 
 
