@@ -175,8 +175,13 @@ class Easing(param.Parameterized):
         return result
 
     def _interp_first(self, array, num_states, num_steps, num_items, num_result, name):
-        fill = "" if is_str(array) else 0.0
-        result = np.full((num_items, num_result), fill)
+        if is_str(array):
+            fill = ""
+            dtype = np.object
+        else:
+            fill = 0.0
+            dtype = None
+        result = np.full((num_items, num_result), fill, dtype=dtype)
         indices = np.arange(num_states) * num_steps
         indices[-1] -= 1
         result[:, indices] = array  # (1, num_states)

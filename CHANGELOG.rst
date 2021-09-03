@@ -3,7 +3,7 @@
 Changelog
 ==========
 
-v0.1.0 (?)
+v1.0.0 (?)
 ----------
 
 new features
@@ -68,8 +68,12 @@ bug fixes
 - Move `_config_chart` before `_precompute_base` to fix automated preset text format (:pull:`76`).
   By `Andrew Huang <https://github.com/ahuang11>`_
 
-- Fix various issues: formatting, ease of use, use of `group` instead of `label` for `morph` preset, negative bar values, compressing vars, bar width, refactor of remarks, and interpolation of bar labels. (:pull:`76`).
+- Fix various issues: formatting, ease of use, use of `group` instead of `label` for `morph` preset, negative bar values, compressing vars, bar width, refactor of remarks, and interpolation of bar labels. (:pull:`77`).
   By `Andrew Huang <https://github.com/ahuang11>`_
+
+- Fix `remark` bugs and lower memory consumption in docs. (:pull:`78`)
+  By `Andrew Huang <https://github.com/ahuang11>`_
+
 
 internal changes
 ~~~~~~~~~~~~~~~~
