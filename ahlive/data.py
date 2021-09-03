@@ -1619,13 +1619,6 @@ class RemarkArray(param.Parameterized):
         if rowcols is None:
             rowcols = self.data.keys()
 
-        if first and condition is not None:
-            warnings.warn("Unable to use first with condition!")
-        if rtol is not None and condition is not None:
-            warnings.warn("Unable to use rtol with condition!")
-        if atol is not None and condition is not None:
-            warnings.warn("Unable to use atol with condition!")
-
         self_copy = self.copy()
         data = {}
         for rowcol, ds in self_copy.data.items():

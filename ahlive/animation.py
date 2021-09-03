@@ -538,7 +538,7 @@ class Animation(param.Parameterized):
 
             try:
                 remark = pd.to_datetime(remark)
-            except TypeError:
+            except Exception:
                 if remark.isdigit():
                     remark = float(remark)
 
