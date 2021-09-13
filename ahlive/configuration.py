@@ -185,7 +185,7 @@ PRESETS = {
     "none": [None],
     "line": ["morph"],
     "scatter": ["trail", "morph"],
-    **{chart: ["race", "delta", "series", "morph"] for chart in ["bar", "barh"]},
+    **{chart: ["stacked", "morph_stacked", "race", "delta", "morph"] for chart in ["bar", "barh"]},
     **{chart: ["rotate", "scan_x", "scan_y"] for chart in CHARTS["grid"]},
 }
 PRESETS["all"] = PRESETS["scatter"] + PRESETS["bar"] + PRESETS["pcolormesh"]
@@ -326,25 +326,6 @@ DEFAULTS["ref_plot_kwds"]["axhline"] = {"color": "darkgray", "linestyle": "--"}
 DEFAULTS["ref_plot_kwds"]["axvspan"] = {"color": "darkgray", "alpha": 0.45}
 DEFAULTS["ref_plot_kwds"]["axhspan"] = {"color": "darkgray", "alpha": 0.45}
 
-DEFAULTS["inline_kwds"] = DEFAULTS["label_kwds"].copy()
-DEFAULTS["inline_kwds"].update(
-    {"color": "darkgray", "textcoords": "offset points", "fontsize": SIZES["small"]}
-)
-DEFAULTS["ref_inline_kwds"] = DEFAULTS["inline_kwds"].copy()
-DEFAULTS["grid_inline_kwds"] = DEFAULTS["inline_kwds"].copy()
-DEFAULTS["preset_inline_kwds"] = DEFAULTS["inline_kwds"].copy()
-
-DEFAULTS["remark_inline_kwds"] = DEFAULTS["label_kwds"].copy()
-DEFAULTS["remark_inline_kwds"].update(
-    {
-        "fontsize": SIZES["small"],
-        "textcoords": "offset points",
-        "xytext": (1, -1),
-        "ha": "left",
-        "va": "top",
-    }
-)
-
 DEFAULTS["xlabel_kwds"] = DEFAULTS["label_kwds"].copy()
 DEFAULTS["xlabel_kwds"].update({"fontsize": SIZES["medium"]})
 
@@ -394,6 +375,21 @@ DEFAULTS["state_kwds"].update(
 
 DEFAULTS["inline_kwds"] = DEFAULTS["label_kwds"].copy()
 DEFAULTS["inline_kwds"].update({"textcoords": "offset points"})
+
+DEFAULTS["ref_inline_kwds"] = DEFAULTS["inline_kwds"].copy()
+DEFAULTS["grid_inline_kwds"] = DEFAULTS["inline_kwds"].copy()
+DEFAULTS["preset_inline_kwds"] = DEFAULTS["inline_kwds"].copy()
+
+DEFAULTS["remark_inline_kwds"] = DEFAULTS["label_kwds"].copy()
+DEFAULTS["remark_inline_kwds"].update(
+    {
+        "fontsize": SIZES["small"],
+        "textcoords": "offset points",
+        "xytext": (1, -1),
+        "ha": "left",
+        "va": "top",
+    }
+)
 
 DEFAULTS["legend_kwds"] = DEFAULTS["label_kwds"].copy()
 DEFAULTS["legend_kwds"].update({"framealpha": 0, "loc": "upper left"})

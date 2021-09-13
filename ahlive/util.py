@@ -11,7 +11,7 @@ from pandas.api.types import (
 )
 
 
-def to_1d(value, unique=False, flat=True):
+def to_1d(value, unique=False, flat=True, get=None):
     # pd.Series converts datetime to Timestamps
     if isinstance(value, xr.DataArray):
         value = value.values
@@ -22,8 +22,13 @@ def to_1d(value, unique=False, flat=True):
     elif is_timedelta(value):
         array = pd.to_timedelta(array).values
 
+    if array.ndim > 1 and get is not None:
+        array = array[get]
     if unique:
-        array = pd.unique(array)
+        try:
+            array = pd.unique(array)
+        except ValueError:
+            array = np.unique(array)
     if flat:
         array = array.flat
     return array

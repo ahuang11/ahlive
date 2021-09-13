@@ -220,16 +220,20 @@ def test_cols(num_cols):
             assert (2, 1) in ah_keys
 
 
-@pytest.mark.parametrize("preset", [None, "series", "race", "delta"])
-def test_config_bar_chart(preset):
-    x = ["a", "a", "b", "b", "b"]
+@pytest.mark.parametrize("preset", [None, "stacked", "race", "delta"])
+@pytest.mark.parametrize("x_type", [None, "string"])
+def test_config_bar_chart(preset, x_type):
+    x = [1, 1, 2, 2, 2]
     y = [4, 5, 3, 8, 10]
+
+    if x_type == "string":
+        x = np.array(x).astype(str)
+
     df = pd.DataFrame({"x": x, "y": y})
     ah_df = ah.DataFrame(
         df, "x", "y", label="x", chart="barh", preset=preset, frames=1
     ).finalize()
     ds = ah_df[1, 1]
-    print(ds)
 
     if preset == "race":
         actual = ds["x"].values.ravel()
@@ -237,20 +241,30 @@ def test_config_bar_chart(preset):
         assert (actual == expected).all()
     else:
         actual = ds["x"].values.ravel()
-        expected = [0, 0, 0, 1, 1, 1]
+        if preset is None:
+            expected = [0.83333333, 0.83333333, 0.83333333, 2.16666667, 2.16666667, 2.16666667]
+        elif preset in ["stacked", "delta"]:
+            expected = [1, 1, 1, 2, 2, 2]
+        else:
+            expected = [0, 0, 0, 1, 1, 1]
+        np.testing.assert_almost_equal(actual, expected)
+
+    for var in ["tick_label", "bar_label"]:
+        if preset is None or preset == "stacked" and var == "bar_label":
+            continue
+        expected = [1, 1, 1, 2, 2, 2]
+        actual = ds[var].values.ravel()
         assert (actual == expected).all()
 
     actual = ds["y"].values.ravel()
     expected = [4, 5, 5, 3, 8, 10]
     np.testing.assert_equal(actual, expected)
 
-    for var in ["tick_label", "bar_label"]:
-        actual = ds[var].values.ravel()
-        expected = ["a", "a", "a", "b", "b", "b"]
-        assert (actual == expected).all()
-
     if preset is not None:
         assert ds.attrs["preset_kwds"]["preset"] == preset
+    elif preset == "stacked":
+        expected = [0, 0, 0, 4, 5, 5]
+        assert ds["bar_offset"] == expected
 
 
 @pytest.mark.parametrize("chart", ["both", "scatter", "line"])
@@ -815,17 +829,18 @@ def test_geo_default_coastline(crs, tiles):
 
 
 @pytest.mark.parametrize("how", ["even", "uneven"])
-def test_config_wave_chart(how):
+@pytest.mark.parametrize("chart", ["line", "bar", "barh", "scatter"])
+def test_config_wave_chart(how, chart):
     x = [0, 1, 2, 3, 4]
     y1 = [4, 5, 6, 7, 8]
     y2 = [8, 4, 2, 3, 4]
     ah_obj = (
-        ah.Array(x, y1, preset="morph", chart="line", group="A")
-        * ah.Array(x, y2, chart="line", group="A")
-        * ah.Array(x, y2, group="B")
+        ah.Array(x, y1, preset="morph", chart=chart, group="A")
+        * ah.Array(x, y2, chart=chart, group="A")
+        * ah.Array(x, y2, chart=chart, group="B")
     )
     if how == "even":
-        ah_obj *= ah.Array(x, y1, chart="line", group="B")
+        ah_obj *= ah.Array(x, y1, chart=chart, group="B")
     ah_obj = ah_obj.finalize()
     ds = ah_obj[1, 1]
     assert len(ds["item"] == 2)
@@ -873,3 +888,17 @@ def test_remark_overlay():
     remarks = ds["remark"]
     assert remarks.isel(item=0, state=0).item() == "abc"
     assert remarks.isel(item=1, state=-1).item() == "abc"
+
+
+def test_stacked_fixed_limit():
+    x = [0, 0]
+    y1 = [1, 0]
+    y2 = [2, 0]
+
+    ah_obj = (
+        ah.Array(x, y1, label="A", preset="stacked", chart="bar", revert="boomerang") *
+        ah.Array(x, y2, label="B", preset="stacked", chart="bar", ylims="fixed")
+    ).finalize()
+    ds = ah_obj[1, 1]
+    np.testing.assert_almost_equal(ds["ylim0"].values, 0)
+    np.testing.assert_almost_equal(ds["ylim1"].values, 3)
