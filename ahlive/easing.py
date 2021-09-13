@@ -56,15 +56,16 @@ class Easing(param.Parameterized):
         da_origin = da.copy()
 
         is_xarray = isinstance(da, xr.DataArray)
+        is_bar = False
         if is_xarray:
             if "state" not in da.dims:
                 return da_origin
-            da, name, dims, coords, interp, ease = self._prep_xarray(da)
+            da, name, dims, coords, interp, ease, is_bar = self._prep_xarray(da)
 
         array = self._prep_array(da)
 
         num_items, num_states, num_steps, num_result = self._calc_shapes(array)
-        if num_steps == 1 and self.revert is None:
+        if (num_steps == 1 or num_states == 1) and self.revert is None:
             return da_origin
 
         steps = np.linspace(0, 1, num_steps)
@@ -82,7 +83,7 @@ class Easing(param.Parameterized):
             result = self._interp_time(array, pd.to_datetime, *interp_args)
         elif np.issubdtype(array_dtype, np.timedelta64):
             result = self._interp_time(array, pd.to_timedelta, *interp_args)
-        elif np.issubdtype(array_dtype, np.number):
+        elif np.issubdtype(array_dtype, np.number) and not is_bar:
             if name == "central_longitude":
                 interp = "linear"
             result = self._interp_numeric(array, *interp_args)
@@ -120,7 +121,8 @@ class Easing(param.Parameterized):
                 da = da.stack({"stacked": ["item", "batch"]})
             da = da.transpose("stacked", "state")
         coords = da.drop_vars("state", errors="ignore").coords
-        return da, name, dims, coords, interp, ease
+        is_bar = da.attrs.get("is_bar")
+        return da, name, dims, coords, interp, ease, is_bar
 
     def _prep_array(self, da):
         array = np.array(da)

@@ -149,7 +149,7 @@ class Animation(param.Parameterized):
 
     _canvas_kwds = defaultdict(dict)
     _temp_file = f"{uuid.uuid4()}_{TEMP_FILE}"
-    _path_effects = [withStroke(linewidth=2, alpha=0.5, foreground="white")]
+    _path_effects = [withStroke(linewidth=1, alpha=0.5, foreground="white")]
 
     def __init__(self, **kwds):
         super().__init__(**kwds)
@@ -331,7 +331,7 @@ class Animation(param.Parameterized):
             plot_kwds = self._pop_invalid_kwds(plot_kwds)
             plot = ax.plot(xs, ys, **plot_kwds)
         elif chart.startswith("bar"):
-            plot = getattr(ax, chart)(xs, ys, **plot_kwds)
+            plot = getattr(ax, chart)(to_1d(xs), to_1d(ys), **plot_kwds)
         else:
             valid_charts = CHARTS["basic"]
             raise ValueError(f"{chart} not supported; select from {valid_charts}")
@@ -619,7 +619,7 @@ class Animation(param.Parameterized):
         xs = to_1d(xs)
         ys = to_1d(ys)
         inline_labels = to_1d(inline_labels)
-        if chart == "line":
+        if chart in ["line", "bar", "barh"]:
             xs = xs[[-1]]
             ys = ys[[-1]]
             inline_labels = inline_labels[[-1]]
@@ -637,13 +637,16 @@ class Animation(param.Parameterized):
     def _reshape_batch(array, chart, get=-1):
         if array is None:
             return array
+        elif not hasattr(array, "ndim"):
+            array = to_1d(array, flat=False)
 
-        if get is not None and chart not in ["bar", "line"]:
+        if get is not None and chart not in ["line", "bar", "barh"]:
             if array.ndim == 2:
                 array = array[:, get]
             else:
                 array = array[[get]]
-
+        elif array.ndim > 1 and len(array[-1]) == 1:  # [[0, 1, 2]]
+            array = array.ravel()
         return array.T
 
     @staticmethod
@@ -808,6 +811,7 @@ class Animation(param.Parameterized):
             delta_labels = self._reshape_batch(pop(overlay_ds, "delta_label"), chart)
 
             bar_labels = self._reshape_batch(pop(overlay_ds, "bar_label"), chart)
+            bar_offsets = self._reshape_batch(pop(overlay_ds, "bar_offset"), chart)
 
             remarks = self._reshape_batch(pop(overlay_ds, "remark"), chart)
 
@@ -828,6 +832,12 @@ class Animation(param.Parameterized):
                 }
             )
 
+            if chart.startswith("bar") and bar_offsets is not None:
+                bar_offset_key = "left" if chart == "barh" else "bottom"
+                plot_kwds[bar_offset_key] = to_1d(bar_offsets)
+            else:
+                bar_offsets = 0
+
             if "label" in plot_kwds:
                 plot_kwds["label"] = to_scalar(plot_kwds["label"])
             if "zorder" not in plot_kwds:
@@ -847,7 +857,7 @@ class Animation(param.Parameterized):
                 ax,
                 chart,
                 xs,
-                ys,
+                ys + bar_offsets,
                 inline_labels,
                 color,
                 xytext=(5, 5) if not chart.startswith("bar") else (0, 5),
@@ -883,7 +893,7 @@ class Animation(param.Parameterized):
                 ax,
                 chart,
                 xs,
-                ys,
+                ys + bar_offsets,
                 bar_labels,
                 "black",
                 base_key="preset",
@@ -1217,7 +1227,7 @@ class Animation(param.Parameterized):
         )
         xticks = xticks_kwds.pop("ticks", None)
         xformat = xticks_kwds.pop("format", "g")
-        xticks_labels = xticks_kwds.pop("labels")
+        xticks_labels = to_1d(xticks_kwds.pop("labels"), unique=True, flat=False)
         x_is_datetime = xticks_kwds.pop("is_datetime", False)
         x_is_str = xticks_kwds.pop("is_str", False)
 
@@ -1228,7 +1238,7 @@ class Animation(param.Parameterized):
         )
         yticks = yticks_kwds.pop("ticks", None)
         yformat = yticks_kwds.pop("format", "g")
-        yticks_labels = yticks_kwds.pop("labels")
+        yticks_labels = to_1d(yticks_kwds.pop("labels"), unique=True, flat=False)
         y_is_datetime = yticks_kwds.pop("is_datetime", False)
         y_is_str = yticks_kwds.pop("is_str", False)
 
@@ -1257,22 +1267,25 @@ class Animation(param.Parameterized):
                 gridlines.ylocator = FixedLocator(yticks)
         else:
             preset = state_ds.attrs["preset_kwds"].get("preset")
-            is_not_series = preset != "series"
-            if chart.startswith("bar") and is_not_series:
+            if chart.startswith("bar"):
                 preset_kwds = load_defaults("preset_kwds", state_ds, base_chart=preset)
-                xs = pop(state_ds, "x")
+                xs = to_1d(pop(state_ds, "x"), unique=True, flat=False)
                 limit = preset_kwds.get("limit", None)
                 limit1 = len(xs) + 0.5
                 limit0 = limit1 - limit if limit is not None else -1
                 if chart == "bar":
                     if xticks_labels is not None:
-                        ax.set_xticks(xs)
+                        num_labels = len(xticks_labels)
+                        step = int(np.floor(len(xs) / num_labels))
+                        ax.set_xticks(xs[::step][:num_labels])
                         ax.set_xticklabels(xticks_labels)
                     if limit0 >= 0:
                         ax.set_xlim(limit0, limit1)
                 elif chart == "barh":
                     if yticks_labels is not None:
-                        ax.set_yticks(xs)
+                        num_labels = len(yticks_labels)
+                        step = int(np.floor(len(xs) / num_labels))
+                        ax.set_yticks(xs[::step][:num_labels])
                         ax.set_yticklabels(yticks_labels)
                     if limit0 >= 0:
                         ax.set_ylim(limit0, limit1)
@@ -1444,15 +1457,21 @@ class Animation(param.Parameterized):
         for state in states:
             state_ds_rowcols = []
             for ds in data.values():
-                preset = ds.attrs["preset_kwds"].get("preset")
+                num_items = len(list(ds.dims)[0])
+                preset = ds.attrs["preset_kwds"].get("preset", "")
+                series_preset = not preset or preset == "stacked" and num_items == 1
                 is_stateless = "state" not in ds.dims
                 is_line = np.any(ds.get("chart", "") == "line")
-                is_morph = preset == "morph"
+                is_bar = np.any(
+                    (ds.get("chart", "") == "bar") | (ds.get("chart", "") == "barh")
+                )
+                is_morph = "morph" in preset
                 is_trail = preset == "trail"
-                is_series = preset == "series"
                 if is_stateless:
                     ds_sel = ds
-                elif (is_line and not is_morph) or is_trail or is_series:
+                elif (
+                    (is_line or (is_bar and series_preset)) and not is_morph
+                ) or is_trail:
                     ds_sel = ds.sel(state=slice(None, state))
                     # this makes legend labels appear in order if values exist
                     if "item" in ds_sel.dims:

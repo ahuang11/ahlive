@@ -358,18 +358,62 @@ class Data(Easing, Animation, Configuration):
             other_rowcol, other_ds = other_items
             return self_items == other_items and self_ds.equals(other_ds)
 
-    def _config_bar_chart(self, ds, preset):
-        if preset is None or preset == "series":
-            if len(ds["item"]) == 1:
-                ds.attrs["preset_kwds"]["preset"] = "series"
-                return ds
+    @staticmethod
+    def _get_cumulation(data, **kwargs):
+        # https://stackoverflow.com/a/38900035/9324652
+        cum = data.clip(**kwargs)
+        cum = np.cumsum(cum, axis=0)
+        d = np.zeros(np.shape(data))
+        d[1:] = cum[:-1]
+        return d
+
+    def _config_bar_chart(self, ds, chart, preset):
+        num_items = len(ds["item"])
+
+        width_key = "width" if chart == "bar" else "height"
+        if num_items > 0:
+            if "morph" not in preset and (not preset or preset == "stacked"):
+                warnings.warn(
+                    "Multiple items found, you may want to use the 'morph' preset"
+                )
+            ds["tick_label"] = ds["x"]
+            if is_str(ds["x"]):
+                for i, x in enumerate(np.unique(ds["x"])):
+                    ds["x"] = ds["x"].str.replace(x, str(i))
+                ds["x"] = ds["x"].astype(int)
+            if "stacked" in preset:
+                cumulation = self._get_cumulation(ds["y"].values, min=0)
+                negative_cumulation = self._get_cumulation(ds["y"].values, max=0)
+                negative_mask = ds["y"].values < 0
+                cumulation[negative_mask] = negative_cumulation[negative_mask]
+                lim_key = "xlim1" if chart == "barh" else "ylim1"
+                ds["bar_offset"] = ds["y"].dims, cumulation
+                if lim_key in ds.data_vars:
+                    if len(np.unique(ds[lim_key])) == 1:
+                        ds[lim_key] = ds[lim_key] + ds["bar_offset"].max()
+                    else:
+                        ds[lim_key] = ds[lim_key] + ds["bar_offset"]
+            elif preset not in ["race", "delta"]:
+                width = 1 / num_items / 1.5
+                offsets = (width * (1 - num_items) / num_items) + np.arange(
+                    num_items
+                ) * width
+                offsets += offsets.mean() / 2
+                shape = (-1, 1, 1) if "batch" in ds else (-1, 1)
+                ds["x"] = ds["x"] + offsets.reshape(shape)
+                if width_key not in ds.attrs["plot_kwds"]:
+                    ds.attrs["plot_kwds"][width_key] = width
+            ds["x"].attrs["is_bar"] = True
+            ds["tick_label"].attrs["is_bar"] = True
+
+        if not preset or preset == "stacked":
+            return ds
 
         preset_kwds = load_defaults("preset_kwds", ds, base_chart=preset)
-        bar_label = preset_kwds.get("bar_label", True)
         ascending = preset_kwds.pop("ascending", False)
-        ds["tick_label"] = ds["x"]
+        bar_label = preset_kwds.get("bar_label", "morph" not in preset)
         if bar_label:
-            ds["bar_label"] = ds["x"]
+            ds["bar_label"] = ds["tick_label"]
 
         if preset == "race":
             preset_kwds = load_defaults("preset_kwds", ds, base_chart=preset)
@@ -389,15 +433,14 @@ class Data(Easing, Animation, Configuration):
             ds["y"] = ds["y"].where(np.isfinite(ds["y"]))
             if ascending:
                 ds["y"] *= -1
-        else:
+        elif "morph" not in preset:
             if not is_str(ds["x"]):
                 ds["x"] = ds["x"].rank("item")
             else:
-                num_items = len(ds["item"])
                 xs = np.repeat(
                     np.arange(num_items).reshape(1, -1), self.num_states
                 ).reshape(num_items, self.num_states)
-                ds["x"] = DIMS["basic"], xs
+                ds["x"] = ds["x"].dims, xs
 
             if preset == "delta":
                 x_delta = ds["x"].diff("item").mean() / 2
@@ -406,6 +449,7 @@ class Data(Easing, Animation, Configuration):
                 ds["y_center"] = ds["y"].shift(item=1) + ds["delta_label"] / 2
                 ds["delta_label"] = ds["delta_label"].isel(item=slice(1, None))
                 ds["delta"] = ds["delta_label"] / 2
+
         return ds
 
     @staticmethod
@@ -475,13 +519,16 @@ class Data(Easing, Animation, Configuration):
         return ds
 
     def _config_chart(self, ds, chart):
-        preset = ds.attrs["preset_kwds"].get("preset")
-        if preset == "morph":
+        preset = ds.attrs["preset_kwds"].get("preset", "")
+
+        if "morph" in preset:
             ds = self._config_morph_chart(ds)
-        elif chart.startswith("bar") or preset in PRESETS["bar"]:
-            ds = self._config_bar_chart(ds, preset)
+
+        if chart.startswith("bar"):
+            ds = self._config_bar_chart(ds, chart, preset)
         elif preset == "trail":
             ds = self._config_trail_chart(ds)
+
         ds = self._config_grid_axes(ds, chart)
         ds = self._config_legend(ds)
         return ds
@@ -638,6 +685,7 @@ class Data(Easing, Animation, Configuration):
                     min_val = da.min().values
                     if auto_zero and min_val < 0:
                         limit = min_val
+                        margin = 0.05
                     else:
                         limit = 0
                 elif limit == "fixed":
@@ -814,12 +862,6 @@ class Data(Easing, Animation, Configuration):
             base = None
             if key_label in ds:
                 try:
-                    # make bar width wide enough to be visible
-                    if chart.startswith("bar") and key_label == "bar_label":
-                        ds.attrs["plot_kwds"]["width"] = (
-                            ds[key_label].sortby("item").diff("item")
-                        )
-
                     if is_scalar(ds[key_label]):
                         base = np.nanmin(ds[key_label]) / 10
                     else:
@@ -1965,8 +2007,8 @@ class DataStructure(Array):
         # swap xlabel and ylabel
         if kwds_updated.get("chart") == "barh":
             kwds_updated["xlabel"], kwds_updated["ylabel"] = (
-                kwds_updated["ylabel"],
-                kwds_updated["xlabel"],
+                kwds_updated.get("ylabel", ""),
+                kwds_updated.get("xlabel", ""),
             )
 
         for key, val in kwds.items():
