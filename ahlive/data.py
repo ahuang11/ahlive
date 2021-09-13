@@ -373,7 +373,9 @@ class Data(Easing, Animation, Configuration):
         width_key = "width" if chart == "bar" else "height"
         if num_items > 0:
             if "morph" not in preset and (not preset or preset == "stacked"):
-                warnings.warn("Multiple items found, you may want to use the 'morph' preset")
+                warnings.warn(
+                    "Multiple items found, you may want to use the 'morph' preset"
+                )
             ds["tick_label"] = ds["x"]
             if is_str(ds["x"]):
                 for i, x in enumerate(np.unique(ds["x"])):
@@ -393,7 +395,9 @@ class Data(Easing, Animation, Configuration):
                         ds[lim_key] = ds[lim_key] + ds["bar_offset"]
             elif preset not in ["race", "delta"]:
                 width = 1 / num_items / 1.5
-                offsets = (width * (1 - num_items) / num_items) + np.arange(num_items) * width
+                offsets = (width * (1 - num_items) / num_items) + np.arange(
+                    num_items
+                ) * width
                 offsets += offsets.mean() / 2
                 shape = (-1, 1, 1) if "batch" in ds else (-1, 1)
                 ds["x"] = ds["x"] + offsets.reshape(shape)
@@ -407,7 +411,7 @@ class Data(Easing, Animation, Configuration):
 
         preset_kwds = load_defaults("preset_kwds", ds, base_chart=preset)
         ascending = preset_kwds.pop("ascending", False)
-        bar_label = preset_kwds.get("bar_label", not "morph" in preset)
+        bar_label = preset_kwds.get("bar_label", "morph" not in preset)
         if bar_label:
             ds["bar_label"] = ds["tick_label"]
 

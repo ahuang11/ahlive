@@ -185,7 +185,10 @@ PRESETS = {
     "none": [None],
     "line": ["morph"],
     "scatter": ["trail", "morph"],
-    **{chart: ["stacked", "morph_stacked", "race", "delta", "morph"] for chart in ["bar", "barh"]},
+    **{
+        chart: ["stacked", "morph_stacked", "race", "delta", "morph"]
+        for chart in ["bar", "barh"]
+    },
     **{chart: ["rotate", "scan_x", "scan_y"] for chart in CHARTS["grid"]},
 }
 PRESETS["all"] = PRESETS["scatter"] + PRESETS["bar"] + PRESETS["pcolormesh"]

@@ -30,7 +30,6 @@ from .configuration import (
     OPTIONS,
     PRECEDENCES,
     TEMP_FILE,
-    PRESETS,
     defaults,
     load_defaults,
 )
@@ -1464,14 +1463,15 @@ class Animation(param.Parameterized):
                 is_stateless = "state" not in ds.dims
                 is_line = np.any(ds.get("chart", "") == "line")
                 is_bar = np.any(
-                    (ds.get("chart", "") == "bar") |
-                    (ds.get("chart", "") == "barh")
+                    (ds.get("chart", "") == "bar") | (ds.get("chart", "") == "barh")
                 )
                 is_morph = "morph" in preset
                 is_trail = preset == "trail"
                 if is_stateless:
                     ds_sel = ds
-                elif ((is_line or (is_bar and series_preset)) and not is_morph) or is_trail:
+                elif (
+                    (is_line or (is_bar and series_preset)) and not is_morph
+                ) or is_trail:
                     ds_sel = ds.sel(state=slice(None, state))
                     # this makes legend labels appear in order if values exist
                     if "item" in ds_sel.dims:

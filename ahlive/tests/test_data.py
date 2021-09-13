@@ -242,7 +242,14 @@ def test_config_bar_chart(preset, x_type):
     else:
         actual = ds["x"].values.ravel()
         if preset is None:
-            expected = [0.83333333, 0.83333333, 0.83333333, 2.16666667, 2.16666667, 2.16666667]
+            expected = [
+                0.83333333,
+                0.83333333,
+                0.83333333,
+                2.16666667,
+                2.16666667,
+                2.16666667,
+            ]
         elif preset in ["stacked", "delta"]:
             expected = [1, 1, 1, 2, 2, 2]
         else:
@@ -896,8 +903,8 @@ def test_stacked_fixed_limit():
     y2 = [2, 0]
 
     ah_obj = (
-        ah.Array(x, y1, label="A", preset="stacked", chart="bar", revert="boomerang") *
-        ah.Array(x, y2, label="B", preset="stacked", chart="bar", ylims="fixed")
+        ah.Array(x, y1, label="A", preset="stacked", chart="bar", revert="boomerang")
+        * ah.Array(x, y2, label="B", preset="stacked", chart="bar", ylims="fixed")
     ).finalize()
     ds = ah_obj[1, 1]
     np.testing.assert_almost_equal(ds["ylim0"].values, 0)
