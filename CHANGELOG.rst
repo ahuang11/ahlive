@@ -21,7 +21,7 @@ new features
 - Add `morph` preset (:pull:`76`).
   By `Andrew Huang <https://github.com/ahuang11>`_
 
-- Refactored `bar` and `barh` charts, removing `series` as a preset, but using it as the default, and added `stacked`, `morph`, and `morph_stacked` presets for bar charts. (:pull:`79`).
+- Refactored `bar` and `barh` charts, removing `series` as a preset, but using it as the default, and added `stacked`, `morph`, and `morph_stacked` presets for bar charts. (:pull:`80`).
   By `Andrew Huang <https://github.com/ahuang11>`_
 
 documentation
