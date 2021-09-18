@@ -77,6 +77,8 @@ bug fixes
 - Fix `remark` bugs and lower memory consumption in docs. (:pull:`78`)
   By `Andrew Huang <https://github.com/ahuang11>`_
 
+- Fix use of `reference` and `remark` with bar `morph`. (:pull:`79`)
+  By `Andrew Huang <https://github.com/ahuang11>`_
 
 internal changes
 ~~~~~~~~~~~~~~~~

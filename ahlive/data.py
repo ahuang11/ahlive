@@ -44,6 +44,7 @@ from .util import (
     srange,
     to_1d,
     to_scalar,
+    remap,
 )
 
 
@@ -369,18 +370,19 @@ class Data(Easing, Animation, Configuration):
 
     def _config_bar_chart(self, ds, chart, preset):
         num_items = len(ds["item"])
+        one_bar = ds["chart"].str.startswith("bar").sum() == 1
 
         width_key = "width" if chart == "bar" else "height"
-        if num_items > 0:
+        ds["tick_label"] = ds["x"]
+        if not one_bar:
             if "morph" not in preset and (not preset or preset == "stacked"):
                 warnings.warn(
                     "Multiple items found, you may want to use the 'morph' preset"
                 )
-            ds["tick_label"] = ds["x"]
             if is_str(ds["x"]):
-                for i, x in enumerate(np.unique(ds["x"])):
-                    ds["x"] = ds["x"].str.replace(x, str(i))
-                ds["x"] = ds["x"].astype(int)
+                mapping = {x: i for i, x in enumerate(np.unique(ds["x"].values))}
+                ds["x"] = xr.apply_ufunc(remap, ds["x"], kwargs=dict(mapping=mapping))
+
             if "stacked" in preset:
                 cumulation = self._get_cumulation(ds["y"].values, min=0)
                 negative_cumulation = self._get_cumulation(ds["y"].values, max=0)
@@ -403,8 +405,11 @@ class Data(Easing, Animation, Configuration):
                 ds["x"] = ds["x"] + offsets.reshape(shape)
                 if width_key not in ds.attrs["plot_kwds"]:
                     ds.attrs["plot_kwds"][width_key] = width
-            ds["x"].attrs["is_bar"] = True
-            ds["tick_label"].attrs["is_bar"] = True
+                if "align" not in ds.attrs["plot_kwds"] and num_items % 2 == 0:
+                    ds.attrs["plot_kwds"]["align"] = "edge"
+
+        ds["tick_label"].attrs["is_bar"] = True
+        ds["x"].attrs["is_bar"] = True
 
         if not preset or preset == "stacked":
             return ds
@@ -433,6 +438,7 @@ class Data(Easing, Animation, Configuration):
             ds["y"] = ds["y"].where(np.isfinite(ds["y"]))
             if ascending:
                 ds["y"] *= -1
+
         elif "morph" not in preset:
             if not is_str(ds["x"]):
                 ds["x"] = ds["x"].rank("item")
@@ -468,6 +474,14 @@ class Data(Easing, Animation, Configuration):
     @staticmethod
     def _config_morph_chart(ds):
         group_ds_list = []
+        ref_vars = [var for var in ds.data_vars if var.startswith("ref_")]
+        if len(ref_vars) > 0:
+            ref_ds = ds[ref_vars]
+            ds = ds.drop_vars(ref_vars)
+            ds = ds.drop("ref_item")
+        else:
+            ref_ds = None
+
         for group, group_ds in ds.groupby("group"):
             group_ds = group_ds.rename({"state": "batch", "item": "state"})
             group_ds["state"] = srange(group_ds["state"])
@@ -480,6 +494,11 @@ class Data(Easing, Animation, Configuration):
             ds = ds.drop("state", errors="ignore").expand_dims("state")
         ds["item"] = srange(ds["item"])
         ds = ds.transpose("item", "batch", "state")
+
+        if ref_ds is not None:
+            ref_ds = ref_ds.isel(state=0, drop=True)
+            ds = xr.merge([ds, ref_ds])
+
         return ds
 
     def _config_grid_axes(self, ds, chart):
@@ -844,15 +863,19 @@ class Data(Easing, Animation, Configuration):
                 elif "c" not in xyc:
                     ds.attrs[f"{xyc}ticks_kwds"]["is_str"] = False
 
-                try:
-                    base_kwds[f"{xyc}ticks"] = np.nanmedian(ds[xyc]) / 10
-                except TypeError:
-                    base_kwds[f"{xyc}ticks"] = np.nanmin(ds[xyc])
+                if "is_bar" in ds[xyc].attrs:
+                    base_kwds[f"{xyc}ticks"] = np.nanmedian(ds[xyc])
+                else:
+                    try:
+                        base_kwds[f"{xyc}ticks"] = np.nanmedian(ds[xyc]) / 10
+                    except TypeError:
+                        base_kwds[f"{xyc}ticks"] = np.nanmin(ds[xyc])
 
                 if "c" in xyc:
                     continue
 
                 ds.attrs[f"{xyc}ticks_kwds"]["is_datetime"] = is_datetime(ds[xyc])
+
         return ds, base_kwds
 
     def _precompute_base_labels(self, ds, chart, base_kwds):
@@ -922,7 +945,11 @@ class Data(Easing, Animation, Configuration):
         if "fps" in ds.attrs["animate_kwds"]:
             return ds
 
-        num_states = self.num_states
+        if "batch" in ds.dims:
+            num_states = len(ds["state"])
+        else:
+            num_states = self.num_states
+
         durations_kwds = load_defaults("durations_kwds", ds)
         transition_frames = durations_kwds.pop("transition_frames")
         aggregate = durations_kwds.pop("aggregate")
@@ -936,7 +963,11 @@ class Data(Easing, Animation, Configuration):
         durations[-1] += durations_kwds["final_frame"]
 
         if "duration" in ds:
-            ds["duration"] = ("state", durations + ds["duration"].values)
+            try:
+                ds["duration"] = ("state", durations + ds["duration"].values)
+            except ValueError:  # incompatible
+                warnings.warn("Setting duration is in incompatible with morph!")
+                ds["duration"] = ("state", durations)
         else:
             ds["duration"] = ("state", durations)
         ds["duration"].attrs["transition_frames"] = transition_frames
@@ -957,6 +988,11 @@ class Data(Easing, Animation, Configuration):
             ds[interp_var] = fillna(ds[interp_var], how="both")
             ds[ease_var] = fillna(ds[ease_var], dim=item_dim, how="both")
 
+            if kind == "":
+                invalid_prefix = ("ref_", "grid_")
+            else:
+                invalid_prefix = tuple()
+
             vars_seen = set([])
             for _, interp_ds in ds.groupby(interp_var):
                 interpolate_kwds["interp"] = pop(interp_ds, interp_var, get=-1)
@@ -975,12 +1011,13 @@ class Data(Easing, Animation, Configuration):
                         has_item = item_dim in ease_ds[var].dims
                         is_stateless = ease_ds[var].dims == ("state",)
                         is_scalar = ease_ds[var].dims == ()
+                        is_invalid = var.startswith(invalid_prefix)
                         var_seen = var in vars_seen
-                        if has_item:
+                        if has_item and not is_invalid or var == "duration":
                             ease_ds[var].attrs.update(interpolate_kwds)
                             var_list.append(var)
                             vars_seen.add(var)
-                        elif (is_stateless or is_scalar) and not var_seen:
+                        elif (is_stateless or is_scalar) and not var_seen and not is_invalid:
                             ease_ds[var].attrs.update(interpolate_kwds)
                             var_list.append(var)
                             vars_seen.add(var)
@@ -992,7 +1029,11 @@ class Data(Easing, Animation, Configuration):
                             raise IndexError(e)
                     subgroup_ds_list.append(ease_ds)
 
-        ds = xr.combine_by_coords(subgroup_ds_list, combine_attrs="override")
+        ds = xr.combine_by_coords(
+            subgroup_ds_list,
+            compat="override",
+            combine_attrs="override"
+        )
         ds = ds.drop_vars(
             var for var in ds.data_vars if "interp" in var or "ease" in var
         )
@@ -1257,6 +1298,13 @@ class Data(Easing, Animation, Configuration):
         ds.attrs["animate_kwds"].update(**animate_kwds)
         return ds
 
+    def _get_chart(self, ds):
+        if "chart" not in ds.data_vars:
+            return ""
+
+        chart = to_scalar(ds["chart"], get=0)
+        return chart
+
     def finalize(self):
         if all(ds.attrs.get("finalized", False) for ds in self.data.values()):
             return self
@@ -1264,14 +1312,14 @@ class Data(Easing, Animation, Configuration):
         data = {}
         self_copy = self.copy()
         for rowcol, ds in self_copy.data.items():
-            chart = to_scalar(ds["chart"]) if "chart" in ds else ""
+            chart = self._get_chart(ds)
             ds = self_copy._add_figsize(ds)
             ds = self_copy._fill_null(ds)
             ds = self_copy._add_xy01_limits(ds, chart)
             ds = self_copy._add_color_kwds(ds, chart)
             ds = self_copy._add_margins(ds)
-            ds = self_copy._add_durations(ds)
             ds = self_copy._config_chart(ds, chart)
+            ds = self_copy._add_durations(ds)
             ds = self_copy._precompute_base(ds, chart)  # must be after config chart
             ds = self_copy._add_geo_tiles(ds)  # before interp
             ds = self_copy._interp_dataset(ds)

@@ -27,7 +27,7 @@ def to_1d(value, unique=False, flat=True, get=None):
     if unique:
         try:
             array = pd.unique(array)
-        except ValueError:
+        except ValueError:  # TODO: figure out ordered
             array = np.unique(array)
     if flat:
         array = array.flat
@@ -179,3 +179,7 @@ def fillna(da, how="ffill", dim="state", item_dim="item"):
                 item_dim,
             )
     return da
+
+
+def remap(da, mapping):
+    return np.array([mapping[k] for k in da.ravel()]).reshape(da.shape)
