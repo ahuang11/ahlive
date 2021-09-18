@@ -1293,7 +1293,7 @@ class Animation(param.Parameterized):
                 if step == 0:
                     step = 1
                 xticks = xs[start::step][:num_labels]
-                xticks_labels = xticks_labels[:len(xticks)]
+                xticks_labels = xticks_labels[: len(xticks)]
             if chart == "bar":
                 if limit0 >= 0:
                     ax.set_xlim(limit0, limit1)

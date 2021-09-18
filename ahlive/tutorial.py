@@ -194,8 +194,16 @@ class TutorialData(param.Parameterized):
         return df
 
     def _load_iem_asos(
-        self, raw, ini="2020-01-01", end="2020-12-31", stn="CMI",
-        tz="utc", data="all", latlon="no", elev="no", **kwds
+        self,
+        raw,
+        ini="2020-01-01",
+        end="2020-12-31",
+        stn="CMI",
+        tz="utc",
+        data="all",
+        latlon="no",
+        elev="no",
+        **kwds,
     ):
         stn = stn.upper()
 
@@ -208,7 +216,7 @@ class TutorialData(param.Parameterized):
             "wst": "America/Los_Angeles",
             "mst": "America/Denver",
             "cst": "America/Chicago",
-            "est": "America/New_York"
+            "est": "America/New_York",
         }
         tz = tzs.get(tz, tz)
         if tz not in tzs.values():

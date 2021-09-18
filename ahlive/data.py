@@ -41,10 +41,10 @@ from .util import (
     is_timedelta,
     length,
     pop,
+    remap,
     srange,
     to_1d,
     to_scalar,
-    remap,
 )
 
 
@@ -1017,7 +1017,11 @@ class Data(Easing, Animation, Configuration):
                             ease_ds[var].attrs.update(interpolate_kwds)
                             var_list.append(var)
                             vars_seen.add(var)
-                        elif (is_stateless or is_scalar) and not var_seen and not is_invalid:
+                        elif (
+                            (is_stateless or is_scalar)
+                            and not var_seen
+                            and not is_invalid
+                        ):
                             ease_ds[var].attrs.update(interpolate_kwds)
                             var_list.append(var)
                             vars_seen.add(var)
@@ -1030,9 +1034,7 @@ class Data(Easing, Animation, Configuration):
                     subgroup_ds_list.append(ease_ds)
 
         ds = xr.combine_by_coords(
-            subgroup_ds_list,
-            compat="override",
-            combine_attrs="override"
+            subgroup_ds_list, compat="override", combine_attrs="override"
         )
         ds = ds.drop_vars(
             var for var in ds.data_vars if "interp" in var or "ease" in var
