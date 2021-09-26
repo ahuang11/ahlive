@@ -370,7 +370,6 @@ class Data(Easing, Animation, Configuration):
 
     def _config_bar_chart(self, ds, chart, preset):
         num_items = len(ds["item"])
-        print(ds)
         one_bar = ds["chart"].str.startswith("bar").sum() == 1
 
         width_key = "width" if chart == "bar" else "height"
@@ -1031,9 +1030,18 @@ class Data(Easing, Animation, Configuration):
                             raise IndexError(e)
                     subgroup_ds_list.append(ease_ds)
 
-        ds = xr.combine_by_coords(
-            subgroup_ds_list, compat="override", combine_attrs="override"
-        )
+        try:
+            ds = xr.combine_by_coords(
+                subgroup_ds_list, combine_attrs="override"
+            )
+        except Exception:
+            ds = xr.combine_by_coords(
+                subgroup_ds_list,
+                combine_attrs="override",
+                compat="override",
+                coords="minimal"
+            )
+
         ds = ds.drop_vars(
             var for var in ds.data_vars if "interp" in var or "ease" in var
         )
