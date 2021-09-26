@@ -1031,15 +1031,13 @@ class Data(Easing, Animation, Configuration):
                     subgroup_ds_list.append(ease_ds)
 
         try:
-            ds = xr.combine_by_coords(
-                subgroup_ds_list, combine_attrs="override"
-            )
+            ds = xr.combine_by_coords(subgroup_ds_list, combine_attrs="override")
         except Exception:
             ds = xr.combine_by_coords(
                 subgroup_ds_list,
                 combine_attrs="override",
                 compat="override",
-                coords="minimal"
+                coords="minimal",
             )
 
         ds = ds.drop_vars(
