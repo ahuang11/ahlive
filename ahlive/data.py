@@ -370,6 +370,7 @@ class Data(Easing, Animation, Configuration):
 
     def _config_bar_chart(self, ds, chart, preset):
         num_items = len(ds["item"])
+        print(ds)
         one_bar = ds["chart"].str.startswith("bar").sum() == 1
 
         width_key = "width" if chart == "bar" else "height"
@@ -945,10 +946,7 @@ class Data(Easing, Animation, Configuration):
         if "fps" in ds.attrs["animate_kwds"]:
             return ds
 
-        if "batch" in ds.dims:
-            num_states = len(ds["state"])
-        else:
-            num_states = self.num_states
+        num_states = len(ds["state"])
 
         durations_kwds = load_defaults("durations_kwds", ds)
         transition_frames = durations_kwds.pop("transition_frames")

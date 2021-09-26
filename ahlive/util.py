@@ -148,7 +148,7 @@ def transpose(da, dims=None):
 def _fillna(da, how, dim="state"):
     kwds = {}
     if isinstance(da, xr.DataArray) and dim in da.dims:
-        kwds["axis"] = dim
+        kwds["dim"] = dim
 
     if how == "both":
         da = da.bfill(**kwds).ffill(**kwds)

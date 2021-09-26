@@ -1251,8 +1251,8 @@ class Animation(param.Parameterized):
             yticks_kwds, "labels", base=yticks_base, apply_format=apply_format
         )
         yticks = yticks_kwds.pop("ticks", None)
+        to_1d(yticks_kwds.pop("labels"), unique=True, flat=False)
         yformat = yticks_kwds.pop("format", "g")
-        yticks_labels = to_1d(yticks_kwds.pop("labels"), unique=True, flat=False)
         y_is_datetime = yticks_kwds.pop("is_datetime", False)
         y_is_str = yticks_kwds.pop("is_str", False)
 
@@ -1472,9 +1472,11 @@ class Animation(param.Parameterized):
         for state in states:
             state_ds_rowcols = []
             for ds in data.values():
-                num_items = len(list(ds.dims)[0])
                 preset = ds.attrs["preset_kwds"].get("preset", "")
-                one_bar = ds["chart"].str.startswith("bar").sum() == 1
+                if "chart" in ds.data_vars:
+                    one_bar = ds["chart"].str.startswith("bar").sum() == 1
+                else:
+                    one_bar = False
                 series_preset = (not preset or preset == "stacked") and one_bar
                 is_stateless = "state" not in ds.dims
                 is_line = np.any(ds.get("chart", "") == "line")
