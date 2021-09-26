@@ -89,6 +89,8 @@ class Easing(param.Parameterized):
             result = self._interp_numeric(array, *interp_args)
         elif name in "c":  # must be after number
             result = self._interp_color(array, num_result)
+        elif is_bar:
+            result = self._interp_fill(array, num_states, num_steps, name)
         else:  # str
             result = self._interp_text(array, num_states, num_steps, num_result)
 
@@ -118,7 +120,7 @@ class Easing(param.Parameterized):
             if "grid_item" in dims:
                 da = da.stack({"stacked": ["grid_item", "grid_y", "grid_x"]})
             elif "batch" in dims:
-                da = da.stack({"stacked": ["item", "batch"]})
+                da = da.stack({"stacked": [item_dim, "batch"]})
             da = da.transpose("stacked", "state")
         coords = da.drop_vars("state", errors="ignore").coords
         is_bar = da.attrs.get("is_bar")

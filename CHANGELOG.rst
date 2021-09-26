@@ -21,7 +21,7 @@ new features
 - Add `morph` preset (:pull:`76`).
   By `Andrew Huang <https://github.com/ahuang11>`_
 
-- Refactored `bar` and `barh` charts, removing `series` as a preset, but using it as the default, and added `stacked`, `morph`, and `morph_stacked` presets for bar charts. (:pull:`79`).
+- Refactored `bar` and `barh` charts, removing `series` as a preset, but using it as the default, and added `stacked`, `morph`, and `morph_stacked` presets for bar charts. (:pull:`80`).
   By `Andrew Huang <https://github.com/ahuang11>`_
 
 documentation
@@ -77,6 +77,8 @@ bug fixes
 - Fix `remark` bugs and lower memory consumption in docs. (:pull:`78`)
   By `Andrew Huang <https://github.com/ahuang11>`_
 
+- Fix use of `reference` and `remark` with bar `morph`. (:pull:`79`)
+  By `Andrew Huang <https://github.com/ahuang11>`_
 
 internal changes
 ~~~~~~~~~~~~~~~~

@@ -194,8 +194,34 @@ class TutorialData(param.Parameterized):
         return df
 
     def _load_iem_asos(
-        self, raw, ini="2020-01-01", end="2020-12-31", stn="CMI", data=None, **kwds
+        self,
+        raw,
+        ini="2020-01-01",
+        end="2020-12-31",
+        stn="CMI",
+        tz="utc",
+        data="all",
+        latlon="no",
+        elev="no",
+        **kwds,
     ):
+        stn = stn.upper()
+
+        if isinstance(data, list):
+            data = ",".join(data)
+
+        tzs = {
+            "utc": "Etc/UTC",
+            "akst": "America/Anchorage",
+            "wst": "America/Los_Angeles",
+            "mst": "America/Denver",
+            "cst": "America/Chicago",
+            "est": "America/New_York",
+        }
+        tz = tzs.get(tz, tz)
+        if tz not in tzs.values():
+            raise ValueError(f"tz must be one of the following: {tzs}")
+
         ini_dt = pd.to_datetime(ini)
         end_dt = pd.to_datetime(end)
 
@@ -203,10 +229,10 @@ class TutorialData(param.Parameterized):
         self._base_url = "https://mesonet.agron.iastate.edu/ASOS/"
         self._data_url = (
             f"https://mesonet.agron.iastate.edu/cgi-bin/request/asos.py?"
-            f"station={stn}&data=all&latlon=yes&elev=yes&"
+            f"station={stn}&data={data}&latlon={latlon}&elev={elev}&"
             f"year1={ini_dt:%Y}&month1={ini_dt:%m}&day1={ini_dt:%d}&"
             f"year2={end_dt:%Y}&month2={end_dt:%m}&day2={end_dt:%d}&"
-            f"tz=Etc%2FUTC&format=onlycomma&latlon=no&elev=no&"
+            f"tz={tz}&format=onlycomma&"
             f"missing=empty&trace=empty&"
             f"direct=no&report_type=1&report_type=2"
         )

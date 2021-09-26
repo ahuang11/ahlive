@@ -191,10 +191,8 @@ class Animation(param.Parameterized):
             return ".1f"
 
         order_of_magnitude = int(np.floor(np.log10(abs(num))))
-        if order_of_magnitude >= 1:
+        if order_of_magnitude >= 0:
             return ".0f"
-        elif order_of_magnitude > 0:
-            return ".1f"
         else:
             return f".{abs(order_of_magnitude)}f"
 
@@ -232,8 +230,10 @@ class Animation(param.Parameterized):
             if apply_format:
                 try:
                     label = f"{label:{format_}}"
+                    if label == "-0":
+                        label = 0
                 except (ValueError, TypeError) as e:
-                    if not pd.isnull(label):
+                    if not pd.isnull(label) and self.debug:
                         warnings.warn(
                             f"Could not apply {format_} on {label} due to {e}"
                         )
@@ -319,16 +319,21 @@ class Animation(param.Parameterized):
 
         return color
 
-    def _pop_invalid_kwds(self, plot_kwds):
-        for key in ["c", "cmap", "vmin", "vmax"]:
-            plot_kwds.pop(key, None)
+    def _pop_invalid_kwds(self, chart, plot_kwds):
+        if chart != "scatter":
+            for key in ["c", "cmap", "vmin", "vmax"]:
+                plot_kwds.pop(key, None)
+
+        if not chart.startswith("bar"):  # TODO: separate plot kwds by chart / overlay
+            for key in ["tick_label", "width", "align"]:
+                plot_kwds.pop(key, None)
         return plot_kwds
 
     def _plot_chart(self, overlay_ds, ax, chart, xs, ys, plot_kwds):
+        plot_kwds = self._pop_invalid_kwds(chart, plot_kwds)
         if chart == "scatter":
             plot = ax.scatter(xs, ys, **plot_kwds)
         elif chart == "line":
-            plot_kwds = self._pop_invalid_kwds(plot_kwds)
             plot = ax.plot(xs, ys, **plot_kwds)
         elif chart.startswith("bar"):
             plot = getattr(ax, chart)(to_1d(xs), to_1d(ys), **plot_kwds)
@@ -400,7 +405,7 @@ class Animation(param.Parameterized):
             x_trails = x_trails[-expire * self.num_steps - 1 :]
             y_trails = y_trails[-expire * self.num_steps - 1 :]
             line_preset_kwds["label"] = "_nolegend_"
-            line_preset_kwds = self._pop_invalid_kwds(line_preset_kwds)
+            line_preset_kwds = self._pop_invalid_kwds(chart, line_preset_kwds)
             if "color" in line_preset_kwds:
                 line_preset_kwds["color"] = to_scalar(line_preset_kwds["color"])
             ax.plot(x_trails, y_trails, **line_preset_kwds)
@@ -532,6 +537,9 @@ class Animation(param.Parameterized):
         if remarks is None:
             return
 
+        xs = to_1d(xs)
+        ys = to_1d(ys)
+        remarks = to_1d(remarks)
         for x, y, remark in zip(xs, ys, remarks):
             if remark == "":
                 continue
@@ -658,9 +666,12 @@ class Animation(param.Parameterized):
                 elif key in data.data_vars and is_scalar(data[key]):
                     data[key] = data[key].expand_dims("group")
             try:
-                return data.groupby(key, sort=False)
-            except TypeError:  # xarray doesn't have sort keyword
-                return data.groupby(key)
+                try:
+                    return data.groupby(key, sort=False)
+                except TypeError:  # xarray doesn't have sort keyword
+                    return data.groupby(key)
+            except ValueError:
+                return zip([""], [data])
         else:
             return zip([""], [data])
 
@@ -782,7 +793,9 @@ class Animation(param.Parameterized):
             overlay_ds = overlay_ds.where(overlay_ds["chart"] != "", drop=True)
             if length(overlay_ds["state"]) == 0:
                 continue
-            chart = pop(overlay_ds, "chart", get=0)
+
+            chart = self._get_chart(overlay_ds)
+            pop(overlay_ds, "chart")
             if pd.isnull(chart):
                 chart = str(chart)
                 continue
@@ -1217,13 +1230,14 @@ class Animation(param.Parameterized):
                 ax.add_image(tiles_obj, tiles_zoom, **tiles_kwds)
 
     def _update_ticks(self, state_ds, ax, gridlines):
-        chart = to_scalar(state_ds.get("chart", ""))
+        chart = self._get_chart(state_ds)
         tick_labels = pop(state_ds, "tick_label")
 
+        apply_format = chart.startswith("bar")
         xticks_base = state_ds.attrs["base_kwds"].get("xticks")
         xticks_kwds = load_defaults("xticks_kwds", state_ds, labels=tick_labels)
         xticks_kwds = self._update_text(
-            xticks_kwds, "labels", base=xticks_base, apply_format=False
+            xticks_kwds, "labels", base=xticks_base, apply_format=apply_format
         )
         xticks = xticks_kwds.pop("ticks", None)
         xformat = xticks_kwds.pop("format", "g")
@@ -1234,11 +1248,11 @@ class Animation(param.Parameterized):
         yticks_base = state_ds.attrs["base_kwds"].get("yticks")
         yticks_kwds = load_defaults("yticks_kwds", state_ds, labels=tick_labels)
         yticks_kwds = self._update_text(
-            yticks_kwds, "labels", base=yticks_base, apply_format=False
+            yticks_kwds, "labels", base=yticks_base, apply_format=apply_format
         )
         yticks = yticks_kwds.pop("ticks", None)
+        to_1d(yticks_kwds.pop("labels"), unique=True, flat=False)
         yformat = yticks_kwds.pop("format", "g")
-        yticks_labels = to_1d(yticks_kwds.pop("labels"), unique=True, flat=False)
         y_is_datetime = yticks_kwds.pop("is_datetime", False)
         y_is_str = yticks_kwds.pop("is_str", False)
 
@@ -1265,55 +1279,56 @@ class Animation(param.Parameterized):
                 gridlines.xlocator = FixedLocator(xticks)
             if yticks is not None:
                 gridlines.ylocator = FixedLocator(yticks)
-        else:
+        elif chart.startswith("bar"):
             preset = state_ds.attrs["preset_kwds"].get("preset")
-            if chart.startswith("bar"):
-                preset_kwds = load_defaults("preset_kwds", state_ds, base_chart=preset)
-                xs = to_1d(pop(state_ds, "x"), unique=True, flat=False)
-                limit = preset_kwds.get("limit", None)
-                limit1 = len(xs) + 0.5
-                limit0 = limit1 - limit if limit is not None else -1
-                if chart == "bar":
-                    if xticks_labels is not None:
-                        num_labels = len(xticks_labels)
-                        step = int(np.floor(len(xs) / num_labels))
-                        ax.set_xticks(xs[::step][:num_labels])
-                        ax.set_xticklabels(xticks_labels)
-                    if limit0 >= 0:
-                        ax.set_xlim(limit0, limit1)
-                elif chart == "barh":
-                    if yticks_labels is not None:
-                        num_labels = len(yticks_labels)
-                        step = int(np.floor(len(xs) / num_labels))
-                        ax.set_yticks(xs[::step][:num_labels])
-                        ax.set_yticklabels(yticks_labels)
-                    if limit0 >= 0:
-                        ax.set_ylim(limit0, limit1)
-            else:
-                if not x_is_datetime and not x_is_str:
-                    xformatter = FormatStrFormatter(f"%{xformat}")
-                    ax.xaxis.set_major_formatter(xformatter)
-                elif not x_is_str:
-                    xlocator = AutoDateLocator(minticks=5, maxticks=10)
-                    xformatter = ConciseDateFormatter(xlocator)
-                    ax.xaxis.set_major_locator(xlocator)
-                    ax.xaxis.set_major_formatter(xformatter)
+            preset_kwds = load_defaults("preset_kwds", state_ds, base_chart=preset)
+            xs = to_1d(pop(state_ds, "x"), unique=True, flat=False)
+            limit = preset_kwds.get("limit", None)
+            limit1 = len(xs) + 0.5
+            limit0 = limit1 - limit if limit is not None else -1
+            if xticks_labels is not None:
+                num_labels = len(xticks_labels)
+                step = int(np.floor(len(xs) / num_labels))
+                start = int(np.floor(step / 2))
+                if step == 0:
+                    step = 1
+                xticks = xs[start::step][:num_labels]
+                xticks_labels = xticks_labels[: len(xticks)]
+            if chart == "bar":
+                if limit0 >= 0:
+                    ax.set_xlim(limit0, limit1)
+                ax.set_xticks(xticks)
+                ax.set_xticklabels(xticks_labels)
+            elif chart == "barh":
+                if limit0 >= 0:
+                    ax.set_ylim(limit0, limit1)
+                ax.set_yticks(xticks)
+                ax.set_yticklabels(xticks_labels)
+        else:
+            if not x_is_datetime and not x_is_str:
+                xformatter = FormatStrFormatter(f"%{xformat}")
+                ax.xaxis.set_major_formatter(xformatter)
+            elif not x_is_str:
+                xlocator = AutoDateLocator(minticks=5, maxticks=10)
+                xformatter = ConciseDateFormatter(xlocator)
+                ax.xaxis.set_major_locator(xlocator)
+                ax.xaxis.set_major_formatter(xformatter)
 
-                if not y_is_datetime and not y_is_str:
-                    yformatter = FormatStrFormatter(f"%{yformat}")
-                    ax.yaxis.set_major_formatter(yformatter)
-                elif not y_is_str:
-                    ylocator = AutoDateLocator(minticks=5, maxticks=10)
-                    yformatter = ConciseDateFormatter(ylocator)
-                    ax.yaxis.set_major_locator(ylocator)
-                    ax.yaxis.set_major_formatter(yformatter)
+            if not y_is_datetime and not y_is_str:
+                yformatter = FormatStrFormatter(f"%{yformat}")
+                ax.yaxis.set_major_formatter(yformatter)
+            elif not y_is_str:
+                ylocator = AutoDateLocator(minticks=5, maxticks=10)
+                yformatter = ConciseDateFormatter(ylocator)
+                ax.yaxis.set_major_locator(ylocator)
+                ax.yaxis.set_major_formatter(yformatter)
 
-                if xticks is not None:
-                    ax.set_xticks(xticks)
-                if yticks is not None:
-                    ax.set_yticks(yticks)
-            ax.tick_params(**xticks_kwds)
-            ax.tick_params(**yticks_kwds)
+            if xticks is not None:
+                ax.set_xticks(xticks)
+            if yticks is not None:
+                ax.set_yticks(yticks)
+        ax.tick_params(**xticks_kwds)
+        ax.tick_params(**yticks_kwds)
 
     def _update_legend(self, state_ds, ax):
         handles, legend_labels = ax.get_legend_handles_labels()
@@ -1457,9 +1472,12 @@ class Animation(param.Parameterized):
         for state in states:
             state_ds_rowcols = []
             for ds in data.values():
-                num_items = len(list(ds.dims)[0])
                 preset = ds.attrs["preset_kwds"].get("preset", "")
-                series_preset = not preset or preset == "stacked" and num_items == 1
+                if "chart" in ds.data_vars:
+                    one_bar = ds["chart"].str.startswith("bar").sum() == 1
+                else:
+                    one_bar = False
+                series_preset = (not preset or preset == "stacked") and one_bar
                 is_stateless = "state" not in ds.dims
                 is_line = np.any(ds.get("chart", "") == "line")
                 is_bar = np.any(
