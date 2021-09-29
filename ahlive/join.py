@@ -1,8 +1,8 @@
 import numpy as np
 import xarray as xr
 
-from .configuration import ITEMS, VARS, NULL_VALS
-from .util import fillna, srange, is_str, to_scalar, to_1d
+from .configuration import ITEMS, VARS
+from .util import fillna, is_str, srange, to_scalar
 
 
 def _get_rowcols(objs):

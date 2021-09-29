@@ -140,6 +140,7 @@ def test_ah_dataset(grid_x, grid_y, grid_c, grid_label, join):
         sub_ds = base_ds.where(
             base_ds["label"] == np.unique(ds["grid_label"]), drop=True
         )
+        assert len(np.unique(sub_ds["label"])) == len(ds["grid_item"])
         configurables = CONFIGURABLES.copy()
         assert_attrs(ds, configurables)
 
@@ -912,9 +913,11 @@ def test_stacked_fixed_limit():
 
 def test_morph_stacked():
     ah_obj = (
-        ah.Array([0, 1, 2], [5, 6, 7]) *
-        ah.Array([0, 1, 2], [5, 8, 9]) *
-        ah.Array([0, 1, 2], [3, 4, 10], preset="morph_trail", chart="line", color="red")
+        ah.Array([0, 1, 2], [5, 6, 7])
+        * ah.Array([0, 1, 2], [5, 8, 9])
+        * ah.Array(
+            [0, 1, 2], [3, 4, 10], preset="morph_trail", chart="line", color="red"
+        )
     ).finalize()
     ds = ah_obj[1, 1]
     assert "x_morph_trail" in ds.data_vars

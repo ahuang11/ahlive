@@ -32,7 +32,15 @@ from .configuration import (
     load_defaults,
 )
 from .easing import Easing
-from .join import _drop_state, _get_item_dim, _wrap_stack, cols, layout, merge, _combine_ds_list
+from .join import (
+    _combine_ds_list,
+    _drop_state,
+    _get_item_dim,
+    _wrap_stack,
+    cols,
+    layout,
+    merge,
+)
 from .util import (
     fillna,
     is_datetime,
@@ -1038,9 +1046,7 @@ class Data(Easing, Animation, Configuration):
 
         try:
             ds = _combine_ds_list(
-                subgroup_ds_list,
-                method="combine_by_coords",
-                combine_attrs="override"
+                subgroup_ds_list, method="combine_by_coords", combine_attrs="override"
             )
         except Exception:
             ds = _combine_ds_list(

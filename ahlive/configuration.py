@@ -2,7 +2,6 @@ from copy import deepcopy
 from itertools import chain
 
 import param
-import numpy as np
 import xarray as xr
 
 TEMP_FILE = "TEMP_AHLIVE_PYGIFSICLE_OUTPUT.gif"
@@ -314,13 +313,13 @@ DEFAULTS["preset_kwds"]["trail"] = {
     "chart": "scatter",
     "expire": 100,
     "stride": 1,
-    "zorder": 0
+    "zorder": 0,
 }
 DEFAULTS["preset_kwds"]["morph_trail"] = {
     "chart": "line",
     "expire": 1,
     "stride": 1,
-    "zorder": 0
+    "zorder": 0,
 }
 DEFAULTS["preset_kwds"]["race"] = {"bar_label": True, "limit": 5, "ascending": False}
 DEFAULTS["preset_kwds"]["delta"] = {"bar_label": True, "capsize": 6}

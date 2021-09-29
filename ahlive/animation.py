@@ -27,12 +27,12 @@ from .configuration import (
     CHARTS,
     CONFIGURABLES,
     ITEMS,
+    NULL_VALS,
     OPTIONS,
     PRECEDENCES,
     TEMP_FILE,
     defaults,
     load_defaults,
-    NULL_VALS
 )
 from .util import (
     is_datetime,
@@ -828,8 +828,12 @@ class Animation(param.Parameterized):
             x_trail_key = "x_trail" if "x_trail" in overlay_ds else "x_morph_trail"
             y_trail_key = "y_trail" if "y_trail" in overlay_ds else "y_morph_trail"
             trail_get = -1 if "morph" in x_trail_key else None
-            x_trails = self._reshape_batch(pop(overlay_ds, x_trail_key), chart, get=trail_get)
-            y_trails = self._reshape_batch(pop(overlay_ds, y_trail_key), chart, get=trail_get)
+            x_trails = self._reshape_batch(
+                pop(overlay_ds, x_trail_key), chart, get=trail_get
+            )
+            y_trails = self._reshape_batch(
+                pop(overlay_ds, y_trail_key), chart, get=trail_get
+            )
 
             x_discrete_trails = self._reshape_batch(
                 pop(overlay_ds, "x_discrete_trail"), chart, get=None
