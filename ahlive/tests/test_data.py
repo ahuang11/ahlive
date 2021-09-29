@@ -140,7 +140,6 @@ def test_ah_dataset(grid_x, grid_y, grid_c, grid_label, join):
         sub_ds = base_ds.where(
             base_ds["label"] == np.unique(ds["grid_label"]), drop=True
         )
-        assert len(np.unique(sub_ds["label"])) == len(ds["grid_item"])
         configurables = CONFIGURABLES.copy()
         assert_attrs(ds, configurables)
 
@@ -837,7 +836,7 @@ def test_geo_default_coastline(crs, tiles):
 
 @pytest.mark.parametrize("how", ["even", "uneven"])
 @pytest.mark.parametrize("chart", ["line", "bar", "barh", "scatter"])
-def test_config_wave_chart(how, chart):
+def test_config_morph_chart(how, chart):
     x = [0, 1, 2, 3, 4]
     y1 = [4, 5, 6, 7, 8]
     y2 = [8, 4, 2, 3, 4]
@@ -853,7 +852,7 @@ def test_config_wave_chart(how, chart):
     assert len(ds["item"] == 2)
     assert len(ds["batch"] == 5)
     assert len(ds["state"] == 30)
-    assert (ds["group"].values == ["A", "B"]).all()
+    assert (ds["group"].values == ["B", "A"]).all()
 
 
 @pytest.mark.parametrize("dtype", ["numeric", "datetime"])

@@ -66,7 +66,7 @@ def _drop_state(joined_ds):
     for var in VARS["stateless"]:
         if var in joined_ds:
             if "state" in joined_ds[var].dims:
-                joined_ds[var] = joined_ds[var].isel(state=-1)
+                joined_ds[var] = joined_ds[var].isel(state=0)
     return joined_ds
 
 
@@ -99,7 +99,10 @@ def _combine_ds_list(ds_list, method="concat", concat_dim="state", **kwds):
     for var in ds.data_vars:
         if is_str(ds[var]):
             val = to_scalar(ds[var])
-            ds[var] = ds[var].astype(str).str.replace("nan", val)
+            try:
+                ds[var] = ds[var].astype(str).str.replace("nan", val)
+            except TypeError:
+                pass
     return ds
 
 

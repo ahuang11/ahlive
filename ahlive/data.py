@@ -1039,11 +1039,13 @@ class Data(Easing, Animation, Configuration):
         try:
             ds = _combine_ds_list(
                 subgroup_ds_list,
+                method="combine_by_coords",
                 combine_attrs="override"
             )
         except Exception:
             ds = _combine_ds_list(
                 subgroup_ds_list,
+                method="combine_by_coords",
                 combine_attrs="override",
                 compat="override",
                 coords="minimal",
