@@ -909,3 +909,16 @@ def test_stacked_fixed_limit():
     ds = ah_obj[1, 1]
     np.testing.assert_almost_equal(ds["ylim0"].values, 0)
     np.testing.assert_almost_equal(ds["ylim1"].values, 3)
+
+
+def test_morph_stacked():
+    ah_obj = (
+        ah.Array([0, 1, 2], [5, 6, 7]) *
+        ah.Array([0, 1, 2], [5, 8, 9]) *
+        ah.Array([0, 1, 2], [3, 4, 10], preset="morph_trail", chart="line", color="red")
+    ).finalize()
+    ds = ah_obj[1, 1]
+    assert "x_morph_trail" in ds.data_vars
+    assert "y_morph_trail" in ds.data_vars
+    assert (ds["group"] == "_morph_group").all()
+    assert (ds["color"] == "red").all()

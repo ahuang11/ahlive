@@ -2,10 +2,11 @@ from copy import deepcopy
 from itertools import chain
 
 import param
+import numpy as np
 import xarray as xr
 
 TEMP_FILE = "TEMP_AHLIVE_PYGIFSICLE_OUTPUT.gif"
-NULL_VALS = [(), {}, [], None, ""]
+NULL_VALS = [(), {}, [], None, "", "nan"]  # np.nan is not picked up here
 
 PRECEDENCES = [
     "data",
@@ -184,9 +185,9 @@ CHARTS["all"] = CHARTS["basic"] + CHARTS["grid"] + CHARTS["ref"]
 PRESETS = {
     "none": [None],
     "line": ["morph"],
-    "scatter": ["trail", "morph"],
+    "scatter": ["trail", "morph", "morph_trail"],
     **{
-        chart: ["stacked", "morph_stacked", "race", "delta", "morph"]
+        chart: ["stacked", "morph_stacked", "race", "delta", "morph", "morph_trail"]
         for chart in ["bar", "barh"]
     },
     **{chart: ["rotate", "scan_x", "scan_y"] for chart in CHARTS["grid"]},
@@ -313,6 +314,13 @@ DEFAULTS["preset_kwds"]["trail"] = {
     "chart": "scatter",
     "expire": 100,
     "stride": 1,
+    "zorder": 0
+}
+DEFAULTS["preset_kwds"]["morph_trail"] = {
+    "chart": "line",
+    "expire": 1,
+    "stride": 1,
+    "zorder": 0
 }
 DEFAULTS["preset_kwds"]["race"] = {"bar_label": True, "limit": 5, "ascending": False}
 DEFAULTS["preset_kwds"]["delta"] = {"bar_label": True, "capsize": 6}

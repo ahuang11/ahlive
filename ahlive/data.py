@@ -32,7 +32,7 @@ from .configuration import (
     load_defaults,
 )
 from .easing import Easing
-from .join import _drop_state, _get_item_dim, _wrap_stack, cols, layout, merge
+from .join import _drop_state, _get_item_dim, _wrap_stack, cols, layout, merge, _combine_ds_list
 from .util import (
     fillna,
     is_datetime,
@@ -459,16 +459,19 @@ class Data(Easing, Animation, Configuration):
         return ds
 
     @staticmethod
-    def _config_trail_chart(ds):
-        preset_kwds = load_defaults("preset_kwds", ds, base_chart="trail")
+    def _config_trail_chart(ds, preset):
+        preset_kwds = load_defaults("preset_kwds", ds, base_chart=preset)
         trail_chart = preset_kwds["chart"]
         if trail_chart in ["line", "both"]:
             ds["x_trail"] = ds["x"].copy()
             ds["y_trail"] = ds["y"].copy()
+            if "morph" in preset:
+                ds = ds.rename({"x_trail": "x_morph_trail", "y_trail": "y_morph_trail"})
 
         if trail_chart in ["scatter", "both"]:
             ds["x_discrete_trail"] = ds["x"].copy()
             ds["y_discrete_trail"] = ds["y"].copy()
+
         return ds
 
     @staticmethod
@@ -489,11 +492,14 @@ class Data(Easing, Animation, Configuration):
                 group_ds = group_ds.squeeze("state", drop=True)
             group_ds_list.append(group_ds)
 
-        ds = xr.concat(group_ds_list, "item")
+        ds = _combine_ds_list(group_ds_list, concat_dim="item")
         if "state" not in ds.dims:
             ds = ds.drop("state", errors="ignore").expand_dims("state")
         ds["item"] = srange(ds["item"])
         ds = ds.transpose("item", "batch", "state")
+
+        if to_scalar(ds["group"]) == "":
+            ds["group"] = "_morph_group"
 
         if ref_ds is not None:
             ref_ds = ref_ds.isel(state=0, drop=True)
@@ -545,8 +551,8 @@ class Data(Easing, Animation, Configuration):
 
         if chart.startswith("bar"):
             ds = self._config_bar_chart(ds, chart, preset)
-        elif preset == "trail":
-            ds = self._config_trail_chart(ds)
+        elif "trail" in preset:
+            ds = self._config_trail_chart(ds, preset)
 
         ds = self._config_grid_axes(ds, chart)
         ds = self._config_legend(ds)
@@ -1031,9 +1037,12 @@ class Data(Easing, Animation, Configuration):
                     subgroup_ds_list.append(ease_ds)
 
         try:
-            ds = xr.combine_by_coords(subgroup_ds_list, combine_attrs="override")
+            ds = _combine_ds_list(
+                subgroup_ds_list,
+                combine_attrs="override"
+            )
         except Exception:
-            ds = xr.combine_by_coords(
+            ds = _combine_ds_list(
                 subgroup_ds_list,
                 combine_attrs="override",
                 compat="override",
@@ -1951,7 +1960,7 @@ class Array2D(Array):
                 )
                 scan_ds_list.append(scan_ds)
 
-        ds = xr.concat(scan_ds_list, "state").assign(**ds[stateless_vars])
+        ds = _combine_ds_list(scan_ds_list[::-1]).assign(**ds[stateless_vars])
         for var in ds.data_vars:
             if var not in grid_vars and grid_axis in ds[var].dims:
                 ds[var] = ds[var].isel(**{grid_axis: 0})

@@ -76,7 +76,7 @@ class Easing(param.Parameterized):
                 array, num_states, num_steps, num_items, num_result, name
             )
         elif interp == "fill" or name.endswith(
-            ("zoom", "discrete_trail", "tick_label", "bar_label")
+            ("zoom", "discrete_trail", "morph_trail", "tick_label", "bar_label")
         ):
             result = self._interp_fill(array, num_states, num_steps, name)
         elif np.issubdtype(array_dtype, np.datetime64):

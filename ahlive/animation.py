@@ -32,6 +32,7 @@ from .configuration import (
     TEMP_FILE,
     defaults,
     load_defaults,
+    NULL_VALS
 )
 from .util import (
     is_datetime,
@@ -372,7 +373,9 @@ class Animation(param.Parameterized):
         )
         if all_none:
             return
-        preset_kwds = load_defaults("preset_kwds", overlay_ds, base_chart="trail")
+
+        preset = overlay_ds.attrs["preset_kwds"].get("preset", "trail")
+        preset_kwds = load_defaults("preset_kwds", overlay_ds, base_chart=preset)
         preset_kwds.update(**trail_plot_kwds)
         chart = preset_kwds.pop("chart", "both")
         expire = preset_kwds.pop("expire")
@@ -648,10 +651,12 @@ class Animation(param.Parameterized):
         elif not hasattr(array, "ndim"):
             array = to_1d(array, flat=False)
 
-        if get is not None and chart not in ["line", "bar", "barh"]:
-            if array.ndim == 2:
+        if get is not None and chart not in ["bar", "barh"]:
+            if array.ndim == 3:
+                array = array[:, :, get].squeeze()
+            elif array.ndim == 2 and chart != "line":
                 array = array[:, get]
-            else:
+            elif chart != "line":
                 array = array[[get]]
         elif array.ndim > 1 and len(array[-1]) == 1:  # [[0, 1, 2]]
             array = array.ravel()
@@ -690,6 +695,9 @@ class Animation(param.Parameterized):
             else:
                 get = -1
             key = "item"
+
+        if preset == "morph_trail":
+            get = -1
         iter_ds = self._groupby_key(state_ds, key)
         return iter_ds, get
 
@@ -749,11 +757,16 @@ class Animation(param.Parameterized):
         """Primarily to remove empty color strings."""
         stripped_kwds = {}
         for key, val in kwds.items():
-            unique_vals = np.unique(val)
-            if len(unique_vals) == 1:
-                unique_val = unique_vals.item()
-                if unique_val == "" or pd.isnull(unique_val):
+            try:
+                unique_vals = np.unique(val)
+                if len(unique_vals) == 1:
+                    unique_val = unique_vals.item()
+                    if unique_val in NULL_VALS or pd.isnull(unique_val):
+                        continue
+                elif pd.isnull(unique_vals).all():
                     continue
+            except TypeError:
+                continue
             stripped_kwds[key] = val
         return stripped_kwds
 
@@ -790,6 +803,11 @@ class Animation(param.Parameterized):
         iter_ds, get = self._get_iter_ds(base_state_ds)
         mappable = None
         for _, overlay_ds in iter_ds:
+            try:
+                overlay_ds = overlay_ds.transpose(..., "state")
+            except ValueError:
+                pass
+
             overlay_ds = overlay_ds.where(overlay_ds["chart"] != "", drop=True)
             if length(overlay_ds["state"]) == 0:
                 continue
@@ -807,8 +825,11 @@ class Animation(param.Parameterized):
                 pop(overlay_ds, "inline_label"), chart, get=get
             )
 
-            x_trails = self._reshape_batch(pop(overlay_ds, "x_trail"), chart, get=None)
-            y_trails = self._reshape_batch(pop(overlay_ds, "y_trail"), chart, get=None)
+            x_trail_key = "x_trail" if "x_trail" in overlay_ds else "x_morph_trail"
+            y_trail_key = "y_trail" if "y_trail" in overlay_ds else "y_morph_trail"
+            trail_get = -1 if "morph" in x_trail_key else None
+            x_trails = self._reshape_batch(pop(overlay_ds, x_trail_key), chart, get=trail_get)
+            y_trails = self._reshape_batch(pop(overlay_ds, y_trail_key), chart, get=trail_get)
 
             x_discrete_trails = self._reshape_batch(
                 pop(overlay_ds, "x_discrete_trail"), chart, get=None
@@ -1484,7 +1505,7 @@ class Animation(param.Parameterized):
                     (ds.get("chart", "") == "bar") | (ds.get("chart", "") == "barh")
                 )
                 is_morph = "morph" in preset
-                is_trail = preset == "trail"
+                is_trail = "trail" in preset
                 if is_stateless:
                     ds_sel = ds
                 elif (
