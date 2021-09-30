@@ -289,7 +289,39 @@ class Animation(param.Parameterized):
 
         state_kwds = load_defaults("state_kwds", state_ds, text=state_label)
         state_kwds = self._update_text(state_kwds, "text", base=state_base)
-        ax.annotate(**state_kwds)
+
+        state_xy = state_kwds["xy"]
+        if not isinstance(state_xy, tuple) and state_xy not in OPTIONS["xy"]:
+            raise ValueError(
+                f"Got {state_xy}; expected state_label xy configuration "
+                f" to be a tuple or one of these options: {OPTIONS['xy']}"
+            )
+
+        if isinstance(state_xy, str):
+            state_label = state_kwds.pop("text", "")
+            if "suptitle" in state_xy:
+                title_kwds = load_defaults(
+                    "suptitle_kwds", self._canvas_kwds["suptitle_kwds"]
+                )
+                text_key = "t"
+            else:
+                title_kwds = load_defaults(f"title_kwds", state_ds)
+                text_key = "label"
+
+            title_kwds = self._update_text(title_kwds, text_key)
+            title = title_kwds.get(text_key) or ""
+            if "start" in state_xy:
+                title_kwds[text_key] = f"{state_label} {title}".rstrip()
+            else:
+                title_kwds[text_key] = f"{title} {state_label}".lstrip()
+
+            if "suptitle" in state_xy:
+                figure = ax.get_figure()
+                figure.suptitle(**title_kwds)
+            else:
+                ax.set_title(**title_kwds)
+        elif isinstance(state_xy, tuple):
+            ax.annotate(**state_kwds)
 
     @staticmethod
     def _get_color(overlay_ds, plot):
@@ -1473,12 +1505,12 @@ class Animation(param.Parameterized):
     @dask.delayed()
     def _draw_frame(self, state_ds_rowcols):
         figure = self._prep_figure()
+        self._update_spacing(state_ds_rowcols)
         for irowcol, state_ds in enumerate(state_ds_rowcols, 1):
             ax = self._prep_axes(state_ds, irowcol)
             self._draw_subplot(state_ds, ax)
             self._apply_hooks(state_ds, figure, ax)
         self._update_watermark(figure)
-        self._update_spacing(state_ds_rowcols)
         state = pop(state_ds, "state", get=-1)
         buf = self._buffer_frame(state)
         return buf

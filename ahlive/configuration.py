@@ -282,6 +282,10 @@ OPTIONS = {
     "grid": ["x", "y", "both", True, False],
     "limit": ["zero", "fixed", "follow", "explore"],
     "scheduler": ["single-threaded", "processes"],
+    "xy": [
+        "title", "subtitle", "suptitle",
+        "title_start", "subtitle_start", "suptitle_start"
+    ]
 }
 
 SIZES = {
