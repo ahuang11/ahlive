@@ -291,10 +291,10 @@ class Animation(param.Parameterized):
         state_kwds = self._update_text(state_kwds, "text", base=state_base)
 
         state_xy = state_kwds["xy"]
-        if not isinstance(state_xy, tuple) and state_xy not in OPTIONS["xy"]:
+        if not isinstance(state_xy, tuple) and state_xy not in OPTIONS["state_xy"]:
             raise ValueError(
                 f"Got {state_xy}; expected state_label xy configuration "
-                f" to be a tuple or one of these options: {OPTIONS['xy']}"
+                f" to be a tuple or one of these options: {OPTIONS['state_xy']}"
             )
 
         if isinstance(state_xy, str):
