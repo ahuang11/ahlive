@@ -305,7 +305,7 @@ class Animation(param.Parameterized):
                 )
                 text_key = "t"
             else:
-                title_kwds = load_defaults(f"title_kwds", state_ds)
+                title_kwds = load_defaults("title_kwds", state_ds)
                 text_key = "label"
 
             title_kwds = self._update_text(title_kwds, text_key)
