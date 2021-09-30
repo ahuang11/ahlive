@@ -48,6 +48,9 @@ documentation
 - Re-order params by setting `precedence`s (:pull:`70`).
   By `Andrew Huang <https://github.com/ahuang11>`_
 
+- Documented presets and defaults (:pull:`91`).
+  By `Andrew Huang <https://github.com/ahuang11>`_
+
 enhancements
 ~~~~~~~~~~~~
 

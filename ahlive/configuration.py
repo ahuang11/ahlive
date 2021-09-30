@@ -183,10 +183,10 @@ CHARTS["all"] = CHARTS["basic"] + CHARTS["grid"] + CHARTS["ref"]
 
 PRESETS = {
     "none": [None],
-    "line": ["morph"],
+    "line": ["morph", "morph_trail"],
     "scatter": ["trail", "morph", "morph_trail"],
     **{
-        chart: ["stacked", "morph_stacked", "race", "delta", "morph", "morph_trail"]
+        chart: ["stacked", "morph_stacked", "race", "delta", "morph"]
         for chart in ["bar", "barh"]
     },
     **{chart: ["rotate", "scan_x", "scan_y"] for chart in CHARTS["grid"]},
@@ -680,4 +680,4 @@ def load_defaults(default_key, input_kwds=None, **other_kwds):
 
 
 def update_defaults(default_key, **kwds):
-    defaults[default_key].update(**kwds)
+    DEFAULTS[default_key].update(**kwds)
