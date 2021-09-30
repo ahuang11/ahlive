@@ -153,10 +153,14 @@ class Data(Easing, Animation, Configuration):
         precedence=PRECEDENCES["limit"],
     )
     xmargins = param.Number(
-        default=None, doc="Margins on the x-axis; ranges from 0-1", precedence=PRECEDENCES["limit"]
+        default=None,
+        doc="Margins on the x-axis; ranges from 0-1",
+        precedence=PRECEDENCES["limit"],
     )
     ymargins = param.Number(
-        default=None, doc="Margins on the y-axis; ranges from 0-1", precedence=PRECEDENCES["limit"]
+        default=None,
+        doc="Margins on the y-axis; ranges from 0-1",
+        precedence=PRECEDENCES["limit"],
     )
 
     xticks = param.ClassSelector(
@@ -299,10 +303,10 @@ class Data(Easing, Animation, Configuration):
 
                 key_str = str(key)
                 if len(key) > 12:
-                    key_str = key[:9] + '...'
+                    key_str = key[:9] + "..."
                 val_str = str(val)
                 if len(val_str) > 105:
-                    val_str = val_str[:102] + '...'
+                    val_str = val_str[:102] + "..."
                 attrs += f'{" ":4}{key_str:13}{val_str}\n'
                 counts += 1
 
