@@ -282,14 +282,6 @@ OPTIONS = {
     "grid": ["x", "y", "both", True, False],
     "limit": ["zero", "fixed", "follow", "explore"],
     "scheduler": ["single-threaded", "processes"],
-    "state_xy": [
-        "title",
-        "subtitle",
-        "suptitle",
-        "title_start",
-        "subtitle_start",
-        "suptitle_start",
-    ],
 }
 
 SIZES = {
@@ -464,6 +456,8 @@ DEFAULTS["compute_kwds"] = {
 }
 
 DEFAULTS["animate_kwds"] = {"mode": "I", "loop": 0, "pygifsicle": True}
+
+defaults = DEFAULTS.copy()
 
 
 class CartopyCRS(param.ClassSelector):
@@ -675,3 +669,7 @@ def load_defaults(default_key, input_kwds=None, **other_kwds):
     updated_kwds.pop("preset", None)
     updated_kwds.pop("base_chart", None)
     return updated_kwds
+
+
+def update_defaults(default_key, **kwds):
+    DEFAULTS[default_key].update(**kwds)
