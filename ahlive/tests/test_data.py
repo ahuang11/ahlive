@@ -837,7 +837,7 @@ def test_geo_default_coastline(crs, tiles):
 
 @pytest.mark.parametrize("how", ["even", "uneven"])
 @pytest.mark.parametrize("chart", ["line", "bar", "barh", "scatter"])
-def test_config_wave_chart(how, chart):
+def test_config_morph_chart(how, chart):
     x = [0, 1, 2, 3, 4]
     y1 = [4, 5, 6, 7, 8]
     y2 = [8, 4, 2, 3, 4]
@@ -853,7 +853,7 @@ def test_config_wave_chart(how, chart):
     assert len(ds["item"] == 2)
     assert len(ds["batch"] == 5)
     assert len(ds["state"] == 30)
-    assert (ds["group"].values == ["A", "B"]).all()
+    assert (ds["group"].values == ["B", "A"]).all()
 
 
 @pytest.mark.parametrize("dtype", ["numeric", "datetime"])
@@ -909,3 +909,18 @@ def test_stacked_fixed_limit():
     ds = ah_obj[1, 1]
     np.testing.assert_almost_equal(ds["ylim0"].values, 0)
     np.testing.assert_almost_equal(ds["ylim1"].values, 3)
+
+
+def test_morph_stacked():
+    ah_obj = (
+        ah.Array([0, 1, 2], [5, 6, 7])
+        * ah.Array([0, 1, 2], [5, 8, 9])
+        * ah.Array(
+            [0, 1, 2], [3, 4, 10], preset="morph_trail", chart="line", color="red"
+        )
+    ).finalize()
+    ds = ah_obj[1, 1]
+    assert "x_morph_trail" in ds.data_vars
+    assert "y_morph_trail" in ds.data_vars
+    assert (ds["group"] == "_morph_group").all()
+    assert (ds["color"] == "red").all()

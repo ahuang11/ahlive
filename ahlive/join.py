@@ -2,7 +2,7 @@ import numpy as np
 import xarray as xr
 
 from .configuration import ITEMS, VARS
-from .util import fillna, srange
+from .util import fillna, is_str, srange, to_scalar
 
 
 def _get_rowcols(objs):
@@ -66,15 +66,18 @@ def _drop_state(joined_ds):
     for var in VARS["stateless"]:
         if var in joined_ds:
             if "state" in joined_ds[var].dims:
-                joined_ds[var] = joined_ds[var].isel(state=-1)
+                joined_ds[var] = joined_ds[var].isel(state=0)
     return joined_ds
 
 
 def _combine_ds_list(ds_list, method="concat", concat_dim="state", **kwds):
     joined_attrs = {}
-
     for ds in ds_list:
         item_dim = _get_item_dim(ds)
+        if item_dim is None:
+            item_dim = "item"
+            ds["item"] = 0
+
         for key, val in ds.attrs.items():
             if key not in joined_attrs:
                 joined_attrs[key] = val
@@ -83,10 +86,23 @@ def _combine_ds_list(ds_list, method="concat", concat_dim="state", **kwds):
         kwds["dim"] = concat_dim
     elif method == "combine_nested":
         kwds["concat_dim"] = concat_dim
-    kwds["combine_attrs"] = "drop"
+
+    if "combine_attrs" not in kwds:
+        kwds["combine_attrs"] = "drop"
+
+    ds_list = ds_list[::-1]  # override with last item
     ds = getattr(xr, method)(ds_list, **kwds).assign_attrs(**joined_attrs)
+
     ds[item_dim] = srange(ds[item_dim])
     ds = ds.transpose(item_dim, "state", ...)
+
+    for var in ds.data_vars:
+        if is_str(ds[var]):
+            val = to_scalar(ds[var])
+            try:
+                ds[var] = ds[var].astype(str).str.replace("nan", val)
+            except TypeError:
+                pass
     return ds
 
 
@@ -139,7 +155,7 @@ def _stack_data(data_list, join, rowcol):
         joined_ds = joined_ds.map(fillna, keep_attrs=True)
     elif join == "overlay":
         try:
-            joined_ds = _combine_ds_list(ds_list, concat_dim=item_dim, method="concat")
+            joined_ds = _combine_ds_list(ds_list, method="combine_by_coords")
         except Exception:
             joined_ds = _combine_ds_list(
                 ds_list, concat_dim=item_dim, method="combine_by_coords"

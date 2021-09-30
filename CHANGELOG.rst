@@ -24,6 +24,9 @@ new features
 - Refactored `bar` and `barh` charts, removing `series` as a preset, but using it as the default, and added `stacked`, `morph`, and `morph_stacked` presets for bar charts. (:pull:`80`).
   By `Andrew Huang <https://github.com/ahuang11>`_
 
+- Added `morph_trail` and updated internals. (:pull:`85`)
+  By `Andrew Huang <https://github.com/ahuang11>`_
+
 documentation
 ~~~~~~~~~~~~~
 
