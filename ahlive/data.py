@@ -153,10 +153,10 @@ class Data(Easing, Animation, Configuration):
         precedence=PRECEDENCES["limit"],
     )
     xmargins = param.Number(
-        doc="Margins on the x-axis; ranges from 0-1", precedence=PRECEDENCES["limit"]
+        default=None, doc="Margins on the x-axis; ranges from 0-1", precedence=PRECEDENCES["limit"]
     )
     ymargins = param.Number(
-        doc="Margins on the y-axis; ranges from 0-1", precedence=PRECEDENCES["limit"]
+        default=None, doc="Margins on the y-axis; ranges from 0-1", precedence=PRECEDENCES["limit"]
     )
 
     xticks = param.ClassSelector(
@@ -172,7 +172,6 @@ class Data(Easing, Animation, Configuration):
         precedence=PRECEDENCES["style"],
     )
     grid = param.ObjectSelector(
-        default=True,
         objects=OPTIONS["grid"],
         doc="Grid type",
         precedence=PRECEDENCES["style"],
@@ -291,10 +290,28 @@ class Data(Easing, Animation, Configuration):
         for rowcol, ds in self.data.items():
             dims = ", ".join(f"{key}: {val}" for key, val in ds.dims.items())
             data = repr(ds.data_vars)
+
+            attrs = "\n"
+            counts = 0
+            for key, val in ds.attrs.items():
+                if len(val) == 0 or key == "configured":
+                    continue
+
+                key_str = str(key)
+                if len(key) > 12:
+                    key_str = key[:9] + '...'
+                val_str = str(val)
+                if len(val_str) > 105:
+                    val_str = val_str[:102] + '...'
+                attrs += f'{" ":4}{key_str:13}{val_str}\n'
+                counts += 1
+
+            attrs_ratio = f"{counts}/{len(ds.attrs)}"
             strings.append(
                 f'Subplot:{" ":9}{rowcol}\n'
                 f'Dimensions:{" ":6}({dims})\n'
-                f"{data}\n\n"
+                f"{data}\n"
+                f"Attributes ({attrs_ratio}):{attrs}\n"
             )
         return "<ahlive.Data>\n" + "".join(strings)
 
@@ -1232,7 +1249,7 @@ class Data(Easing, Animation, Configuration):
 
             zoom = tiles_kwds.pop("zoom", None)
             if zoom is None:
-                if self.worldwide:
+                if ds.attrs["limits_kwds"].get("worldwide"):
                     xlim0s = -179
                     xlim1s = 179
                     ylim0s = -89
@@ -1555,7 +1572,7 @@ class GeographicData(Data):
     rivers = CartopyFeature(doc="Whether to show rivers", precedence=PRECEDENCES["geo"])
     states = CartopyFeature(doc="Whether to show states", precedence=PRECEDENCES["geo"])
     worldwide = param.Boolean(
-        doc="Whether to view globally", precedence=PRECEDENCES["geo"]
+        default=None, doc="Whether to view globally", precedence=PRECEDENCES["geo"]
     )
 
     tiles = CartopyTiles(doc="Whether to show web tiles", precedence=PRECEDENCES["geo"])
