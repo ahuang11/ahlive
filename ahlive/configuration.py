@@ -283,9 +283,13 @@ OPTIONS = {
     "limit": ["zero", "fixed", "follow", "explore"],
     "scheduler": ["single-threaded", "processes"],
     "state_xy": [
-        "title", "subtitle", "suptitle",
-        "title_start", "subtitle_start", "suptitle_start"
-    ]
+        "title",
+        "subtitle",
+        "suptitle",
+        "title_start",
+        "subtitle_start",
+        "suptitle_start",
+    ],
 }
 
 SIZES = {
