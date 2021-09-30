@@ -183,10 +183,10 @@ CHARTS["all"] = CHARTS["basic"] + CHARTS["grid"] + CHARTS["ref"]
 
 PRESETS = {
     "none": [None],
-    "line": ["morph"],
+    "line": ["morph", "morph_trail"],
     "scatter": ["trail", "morph", "morph_trail"],
     **{
-        chart: ["stacked", "morph_stacked", "race", "delta", "morph", "morph_trail"]
+        chart: ["stacked", "morph_stacked", "race", "delta", "morph"]
         for chart in ["bar", "barh"]
     },
     **{chart: ["rotate", "scan_x", "scan_y"] for chart in CHARTS["grid"]},
@@ -457,8 +457,6 @@ DEFAULTS["compute_kwds"] = {
 
 DEFAULTS["animate_kwds"] = {"mode": "I", "loop": 0, "pygifsicle": True}
 
-defaults = DEFAULTS.copy()
-
 
 class CartopyCRS(param.ClassSelector):
 
@@ -669,7 +667,3 @@ def load_defaults(default_key, input_kwds=None, **other_kwds):
     updated_kwds.pop("preset", None)
     updated_kwds.pop("base_chart", None)
     return updated_kwds
-
-
-def update_defaults(default_key, **kwds):
-    defaults[default_key].update(**kwds)
