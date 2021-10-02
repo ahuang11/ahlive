@@ -421,6 +421,8 @@ DEFAULTS["yticks_kwds"].update({"axis": "y"})
 DEFAULTS["cticks_kwds"] = DEFAULTS["ticks_kwds"].copy()
 DEFAULTS["cticks_kwds"].update({"num_colors": 11})
 
+DEFAULTS["grid_kwds"] = {"show": True}
+
 DEFAULTS["tiles_kwds"] = {"style": "toner"}  # TODO: change to show
 
 DEFAULTS["land_kwds"] = {"facecolor": "whitesmoke"}
