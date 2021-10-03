@@ -95,6 +95,9 @@ bug fixes
 - Do not require cartopy to be installed to use. (:pull:`93`)
   By `Andrew Huang <https://github.com/ahuang11>`_
 
+- Fix bar charts for 1 item. (:pull:`94`)
+  By `Andrew Huang <https://github.com/ahuang11>`_
+
 internal changes
 ~~~~~~~~~~~~~~~~
 
