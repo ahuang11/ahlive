@@ -429,6 +429,8 @@ DEFAULTS["yticks_kwds"].update({"axis": "y"})
 DEFAULTS["cticks_kwds"] = DEFAULTS["ticks_kwds"].copy()
 DEFAULTS["cticks_kwds"].update({"num_colors": 11})
 
+DEFAULTS["grid_kwds"] = {"show": True}
+
 DEFAULTS["tiles_kwds"] = {"style": "toner"}  # TODO: change to show
 
 DEFAULTS["land_kwds"] = {"facecolor": "whitesmoke"}
@@ -473,23 +475,36 @@ class CartopyCRS(param.ClassSelector):
     __slots__ = ["crs_dict"]
 
     def __init__(self, default=None, **params):
-        import cartopy.crs as ccrs
+        try:
+            import cartopy.crs as ccrs
 
-        self.crs_dict = {
-            name.lower(): obj
-            for name, obj in vars(ccrs).items()
-            if isinstance(obj, type)
-            and issubclass(obj, ccrs.Projection)
-            and not name.startswith("_")
-            and name not in ["Projection"]
-            or name == "GOOGLE_MERCATOR"
-        }
-        objects = tuple(list(self.crs_dict.values()) + [str, bool])
-        super(CartopyCRS, self).__init__(objects, **params)
-        self._validate(self.default)
+            self.crs_dict = {
+                name.lower(): obj
+                for name, obj in vars(ccrs).items()
+                if isinstance(obj, type)
+                and issubclass(obj, ccrs.Projection)
+                and not name.startswith("_")
+                and name not in ["Projection"]
+                or name == "GOOGLE_MERCATOR"
+            }
+            objects = tuple(list(self.crs_dict.values()) + [str, bool])
+            super(CartopyCRS, self).__init__(objects, **params)
+            self._validate(self.default)
+        except ImportError:
+            self.crs_dict = {}
+            super(CartopyCRS, self).__init__(None, **params)
 
     def _validate(self, val):
-        if isinstance(val, str):
+        if val is None:
+            return
+
+        elif len(self.crs_dict) == 0:
+            raise ImportError(
+                "cartopy is not installed for geographic support. "
+                "To install: `conda install -c conda-forge cartopy`"
+            )
+
+        elif isinstance(val, str):
             crs_names = self.crs_dict.keys()
             if val.lower() not in crs_names:
                 raise ValueError(f"Expected one of these {crs_names}; got {val}")
@@ -497,11 +512,14 @@ class CartopyCRS(param.ClassSelector):
 
 class CartopyFeature(param.ClassSelector):
     def __init__(self, default=None, **params):
-        import cartopy.feature as cfeature
+        try:
+            import cartopy.feature as cfeature
 
-        objects = (cfeature.NaturalEarthFeature, bool)
-        super(CartopyFeature, self).__init__(objects, **params)
-        self._validate(self.default)
+            objects = (cfeature.NaturalEarthFeature, bool)
+            super(CartopyFeature, self).__init__(objects, **params)
+            self._validate(self.default)
+        except ImportError:
+            super(CartopyFeature, self).__init__(None, **params)
 
 
 class CartopyTiles(param.ClassSelector):
@@ -509,18 +527,22 @@ class CartopyTiles(param.ClassSelector):
     __slots__ = ["tiles_dict"]
 
     def __init__(self, default=None, **params):
-        import cartopy.io.img_tiles as ctiles
+        try:
+            import cartopy.io.img_tiles as ctiles
 
-        self.tiles_dict = {
-            name.lower(): obj
-            for name, obj in vars(ctiles).items()
-            if isinstance(obj, type)
-            and issubclass(obj, ctiles.GoogleWTS)
-            and not name.startswith("_")
-        }
-        objects = tuple(list(self.tiles_dict.values()) + [str, bool])
-        super(CartopyTiles, self).__init__(objects, **params)
-        self._validate(self.default)
+            self.tiles_dict = {
+                name.lower(): obj
+                for name, obj in vars(ctiles).items()
+                if isinstance(obj, type)
+                and issubclass(obj, ctiles.GoogleWTS)
+                and not name.startswith("_")
+            }
+            objects = tuple(list(self.tiles_dict.values()) + [str, bool])
+            super(CartopyTiles, self).__init__(objects, **params)
+            self._validate(self.default)
+        except ImportError:
+            self.tiles_dict = {}
+            super(CartopyTiles, self).__init__(None, **params)
 
 
 class Configuration(param.Parameterized):
