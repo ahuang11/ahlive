@@ -298,7 +298,7 @@ class Data(Easing, Animation, Configuration):
             attrs = "\n"
             counts = 0
             for key, val in ds.attrs.items():
-                if len(val) == 0 or key == "configured":
+                if key in ["configured", "finalized"] or len(val) == 0:
                     continue
 
                 key_str = str(key)
@@ -437,10 +437,11 @@ class Data(Easing, Animation, Configuration):
                 if "align" not in ds.attrs["plot_kwds"] and num_items % 2 == 0:
                     ds.attrs["plot_kwds"]["align"] = "edge"
 
-        ds["tick_label"].attrs["is_bar"] = True
-        ds["x"].attrs["is_bar"] = True
-
         if not preset or preset == "stacked":
+            if not one_bar:
+                ds["x"].attrs["is_bar"] = True
+            else:
+                ds["tick_label"].attrs["is_bar"] = True
             return ds
 
         preset_kwds = load_defaults("preset_kwds", ds, base_chart=preset)

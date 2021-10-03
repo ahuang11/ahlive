@@ -93,6 +93,8 @@ def _combine_ds_list(ds_list, method="concat", concat_dim="state", **kwds):
     ds_list = ds_list[::-1]  # override with last item
     ds = getattr(xr, method)(ds_list, **kwds).assign_attrs(**joined_attrs)
 
+    if "state" not in ds.dims:
+        ds = ds.drop("state", errors="ignore").expand_dims("state")
     ds[item_dim] = srange(ds[item_dim])
     ds = ds.transpose(item_dim, "state", ...)
 
