@@ -506,12 +506,12 @@ class CartopyFeature(param.ClassSelector):
     def __init__(self, default=None, **params):
         try:
             import cartopy.feature as cfeature
+
             objects = (cfeature.NaturalEarthFeature, bool)
             super(CartopyFeature, self).__init__(objects, **params)
             self._validate(self.default)
         except ImportError:
             super(CartopyFeature, self).__init__(None, **params)
-
 
 
 class CartopyTiles(param.ClassSelector):
@@ -521,6 +521,7 @@ class CartopyTiles(param.ClassSelector):
     def __init__(self, default=None, **params):
         try:
             import cartopy.io.img_tiles as ctiles
+
             self.tiles_dict = {
                 name.lower(): obj
                 for name, obj in vars(ctiles).items()
