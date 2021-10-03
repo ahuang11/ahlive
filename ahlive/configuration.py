@@ -412,7 +412,7 @@ DEFAULTS["remark_inline_kwds"].update(
 DEFAULTS["legend_kwds"] = DEFAULTS["label_kwds"].copy()
 DEFAULTS["legend_kwds"].update({"framealpha": 0, "loc": "upper left"})
 
-DEFAULTS["colorbar_kwds"] = {"orientation": "vertical", "extend": "both"}
+DEFAULTS["colorbar_kwds"] = {"orientation": "vertical"}
 
 DEFAULTS["ticks_kwds"] = DEFAULTS["label_kwds"].copy()
 DEFAULTS["ticks_kwds"].pop("fontsize")
