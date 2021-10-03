@@ -1183,7 +1183,10 @@ class Data(Easing, Animation, Configuration):
         return ds
 
     def _add_geo_features(self, ds):
-        import cartopy.feature as cfeature
+        try:
+            import cartopy.feature as cfeature
+        except ImportError:
+            return ds
 
         for feature in CONFIGURABLES["geo"]:
             if feature in ["projection", "crs", "tiles"]:

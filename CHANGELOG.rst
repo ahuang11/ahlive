@@ -92,6 +92,9 @@ bug fixes
 - Fix use of `reference` and `remark` with bar `morph`. (:pull:`79`)
   By `Andrew Huang <https://github.com/ahuang11>`_
 
+- Do not require cartopy to be installed to use. (:pull:`91`)
+  By `Andrew Huang <https://github.com/ahuang11>`_
+
 internal changes
 ~~~~~~~~~~~~~~~~
 
