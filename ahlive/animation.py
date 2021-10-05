@@ -980,7 +980,6 @@ class Animation(param.Parameterized):
         grid_iter_ds, _ = self._get_iter_ds(grid_state_ds)
         mappable = None
         for _, overlay_ds in grid_iter_ds:
-            label = pop(overlay_ds, "label", get=0) or "_nolegend_"
             chart = pop(overlay_ds, "chart", get=0)
 
             xs = pop(overlay_ds, "x")
@@ -1006,14 +1005,17 @@ class Animation(param.Parameterized):
             plot_kwds = self._strip_dict(
                 {var: pop(overlay_ds, var, get=0) for var in list(overlay_ds.data_vars)}
             )
-            if chart in ["contourf", "contour"] and "levels" not in plot_kwds:
-                plot_kwds["levels"] = overlay_ds.attrs["cticks"].get("ticks")
+            if chart in ["contourf", "contour"]:
+                if "levels" not in plot_kwds:
+                    plot_kwds["levels"] = overlay_ds.attrs["cticks_kwds"].get("ticks")
+            else:
+                if "shading" not in plot_kwds:
+                    plot_kwds["shading"] = "auto"
+
             plot_kwds = load_defaults(
                 "grid_plot_kwds",
                 overlay_ds,
                 base_chart=chart,
-                label=label,
-                shading="auto",
                 **plot_kwds,
             )
 

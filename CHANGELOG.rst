@@ -98,6 +98,9 @@ bug fixes
 - Fix bar charts for 1 item. (:pull:`94`)
   By `Andrew Huang <https://github.com/ahuang11>`_
 
+- Fix grid charts, removing warnings and updating to valid keys. (:pull:`95`)
+  By `Andrew Huang <https://github.com/ahuang11>`_
+
 internal changes
 ~~~~~~~~~~~~~~~~
 
