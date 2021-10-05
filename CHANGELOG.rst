@@ -66,6 +66,9 @@ enhancements
 - Improve `print` of objects by showing modified configurations (:pull: `92`).
   By `Andrew Huang <https://github.com/ahuang11>`_
 
+- Remove temp file (:pull: `96`).
+  By `Andrew Huang <https://github.com/ahuang11>`_
+
 bug fixes
 ~~~~~~~~~
 

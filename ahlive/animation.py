@@ -1737,46 +1737,48 @@ class Animation(param.Parameterized):
         return out_obj
 
     def render(self):
-        self_copy = self.finalize()
-        data = self_copy.data
+        try:
+            self_copy = self.finalize()
+            data = self_copy.data
 
-        for ds in data.values():
-            for configurable in CONFIGURABLES["canvas"]:
-                key = f"{configurable}_kwds"
-                self_copy._canvas_kwds[key] = ds.attrs.pop(key)
-            break
-        stitch = self_copy._canvas_kwds["animate_kwds"]["stitch"]
-        static = self_copy._canvas_kwds["animate_kwds"]["static"]
-        show = self_copy._canvas_kwds["output_kwds"].get("show")
-        if show is None:
-            try:
-                get_ipython
-                show = True
-            except NameError:
-                show = False
-        self_copy._canvas_kwds["output_kwds"]["show"] = show
+            for ds in data.values():
+                for configurable in CONFIGURABLES["canvas"]:
+                    key = f"{configurable}_kwds"
+                    self_copy._canvas_kwds[key] = ds.attrs.pop(key)
+                break
+            stitch = self_copy._canvas_kwds["animate_kwds"]["stitch"]
+            static = self_copy._canvas_kwds["animate_kwds"]["static"]
+            show = self_copy._canvas_kwds["output_kwds"].get("show")
+            if show is None:
+                try:
+                    get_ipython
+                    show = True
+                except NameError:
+                    show = False
+            self_copy._canvas_kwds["output_kwds"]["show"] = show
 
-        if self_copy.debug:
-            print(data)
+            if self_copy.debug:
+                print(data)
 
-        # unrecognized durations keyword if not popped
-        durations = None
-        has_fps = "fps" in self_copy._canvas_kwds["animate_kwds"]
-        if "duration" in ds.data_vars and not has_fps:
-            durations = xr.concat(
-                (pop(ds, "duration", to_numpy=False) for ds in data.values()),
-                "item",
-            )
-        elif "duration" in ds.data_vars:
-            pop(ds, "duration")
+            # unrecognized durations keyword if not popped
+            durations = None
+            has_fps = "fps" in self_copy._canvas_kwds["animate_kwds"]
+            if "duration" in ds.data_vars and not has_fps:
+                durations = xr.concat(
+                    (pop(ds, "duration", to_numpy=False) for ds in data.values()),
+                    "item",
+                )
+            elif "duration" in ds.data_vars:
+                pop(ds, "duration")
 
-        buf_list = self_copy._create_frames(data)
-        out_obj, ext = self_copy._write_rendered(buf_list, durations)
+            buf_list = self_copy._create_frames(data)
+            out_obj, ext = self_copy._write_rendered(buf_list, durations)
 
-        if (stitch or static) and show:
-            out_obj = self_copy._show_output_file(out_obj, ext)
-
-        if os.path.exists(self_copy._temp_file):
-            os.remove(self_copy._temp_file)
-
-        return out_obj
+            if (stitch or static) and show:
+                out_obj = self_copy._show_output_file(out_obj, ext)
+            return out_obj
+        except Exception as e:
+            raise e
+        finally:
+            if os.path.exists(self_copy._temp_file):
+                os.remove(self_copy._temp_file)
