@@ -337,7 +337,10 @@ class Animation(param.Parameterized):
                 try:
                     color = plot.get_facecolor()
                 except AttributeError:
-                    color = plot[0].get_facecolor()
+                    try:
+                        color = plot[0].get_facecolor()
+                    except AttributeError:
+                        color = plot[0][0].get_facecolor()
 
                 if length(color) < 1:
                     try:
@@ -353,6 +356,10 @@ class Animation(param.Parameterized):
         return color
 
     def _pop_invalid_kwds(self, chart, plot_kwds):
+        if chart == "pie":
+            for key in ["zorder", "label"]:
+                plot_kwds.pop(key, None)
+
         if chart != "scatter":
             for key in ["c", "cmap", "vmin", "vmax"]:
                 plot_kwds.pop(key, None)
@@ -360,6 +367,7 @@ class Animation(param.Parameterized):
         if not chart.startswith("bar"):  # TODO: separate plot kwds by chart / overlay
             for key in ["tick_label", "width", "align"]:
                 plot_kwds.pop(key, None)
+
         return plot_kwds
 
     def _plot_chart(self, overlay_ds, ax, chart, xs, ys, plot_kwds):
@@ -370,6 +378,8 @@ class Animation(param.Parameterized):
             plot = ax.plot(xs, ys, **plot_kwds)
         elif chart.startswith("bar"):
             plot = getattr(ax, chart)(to_1d(xs), to_1d(ys), **plot_kwds)
+        elif chart == "pie":
+            plot, _ = ax.pie(ys, **plot_kwds)
         else:
             valid_charts = CHARTS["basic"]
             raise ValueError(f"{chart} not supported; select from {valid_charts}")
@@ -619,6 +629,7 @@ class Animation(param.Parameterized):
         ha=None,
         va=None,
         clip=False,
+        plot=None
     ):
         if inline_labels is None:
             return
@@ -637,6 +648,8 @@ class Animation(param.Parameterized):
             elif chart in ["line", "scatter"]:
                 ha = "left"
                 va = "bottom"
+            elif chart == "pie":
+                color = "white"
         elif va is None:
             va = "center"
         elif ha is None:
@@ -666,6 +679,14 @@ class Animation(param.Parameterized):
             xs = xs[[-1]]
             ys = ys[[-1]]
             inline_labels = inline_labels[[-1]]
+        elif chart == "pie":
+            xs = []
+            ys = []
+            for i, p in enumerate(plot):
+                ang = (p.theta2 - p.theta1) / 2. + p.theta1
+                ys.append(np.sin(np.deg2rad(ang)) * 0.8)
+                xs.append(np.cos(np.deg2rad(ang)) * 0.8)
+
         for x, y, inline_label in zip(xs, ys, inline_labels):
             if str(inline_label) == "nan":
                 inline_label = "?"
@@ -713,11 +734,14 @@ class Animation(param.Parameterized):
             return zip([""], [data])
 
     def _get_iter_ds(self, state_ds):
+        chart = self._get_chart(state_ds)
         preset = state_ds.attrs["preset_kwds"].get("preset")
         if len(state_ds.data_vars) == 0:
             return zip([], []), -1
         elif any(group for group in to_1d(state_ds["group"])):
-            state_ds = state_ds.drop_vars("label").rename({"group": "label"})
+            if "label" in state_ds.data_vars:
+                state_ds = state_ds.drop_vars("label")
+            state_ds = state_ds.rename({"group": "label"})
             get = None
             key = "label"
         else:
@@ -890,14 +914,14 @@ class Animation(param.Parameterized):
                 for var in list(overlay_ds.data_vars)
             }
             trail_plot_kwds = self._strip_dict(
-                load_defaults("plot_kwds", overlay_ds, **trail_plot_kwds)
+                load_defaults("plot_kwds", overlay_ds, base_chart=chart, **trail_plot_kwds)
             )
             if "alpha" in trail_plot_kwds:
                 trail_plot_kwds["alpha"] = to_scalar(trail_plot_kwds["alpha"])
 
             plot_kwds = self._strip_dict(
                 {
-                    key: to_scalar(val) if key not in ["c", "s"] else val
+                    key: to_scalar(val) if key not in ["c", "s", "labels"] else val
                     for key, val in trail_plot_kwds.items()
                 }
             )
@@ -908,10 +932,21 @@ class Animation(param.Parameterized):
             else:
                 bar_offsets = 0
 
+            if chart == "pie":
+                inline_kwds = load_defaults("inline_kwds", overlay_ds)
+                inline_kwds["labels"] = plot_kwds.pop("labels")
+                inline_kwds = self._update_text(inline_kwds, "labels")
+                inline_kwds.pop("textcoords")
+                plot_kwds["labels"] = inline_kwds.pop("labels")
+                plot_kwds["textprops"] = inline_kwds
+                plot_kwds["labeldistance"] = plot_kwds.get("labeldistance", None)
+
             if "label" in plot_kwds:
                 plot_kwds["label"] = to_scalar(plot_kwds["label"])
+
             if "zorder" not in plot_kwds:
                 plot_kwds["zorder"] = 2
+
             if "c" in plot_kwds and "color" in plot_kwds:
                 if chart == "scatter":
                     plot_kwds.pop("color")
@@ -931,6 +966,7 @@ class Animation(param.Parameterized):
                 inline_labels,
                 color,
                 xytext=(5, 5) if not chart.startswith("bar") else (0, 5),
+                plot=plot
             )
 
             self._plot_trails(

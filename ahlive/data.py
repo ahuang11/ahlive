@@ -537,6 +537,12 @@ class Data(Easing, Animation, Configuration):
 
         return ds
 
+    def _config_pie_chart(self, ds):
+        num_items = len(ds["item"])
+        ds = ds.rename({"label": "labels"})
+        ds["group"] = ("item", np.repeat("_pie_group", num_items))
+        return ds
+
     def _config_grid_axes(self, ds, chart):
         if self.style == "bare":
             ds.attrs["grid_kwds"]["b"] = ds.attrs["grid_kwds"].get("b", False)
@@ -581,6 +587,8 @@ class Data(Easing, Animation, Configuration):
 
         if chart.startswith("bar"):
             ds = self._config_bar_chart(ds, chart, preset)
+        elif chart == "pie":
+            ds = self._config_pie_chart(ds)
         elif "trail" in preset:
             ds = self._config_trail_chart(ds, preset)
 
@@ -1462,6 +1470,10 @@ class Data(Easing, Animation, Configuration):
         else:
             chart = self.chart
 
+        if to_scalar(input_vars["ys"]) is None:
+            input_vars["ys"] = input_vars["xs"]
+            input_vars["xs"] = np.arange(num_states)
+
         coords = {}
         data_vars = {}
         dims = DIMS[self._dim_type]
@@ -1827,7 +1839,7 @@ class Array(GeographicData, ReferenceArray, ColorArray, RemarkArray):
 
     _dim_type = "basic"
 
-    def __init__(self, xs, ys, **kwds):
+    def __init__(self, xs, ys=None, **kwds):
         for xys, xys_arr in {"xs": xs, "ys": ys}.items():
             if isinstance(xys_arr, str):
                 raise ValueError(

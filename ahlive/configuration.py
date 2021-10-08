@@ -175,7 +175,7 @@ CANVAS = {
 }
 
 CHARTS = {
-    "basic": ["scatter", "line", "barh", "bar"],
+    "basic": ["scatter", "line", "barh", "bar", "pie"],
     "grid": ["pcolormesh", "pcolorfast", "contourf", "contour"],
     "ref": ["rectangle", "axvspan", "axhspan", "axvline", "axhline", "scatter"],
 }
@@ -332,6 +332,9 @@ DEFAULTS["preset_kwds"]["morph_trail"] = {
 DEFAULTS["preset_kwds"]["race"] = {"bar_label": True, "limit": 5, "ascending": False}
 DEFAULTS["preset_kwds"]["delta"] = {"bar_label": True, "capsize": 6}
 DEFAULTS["preset_kwds"]["scan"] = {"color": "black", "stride": 1}
+
+DEFAULTS["plot_kwds"] = {}
+DEFAULTS["plot_kwds"]["pie"] = {"normalize": False}
 
 DEFAULTS["ref_plot_kwds"] = {}
 DEFAULTS["ref_plot_kwds"]["rectangle"] = {
