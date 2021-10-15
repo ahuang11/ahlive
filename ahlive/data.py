@@ -1168,7 +1168,7 @@ class Data(Easing, Animation, Configuration):
         if crs or projection:
             if chart == "pie":
                 raise ValueError(
-                    f"Geographic transforms are not supported for pie charts"
+                    "Geographic transforms are not supported for pie charts"
                 )
 
             if len(geo_features - set(["crs", "projection"])) == 0:
