@@ -30,6 +30,9 @@ new features
 - `state_labels` can now be appended/prepended to title labels and documented prefix/suffix/units/replacements (:pull:`90`).
   By `Andrew Huang <https://github.com/ahuang11>`_
 
+- Added support for `pie` charts (:pull:`97`).
+  By `Andrew Huang <https://github.com/ahuang11>`_
+
 documentation
 ~~~~~~~~~~~~~
 

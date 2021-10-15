@@ -185,6 +185,7 @@ PRESETS = {
     "none": [None],
     "line": ["morph", "morph_trail"],
     "scatter": ["trail", "morph", "morph_trail"],
+    "pie": [],
     **{
         chart: ["stacked", "morph_stacked", "race", "delta", "morph"]
         for chart in ["bar", "barh"]
@@ -404,7 +405,6 @@ DEFAULTS["preset_inline_kwds"] = DEFAULTS["inline_kwds"].copy()
 DEFAULTS["remark_inline_kwds"] = DEFAULTS["label_kwds"].copy()
 DEFAULTS["remark_inline_kwds"].update(
     {
-        "fontsize": SIZES["small"],
         "textcoords": "offset points",
         "xytext": (1, -1),
         "ha": "left",

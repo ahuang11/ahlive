@@ -385,7 +385,7 @@ class Animation(param.Parameterized):
             raise ValueError(f"{chart} not supported; select from {valid_charts}")
         color = self._get_color(overlay_ds, plot)
 
-        if xs.ndim == 2:  # a grouped batch with same label
+        if ys.ndim == 2:  # a grouped batch with same label
             try:
                 for p in plot:
                     p.set_color(color)
@@ -578,13 +578,25 @@ class Animation(param.Parameterized):
                 clip=True,
             )
 
-    def _add_remarks(self, state_ds, ax, chart, xs, ys, remarks, color):
+    @staticmethod
+    def _compute_pie_xys(plot, offset=1):
+        thetas = np.array([(p.theta1, p.theta2) for p in plot])
+        ang = (thetas[:, 1] - thetas[:, 0]) / 2. + thetas[:, 0]
+        ys = np.sin(np.deg2rad(ang)) * offset
+        xs = np.cos(np.deg2rad(ang)) * offset
+        return xs, ys
+
+    def _add_remarks(self, state_ds, ax, chart, xs, ys, remarks, color, plot=None):
         if remarks is None:
             return
 
-        xs = to_1d(xs)
-        ys = to_1d(ys)
+        if chart == "pie":
+            xs, ys = self._compute_pie_xys(plot, offset=1.15)
+        else:
+            xs = to_1d(xs)
+            ys = to_1d(ys)
         remarks = to_1d(remarks)
+
         for x, y, remark in zip(xs, ys, remarks):
             if remark == "":
                 continue
@@ -612,7 +624,9 @@ class Animation(param.Parameterized):
             remark_kwds = load_defaults(
                 "remark_plot_kwds", state_ds, x=x, y=y, color=color
             )
-            ax.scatter(**remark_kwds)
+
+            if chart != "pie":
+                ax.scatter(**remark_kwds)
 
     def _add_inline_labels(
         self,
@@ -649,6 +663,7 @@ class Animation(param.Parameterized):
                 ha = "left"
                 va = "bottom"
             elif chart == "pie":
+                xytext = (0, 0)
                 color = "white"
         elif va is None:
             va = "center"
@@ -672,20 +687,16 @@ class Animation(param.Parameterized):
         if transform is not None:
             inline_kwds["xycoords"] = transform._as_mpl_transform(ax)
 
-        xs = to_1d(xs)
-        ys = to_1d(ys)
         inline_labels = to_1d(inline_labels)
-        if chart in ["line", "bar", "barh"]:
-            xs = xs[[-1]]
-            ys = ys[[-1]]
-            inline_labels = inline_labels[[-1]]
-        elif chart == "pie":
-            xs = []
-            ys = []
-            for i, p in enumerate(plot):
-                ang = (p.theta2 - p.theta1) / 2. + p.theta1
-                ys.append(np.sin(np.deg2rad(ang)) * 0.8)
-                xs.append(np.cos(np.deg2rad(ang)) * 0.8)
+        if chart == "pie":
+            xs, ys = self._compute_pie_xys(plot, offset=0.8)
+        else:
+            xs = to_1d(xs)
+            ys = to_1d(ys)
+            if chart in ["line", "bar", "barh"]:
+                xs = xs[[-1]]
+                ys = ys[[-1]]
+                inline_labels = inline_labels[[-1]]
 
         for x, y, inline_label in zip(xs, ys, inline_labels):
             if str(inline_label) == "nan":
@@ -934,7 +945,8 @@ class Animation(param.Parameterized):
 
             if chart == "pie":
                 inline_kwds = load_defaults("inline_kwds", overlay_ds)
-                inline_kwds["labels"] = plot_kwds.pop("labels")
+                if "labels" in plot_kwds.keys():
+                    inline_kwds["labels"] = plot_kwds.pop("labels")
                 inline_kwds = self._update_text(inline_kwds, "labels")
                 inline_kwds.pop("textcoords")
                 plot_kwds["labels"] = inline_kwds.pop("labels")
@@ -1007,7 +1019,16 @@ class Animation(param.Parameterized):
                 xytext=(0, -5) if chart == "barh" else (0, -15),
             )
 
-            self._add_remarks(overlay_ds, ax, chart, xs, ys, remarks, color)
+            self._add_remarks(
+                overlay_ds,
+                ax,
+                chart,
+                xs,
+                ys,
+                remarks,
+                color,
+                plot=plot
+            )
 
         return mappable
 
@@ -1773,8 +1794,8 @@ class Animation(param.Parameterized):
         return out_obj
 
     def render(self):
+        self_copy = self.finalize()
         try:
-            self_copy = self.finalize()
             data = self_copy.data
 
             for ds in data.values():
