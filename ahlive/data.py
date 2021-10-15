@@ -537,6 +537,19 @@ class Data(Easing, Animation, Configuration):
 
         return ds
 
+    def _config_pie_chart(self, ds):
+        num_items = len(ds["item"])
+        ds = ds.rename({"label": "labels"})
+        ds["group"] = ("item", np.repeat("_pie_group", num_items))
+
+        if "inline_label" not in ds.data_vars:
+            ds["inline_label"] = ds["y"]
+
+        need_norm = (ds["y"].sum("item") > 1).any()
+        if need_norm:
+            ds["y"] = ds["y"] / ds["y"].sum("item")
+        return ds
+
     def _config_grid_axes(self, ds, chart):
         if self.style == "bare":
             ds.attrs["grid_kwds"]["b"] = ds.attrs["grid_kwds"].get("b", False)
@@ -575,12 +588,16 @@ class Data(Easing, Animation, Configuration):
 
     def _config_chart(self, ds, chart):
         preset = ds.attrs["preset_kwds"].get("preset", "")
+        if preset != "" and preset not in PRESETS[chart]:
+            raise ValueError(f"{preset} preset is not supported for {chart} charts")
 
         if "morph" in preset:
             ds = self._config_morph_chart(ds)
 
         if chart.startswith("bar"):
             ds = self._config_bar_chart(ds, chart, preset)
+        elif chart == "pie":
+            ds = self._config_pie_chart(ds)
         elif "trail" in preset:
             ds = self._config_trail_chart(ds, preset)
 
@@ -633,6 +650,9 @@ class Data(Easing, Animation, Configuration):
         return base_diff
 
     def _add_xy01_limits(self, ds, chart):
+        if chart == "pie":
+            return ds
+
         # TODO: breakdown function
         limits = {key: ds.attrs["limits_kwds"].pop(key, None) for key in ITEMS["limit"]}
 
@@ -951,7 +971,10 @@ class Data(Easing, Animation, Configuration):
         ds.attrs["base_kwds"] = base_kwds
         return ds
 
-    def _add_margins(self, ds):
+    def _add_margins(self, ds, chart):
+        if chart == "pie":
+            return ds
+
         margins_kwds = load_defaults("margins_kwds", ds)
         margins = {}
         for axis in ["x", "y"]:
@@ -1127,7 +1150,7 @@ class Data(Easing, Animation, Configuration):
                 )
         return crs_obj
 
-    def _add_geo_transforms(self, ds):
+    def _add_geo_transforms(self, ds, chart):
         crs_kwds = load_defaults("crs_kwds", ds)
         crs = crs_kwds.pop("crs", None)
 
@@ -1143,6 +1166,11 @@ class Data(Easing, Animation, Configuration):
             projection = projection or ("GOOGLE_MERCATOR" if tiles else "PlateCarree")
 
         if crs or projection:
+            if chart == "pie":
+                raise ValueError(
+                    "Geographic transforms are not supported for pie charts"
+                )
+
             if len(geo_features - set(["crs", "projection"])) == 0:
                 ds.attrs["coastline_kwds"]["coastline"] = True
 
@@ -1347,10 +1375,13 @@ class Data(Easing, Animation, Configuration):
         return ds
 
     def _get_chart(self, ds):
-        if "chart" not in ds.data_vars:
+        for kind in ["", "ref_", "grid_"]:
+            chart_key = f"{kind}chart"
+            if chart_key in ds.data_vars:
+                break
+        else:
             return ""
-
-        chart = to_scalar(ds["chart"], get=0)
+        chart = to_scalar(ds[chart_key], get=0)
         return chart
 
     def finalize(self):
@@ -1365,13 +1396,13 @@ class Data(Easing, Animation, Configuration):
             ds = self_copy._fill_null(ds)
             ds = self_copy._add_xy01_limits(ds, chart)
             ds = self_copy._add_color_kwds(ds, chart)
-            ds = self_copy._add_margins(ds)
+            ds = self_copy._add_margins(ds, chart)
             ds = self_copy._config_chart(ds, chart)
             ds = self_copy._add_durations(ds)
             ds = self_copy._precompute_base(ds, chart)  # must be after config chart
             ds = self_copy._add_geo_tiles(ds)  # before interp
             ds = self_copy._interp_dataset(ds)
-            ds = self_copy._add_geo_transforms(ds)  # after interp
+            ds = self_copy._add_geo_transforms(ds, chart)  # after interp
             ds = self_copy._add_geo_features(ds)
             ds = self_copy._add_animate_kwds(ds)
             ds = self_copy._compress_vars(ds)
@@ -1461,6 +1492,13 @@ class Data(Easing, Animation, Configuration):
                 chart = "line"
         else:
             chart = self.chart
+
+        try:
+            if to_scalar(input_vars["ys"]) is None:
+                input_vars["ys"] = input_vars["xs"]
+                input_vars["xs"] = np.arange(num_states)
+        except KeyError:
+            pass  # ref or grid
 
         coords = {}
         data_vars = {}
@@ -1827,7 +1865,7 @@ class Array(GeographicData, ReferenceArray, ColorArray, RemarkArray):
 
     _dim_type = "basic"
 
-    def __init__(self, xs, ys, **kwds):
+    def __init__(self, xs, ys=None, **kwds):
         for xys, xys_arr in {"xs": xs, "ys": ys}.items():
             if isinstance(xys_arr, str):
                 raise ValueError(

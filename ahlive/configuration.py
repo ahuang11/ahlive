@@ -175,7 +175,7 @@ CANVAS = {
 }
 
 CHARTS = {
-    "basic": ["scatter", "line", "barh", "bar"],
+    "basic": ["scatter", "line", "barh", "bar", "pie"],
     "grid": ["pcolormesh", "pcolorfast", "contourf", "contour"],
     "ref": ["rectangle", "axvspan", "axhspan", "axvline", "axhline", "scatter"],
 }
@@ -185,6 +185,7 @@ PRESETS = {
     "none": [None],
     "line": ["morph", "morph_trail"],
     "scatter": ["trail", "morph", "morph_trail"],
+    "pie": [],
     **{
         chart: ["stacked", "morph_stacked", "race", "delta", "morph"]
         for chart in ["bar", "barh"]
@@ -333,6 +334,9 @@ DEFAULTS["preset_kwds"]["race"] = {"bar_label": True, "limit": 5, "ascending": F
 DEFAULTS["preset_kwds"]["delta"] = {"bar_label": True, "capsize": 6}
 DEFAULTS["preset_kwds"]["scan"] = {"color": "black", "stride": 1}
 
+DEFAULTS["plot_kwds"] = {}
+DEFAULTS["plot_kwds"]["pie"] = {"normalize": False}
+
 DEFAULTS["ref_plot_kwds"] = {}
 DEFAULTS["ref_plot_kwds"]["rectangle"] = {
     "facecolor": "darkgray",
@@ -401,7 +405,6 @@ DEFAULTS["preset_inline_kwds"] = DEFAULTS["inline_kwds"].copy()
 DEFAULTS["remark_inline_kwds"] = DEFAULTS["label_kwds"].copy()
 DEFAULTS["remark_inline_kwds"].update(
     {
-        "fontsize": SIZES["small"],
         "textcoords": "offset points",
         "xytext": (1, -1),
         "ha": "left",
