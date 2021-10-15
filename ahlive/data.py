@@ -589,8 +589,7 @@ class Data(Easing, Animation, Configuration):
     def _config_chart(self, ds, chart):
         preset = ds.attrs["preset_kwds"].get("preset", "")
         if preset != "" and preset not in PRESETS[chart]:
-            raise ValueError(
-                f"{preset} preset is not supported for {chart} charts")
+            raise ValueError(f"{preset} preset is not supported for {chart} charts")
 
         if "morph" in preset:
             ds = self._config_morph_chart(ds)
@@ -1169,7 +1168,8 @@ class Data(Easing, Animation, Configuration):
         if crs or projection:
             if chart == "pie":
                 raise ValueError(
-                    f"Geographic transforms are not supported for pie charts")
+                    f"Geographic transforms are not supported for pie charts"
+                )
 
             if len(geo_features - set(["crs", "projection"])) == 0:
                 ds.attrs["coastline_kwds"]["coastline"] = True

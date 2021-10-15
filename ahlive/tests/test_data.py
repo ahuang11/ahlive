@@ -928,15 +928,14 @@ def test_morph_stacked():
 
 def test_pie_chart():
     ah_obj = (
-        ah.Array([0, 1, 2], label="a", chart="pie", frames=1) *
-        ah.Array([1, 0, 1], chart="pie")
+        ah.Array([0, 1, 2], label="a", chart="pie", frames=1)
+        * ah.Array([1, 0, 1], chart="pie")
     ).finalize()
     ds = ah_obj[1, 1]
     assert (ds["group"] == "_pie_group").all()
-    assert (ds["labels"].values.tolist() == ['a', ''])
+    assert ds["labels"].values.tolist() == ["a", ""]
     assert ds["item"].values.tolist() == [1, 2]
     assert ds["state"].values.tolist() == [1, 2, 3]
     np.testing.assert_almost_equal(
-        ds["y"].values.ravel(),
-        np.array([0, 1, 0.6666666, 1, 0, 0.3333333])
+        ds["y"].values.ravel(), np.array([0, 1, 0.6666666, 1, 0, 0.3333333])
     )  # normalize

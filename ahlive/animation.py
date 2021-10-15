@@ -581,7 +581,7 @@ class Animation(param.Parameterized):
     @staticmethod
     def _compute_pie_xys(plot, offset=1):
         thetas = np.array([(p.theta1, p.theta2) for p in plot])
-        ang = (thetas[:, 1] - thetas[:, 0]) / 2. + thetas[:, 0]
+        ang = (thetas[:, 1] - thetas[:, 0]) / 2.0 + thetas[:, 0]
         ys = np.sin(np.deg2rad(ang)) * offset
         xs = np.cos(np.deg2rad(ang)) * offset
         return xs, ys
@@ -643,7 +643,7 @@ class Animation(param.Parameterized):
         ha=None,
         va=None,
         clip=False,
-        plot=None
+        plot=None,
     ):
         if inline_labels is None:
             return
@@ -745,7 +745,6 @@ class Animation(param.Parameterized):
             return zip([""], [data])
 
     def _get_iter_ds(self, state_ds):
-        chart = self._get_chart(state_ds)
         preset = state_ds.attrs["preset_kwds"].get("preset")
         if len(state_ds.data_vars) == 0:
             return zip([], []), -1
@@ -925,7 +924,9 @@ class Animation(param.Parameterized):
                 for var in list(overlay_ds.data_vars)
             }
             trail_plot_kwds = self._strip_dict(
-                load_defaults("plot_kwds", overlay_ds, base_chart=chart, **trail_plot_kwds)
+                load_defaults(
+                    "plot_kwds", overlay_ds, base_chart=chart, **trail_plot_kwds
+                )
             )
             if "alpha" in trail_plot_kwds:
                 trail_plot_kwds["alpha"] = to_scalar(trail_plot_kwds["alpha"])
@@ -978,7 +979,7 @@ class Animation(param.Parameterized):
                 inline_labels,
                 color,
                 xytext=(5, 5) if not chart.startswith("bar") else (0, 5),
-                plot=plot
+                plot=plot,
             )
 
             self._plot_trails(
@@ -1019,16 +1020,7 @@ class Animation(param.Parameterized):
                 xytext=(0, -5) if chart == "barh" else (0, -15),
             )
 
-            self._add_remarks(
-                overlay_ds,
-                ax,
-                chart,
-                xs,
-                ys,
-                remarks,
-                color,
-                plot=plot
-            )
+            self._add_remarks(overlay_ds, ax, chart, xs, ys, remarks, color, plot=plot)
 
         return mappable
 
