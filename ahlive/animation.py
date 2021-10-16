@@ -16,7 +16,7 @@ import pandas as pd
 import param
 import xarray as xr
 from matplotlib import pyplot as plt
-from matplotlib.colors import to_hex, Normalize
+from matplotlib.colors import Normalize, to_hex
 from matplotlib.dates import AutoDateLocator, ConciseDateFormatter
 from matplotlib.patches import Rectangle
 from matplotlib.patheffects import withStroke
