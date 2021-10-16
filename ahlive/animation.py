@@ -1059,8 +1059,12 @@ class Animation(param.Parameterized):
             inline_labels = pop(overlay_ds, "inline_label")
 
             plot_kwds = self._strip_dict(
-                {var: pop(overlay_ds, var, get=0) if var not in ITEMS["not_scalar"]
-                else overlay_ds[var].values for var in list(overlay_ds.data_vars)}
+                {
+                    var: pop(overlay_ds, var, get=0)
+                    if var not in ITEMS["not_scalar"]
+                    else overlay_ds[var].values
+                    for var in list(overlay_ds.data_vars)
+                }
             )
             if chart in ["contourf", "contour"]:
                 if "levels" not in plot_kwds:

@@ -175,7 +175,16 @@ CANVAS = {
 }
 
 CHARTS = {
-    "basic": ["scatter", "line", "barh", "bar", "pie", "errorbar", "area", "annotation"],
+    "basic": [
+        "scatter",
+        "line",
+        "barh",
+        "bar",
+        "pie",
+        "errorbar",
+        "area",
+        "annotation",
+    ],
     "grid": ["pcolormesh", "pcolorfast", "contourf", "contour", "hexbin", "quiver"],
     "ref": ["rectangle", "axvspan", "axhspan", "axvline", "axhline", "scatter"],
 }
@@ -265,7 +274,7 @@ ITEMS = {
         "margins_kwds",
     ],
     "continual": ["line", "errorbar", "area"],  # need more than one data point
-    "not_scalar": ["c", "s", "labels", "xerr", "yerr", "y2", "u", "v"]
+    "not_scalar": ["c", "s", "labels", "xerr", "yerr", "y2", "u", "v"],
 }
 
 OPTIONS = {
