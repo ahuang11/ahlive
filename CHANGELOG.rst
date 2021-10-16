@@ -33,6 +33,9 @@ new features
 - Added support for `pie` charts (:pull:`97`).
   By `Andrew Huang <https://github.com/ahuang11>`_
 
+- Added new charts including errorbar, area, annotation, hexbin, quiver, streamplot (:pull:`99`).
+  By `Andrew Huang <https://github.com/ahuang11>`_
+
 documentation
 ~~~~~~~~~~~~~
 
