@@ -60,7 +60,7 @@ class Easing(param.Parameterized):
         if is_xarray:
             if "state" not in da.dims:
                 return da_origin
-            da, name, dims, coords, interp, ease, is_bar = self._prep_xarray(da)
+            da, name, dims, coords, interp, ease, is_bar, is_errorbar_morph = self._prep_xarray(da)
 
         array = self._prep_array(da)
 
@@ -71,7 +71,7 @@ class Easing(param.Parameterized):
         steps = np.linspace(0, 1, num_steps)
         interp_args = (steps, interp, ease, num_states, num_steps, num_items)
         array_dtype = array.dtype
-        if name in ["duration", "remark", "xerr", "yerr"]:
+        if name in ["duration", "remark", "xerr", "yerr"] and not is_errorbar_morph:
             result = self._interp_first(
                 array, num_states, num_steps, num_items, num_result, name
             )
@@ -124,7 +124,8 @@ class Easing(param.Parameterized):
             da = da.transpose("stacked", "state")
         coords = da.drop_vars("state", errors="ignore").coords
         is_bar = da.attrs.get("is_bar")
-        return da, name, dims, coords, interp, ease, is_bar
+        is_errorbar_morph = da.attrs.get("is_errorbar_morph")
+        return da, name, dims, coords, interp, ease, is_bar, is_errorbar_morph
 
     def _prep_array(self, da):
         array = np.array(da)

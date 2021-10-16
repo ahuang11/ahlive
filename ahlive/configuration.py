@@ -198,22 +198,6 @@ CHARTS = {
 }
 CHARTS["all"] = CHARTS["basic"] + CHARTS["grid"] + CHARTS["ref"]
 
-PRESETS = {
-    "none": [None],
-    "line": ["morph", "morph_trail"],
-    "scatter": ["trail", "morph", "morph_trail"],
-    **{
-        chart: ["stacked", "morph_stacked", "race", "delta", "morph"]
-        for chart in ["bar", "barh"]
-    },
-    **{chart: ["rotate", "scan_x", "scan_y"] for chart in CHARTS["grid"]},
-}
-for chart in CHARTS["basic"] + CHARTS["grid"] + CHARTS["ref"]:
-    if chart not in PRESETS.keys():
-        PRESETS[chart] = []
-
-PRESETS["all"] = PRESETS["scatter"] + PRESETS["bar"] + PRESETS["pcolormesh"]
-
 DIMS = {
     "basic": (
         "item",
@@ -272,6 +256,19 @@ ITEMS = {
     "continual": ["line", "errorbar", "area"],  # need more than one data point
     "bar": ["bar", "barh"],  # need more than one data point
     "not_scalar": ["c", "s", "labels", "xerr", "yerr", "y2", "u", "v"],
+}
+
+PRESETS = {
+    "trail": ["scatter"],
+    "morph": ["scatter"] + ITEMS["continual"] + ITEMS["bar"],
+    "morph_trail": ["scatter"] + ITEMS["continual"],
+    "morph_stacked": ITEMS["bar"],
+    "rotate": ["scatter"] + ITEMS["continual"] + CHARTS["grid"],
+    "scan_x": ["scatter"] + ITEMS["continual"] + CHARTS["grid"],
+    "scan_y": ["scatter"] + ITEMS["continual"] + CHARTS["grid"],
+    "race": ITEMS["bar"],
+    "delta": ITEMS["bar"],
+    "stacked": ITEMS["bar"],
 }
 
 # frontend facing options
