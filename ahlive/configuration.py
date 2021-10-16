@@ -175,8 +175,8 @@ CANVAS = {
 }
 
 CHARTS = {
-    "basic": ["scatter", "line", "barh", "bar", "pie"],
-    "grid": ["pcolormesh", "pcolorfast", "contourf", "contour"],
+    "basic": ["scatter", "line", "barh", "bar", "pie", "errorbar", "area", "annotation"],
+    "grid": ["pcolormesh", "pcolorfast", "contourf", "contour", "hexbin", "quiver"],
     "ref": ["rectangle", "axvspan", "axhspan", "axvline", "axhline", "scatter"],
 }
 CHARTS["all"] = CHARTS["basic"] + CHARTS["grid"] + CHARTS["ref"]
@@ -185,13 +185,16 @@ PRESETS = {
     "none": [None],
     "line": ["morph", "morph_trail"],
     "scatter": ["trail", "morph", "morph_trail"],
-    "pie": [],
     **{
         chart: ["stacked", "morph_stacked", "race", "delta", "morph"]
         for chart in ["bar", "barh"]
     },
     **{chart: ["rotate", "scan_x", "scan_y"] for chart in CHARTS["grid"]},
 }
+for chart in CHARTS["basic"] + CHARTS["grid"] + CHARTS["ref"]:
+    if chart not in PRESETS.keys():
+        PRESETS[chart] = []
+
 PRESETS["all"] = PRESETS["scatter"] + PRESETS["bar"] + PRESETS["pcolormesh"]
 
 DIMS = {
@@ -251,6 +254,7 @@ ITEMS = {
     "transformables": [
         "plot_kwds",
         "inline_kwds",
+        "text_inline_kwds",
         "ref_plot_kwds",
         "ref_inline_kwds",
         "grid_plot_kwds",
@@ -260,6 +264,8 @@ ITEMS = {
         "grid_kwds",
         "margins_kwds",
     ],
+    "continual": ["line", "errorbar", "area"],  # need more than one data point
+    "not_scalar": ["c", "s", "labels", "xerr", "yerr", "y2", "u", "v"]
 }
 
 OPTIONS = {
@@ -397,6 +403,8 @@ DEFAULTS["state_kwds"].update(
 
 DEFAULTS["inline_kwds"] = DEFAULTS["label_kwds"].copy()
 DEFAULTS["inline_kwds"].update({"textcoords": "offset points"})
+
+DEFAULTS["text_inline_kwds"] = DEFAULTS["inline_kwds"].copy()
 
 DEFAULTS["ref_inline_kwds"] = DEFAULTS["inline_kwds"].copy()
 DEFAULTS["grid_inline_kwds"] = DEFAULTS["inline_kwds"].copy()

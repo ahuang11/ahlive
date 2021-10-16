@@ -331,22 +331,17 @@ class Animation(param.Parameterized):
         if "cmap" in overlay_ds.attrs["plot_kwds"]:
             color = "black"
         else:
-            try:
-                color = plot.get_color()
-            except AttributeError:
-                try:
-                    color = plot.get_facecolor()
-                except AttributeError:
-                    try:
-                        color = plot[0].get_facecolor()
-                    except AttributeError:
-                        color = plot[0][0].get_facecolor()
+            if isinstance(plot, list):
+                plot = plot[0]
 
-                if length(color) < 1:
-                    try:
-                        color = plot.get_edgecolor()
-                    except AttributeError:
-                        color = plot[0].get_edgecolor()
+            if hasattr(plot, "get_color"):
+                color = plot.get_color()
+            elif hasattr(plot, "get_facecolor"):
+                color = plot.get_facecolor()
+            elif hasattr(plot, "get_edgecolor"):
+                color = plot.get_edgecolor()
+            else:
+                color = plot.get_children()[0].get_color()
 
         if isinstance(color, np.ndarray):
             if len(color) == 1:
@@ -371,18 +366,28 @@ class Animation(param.Parameterized):
         return plot_kwds
 
     def _plot_chart(self, overlay_ds, ax, chart, xs, ys, plot_kwds):
+        valid_charts = CHARTS["basic"]
+        if chart not in valid_charts:
+            warnings.warn(
+                f"{chart} is not officially supported; "
+                "submit a GitHub issue for support if needed!"
+            )
+
         plot_kwds = self._pop_invalid_kwds(chart, plot_kwds)
-        if chart == "scatter":
-            plot = ax.scatter(xs, ys, **plot_kwds)
-        elif chart == "line":
+        if chart == "line":
             plot = ax.plot(xs, ys, **plot_kwds)
+        elif chart == "area":
+            plot = ax.fill_between(xs, ys, **plot_kwds)
         elif chart.startswith("bar"):
             plot = getattr(ax, chart)(to_1d(xs), to_1d(ys), **plot_kwds)
-        elif chart == "pie":
-            plot, _ = ax.pie(ys, **plot_kwds)
+        elif chart == "annotation":
+            plot_kwds = load_defaults("text_inline_kwds", plot_kwds)
+            plot_kwds = self._update_text(plot_kwds, "text")
+            if "xytext" not in plot_kwds.keys():
+                plot_kwds.pop("textcoords")
+            plot = ax.annotate(xy=(xs, ys), **plot_kwds)
         else:
-            valid_charts = CHARTS["basic"]
-            raise ValueError(f"{chart} not supported; select from {valid_charts}")
+            plot = getattr(ax, chart)(xs, ys, **plot_kwds)
         color = self._get_color(overlay_ds, plot)
 
         if ys.ndim == 2:  # a grouped batch with same label
@@ -695,7 +700,7 @@ class Animation(param.Parameterized):
         else:
             xs = to_1d(xs)
             ys = to_1d(ys)
-            if chart in ["line", "bar", "barh"]:
+            if chart in ["line", "error", "bar", "barh"]:
                 xs = xs[[-1]]
                 ys = ys[[-1]]
                 inline_labels = inline_labels[[-1]]
@@ -720,9 +725,9 @@ class Animation(param.Parameterized):
         if get is not None and chart not in ["bar", "barh"]:
             if array.ndim == 3:
                 array = array[:, :, get].squeeze()
-            elif array.ndim == 2 and chart != "line":
+            elif array.ndim == 2 and chart not in ITEMS["continual"]:
                 array = array[:, get]
-            elif chart != "line":
+            elif chart not in ITEMS["continual"]:
                 array = array[[get]]
         elif array.ndim > 1 and len(array[-1]) == 1:  # [[0, 1, 2]]
             array = array.ravel()
@@ -935,7 +940,7 @@ class Animation(param.Parameterized):
 
             plot_kwds = self._strip_dict(
                 {
-                    key: to_scalar(val) if key not in ["c", "s", "labels"] else val
+                    key: to_scalar(val) if key not in ITEMS["not_scalar"] else val
                     for key, val in trail_plot_kwds.items()
                 }
             )
@@ -1054,12 +1059,13 @@ class Animation(param.Parameterized):
             inline_labels = pop(overlay_ds, "inline_label")
 
             plot_kwds = self._strip_dict(
-                {var: pop(overlay_ds, var, get=0) for var in list(overlay_ds.data_vars)}
+                {var: pop(overlay_ds, var, get=0) if var not in ITEMS["not_scalar"]
+                else overlay_ds[var].values for var in list(overlay_ds.data_vars)}
             )
             if chart in ["contourf", "contour"]:
                 if "levels" not in plot_kwds:
                     plot_kwds["levels"] = overlay_ds.attrs["cticks_kwds"].get("ticks")
-            else:
+            elif chart in ["pcolormesh"]:
                 if "shading" not in plot_kwds:
                     plot_kwds["shading"] = "auto"
 
@@ -1070,7 +1076,14 @@ class Animation(param.Parameterized):
                 **plot_kwds,
             )
 
-            mappable = getattr(ax, chart)(xs, ys, cs, **plot_kwds)
+            if chart == "quiver":
+                plot_kwds["clim"] = plot_kwds.pop("vmin"), plot_kwds.pop("vmax")
+                xs, ys = np.meshgrid(xs, ys)
+                us = plot_kwds.pop("u")
+                vs = plot_kwds.pop("v")
+                mappable = ax.quiver(xs, ys, us, vs, cs, **plot_kwds)
+            else:
+                mappable = getattr(ax, chart)(xs, ys, cs, **plot_kwds)
 
             self._plot_scans(
                 overlay_ds,
@@ -1595,7 +1608,7 @@ class Animation(param.Parameterized):
                     one_bar = False
                 series_preset = (not preset or preset == "stacked") and one_bar
                 is_stateless = "state" not in ds.dims
-                is_line = np.any(ds.get("chart", "") == "line")
+                is_line = np.any(ds.get("chart", "") in ITEMS["continual"])
                 is_bar = np.any(
                     (ds.get("chart", "") == "bar") | (ds.get("chart", "") == "barh")
                 )

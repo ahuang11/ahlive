@@ -710,7 +710,7 @@ class Data(Easing, Animation, Configuration):
             elif unset_limit:
                 has_other_limit = limits[f"{key[:-1]}{1 - num}s"] is not None
                 is_scatter = chart == "scatter"
-                is_line_y = chart == "line" and axis == "y"
+                is_line_y = chart in ITEMS["continual"] and axis == "y"
                 is_bar_x = chart.startswith("bar") and axis == "x"
                 is_bar_y = chart.startswith("bar") and axis == "y"
                 is_fixed = any([is_scatter, is_line_y, is_bar_y, has_other_limit])
@@ -962,9 +962,8 @@ class Data(Easing, Animation, Configuration):
         base_kwds = {}
         ds, base_kwds = self._precompute_base_ticks(ds, base_kwds)
         ds, base_kwds = self._precompute_base_labels(ds, chart, base_kwds)
-        for key in ["s"]:  # for the legend
-            if key in ds:
-                base_kwds[key] = np.nanmedian(ds[key])
+        if "s" in ds.data_vars:
+            base_kwds["s"] = np.nanmedian(ds["s"])
 
         ds.attrs["base_kwds"] = base_kwds
         return ds
