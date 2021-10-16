@@ -1621,8 +1621,9 @@ class Animation(param.Parameterized):
                     one_bar = False
                 series_preset = (not preset or preset == "stacked") and one_bar
                 is_stateless = "state" not in ds.dims
-                is_line = np.any([
-                    ds.get("chart", "") == chart for chart in ITEMS["continual"]])
+                is_line = np.any(
+                    [ds.get("chart", "") == chart for chart in ITEMS["continual"]]
+                )
                 is_bar = np.any(
                     (ds.get("chart", "") == chart for chart in ITEMS["bar"])
                 )
