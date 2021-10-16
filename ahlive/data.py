@@ -419,11 +419,8 @@ class Data(Easing, Animation, Configuration):
                 cumulation[negative_mask] = negative_cumulation[negative_mask]
                 lim_key = "xlim1" if chart == "barh" else "ylim1"
                 ds["bar_offset"] = ds["y"].dims, cumulation
-                if lim_key in ds.data_vars:
-                    if len(np.unique(ds[lim_key])) == 1:
-                        ds[lim_key] = ds[lim_key] + ds["bar_offset"].max()
-                    else:
-                        ds[lim_key] = ds[lim_key] + ds["bar_offset"]
+                if lim_key not in ds.data_vars:
+                    ds[lim_key] = ds["y"].sum("item")
             elif preset not in ["race", "delta"]:
                 width = 1 / num_items / 1.5
                 offsets = (width * (1 - num_items) / num_items) + np.arange(
@@ -508,6 +505,7 @@ class Data(Easing, Animation, Configuration):
     def _config_morph_chart(ds):
         group_ds_list = []
         ref_vars = [var for var in ds.data_vars if var.startswith("ref_")]
+        ds["chart"] = ds["chart"].values.ravel()[-1]
         if len(ref_vars) > 0:
             ref_ds = ds[ref_vars]
             ds = ds.drop_vars(ref_vars)
@@ -1381,7 +1379,7 @@ class Data(Easing, Animation, Configuration):
                 break
         else:
             return ""
-        chart = to_scalar(ds[chart_key], get=0)
+        chart = to_scalar(ds[chart_key], get=-1)
         return chart
 
     def finalize(self):
