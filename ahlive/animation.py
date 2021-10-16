@@ -700,7 +700,7 @@ class Animation(param.Parameterized):
         else:
             xs = to_1d(xs)
             ys = to_1d(ys)
-            if chart in ["line", "error", "bar", "barh"]:
+            if chart in ITEMS["continual"] + ITEMS["bar"]:
                 xs = xs[[-1]]
                 ys = ys[[-1]]
                 inline_labels = inline_labels[[-1]]
@@ -722,7 +722,7 @@ class Animation(param.Parameterized):
         elif not hasattr(array, "ndim"):
             array = to_1d(array, flat=False)
 
-        if get is not None and chart not in ["bar", "barh"]:
+        if get is not None and chart not in ITEMS["bar"]:
             if array.ndim == 3:
                 array = array[:, :, get].squeeze()
             elif array.ndim == 2 and chart not in ITEMS["continual"]:
@@ -1621,9 +1621,10 @@ class Animation(param.Parameterized):
                     one_bar = False
                 series_preset = (not preset or preset == "stacked") and one_bar
                 is_stateless = "state" not in ds.dims
-                is_line = np.any(ds.get("chart", "") in ITEMS["continual"])
+                is_line = np.any([
+                    ds.get("chart", "") == chart for chart in ITEMS["continual"]])
                 is_bar = np.any(
-                    (ds.get("chart", "") == "bar") | (ds.get("chart", "") == "barh")
+                    (ds.get("chart", "") == chart for chart in ITEMS["bar"])
                 )
                 is_morph = "morph" in preset
                 is_trail = "trail" in preset

@@ -1,13 +1,13 @@
 from collections.abc import ItemsView, KeysView, ValuesView
 
+import cartopy.crs as ccrs
+import cartopy.feature as cfeature
 import numpy as np
 import pandas as pd
 import pytest
 import xarray as xr
 
 import ahlive as ah
-import cartopy.crs as ccrs
-import cartopy.feature as cfeature
 from ahlive.configuration import CONFIGURABLES, ITEMS, OPTIONS, VARS
 from ahlive.tests.test_configuration import (  # noqa: F401
     CONTAINERS,

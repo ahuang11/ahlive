@@ -282,6 +282,7 @@ ITEMS = {
         "margins_kwds",
     ],
     "continual": ["line", "errorbar", "area"],  # need more than one data point
+    "bar": ["bar", "barh"],  # need more than one data point
     "not_scalar": ["c", "s", "labels", "xerr", "yerr", "y2", "u", "v"],
 }
 
