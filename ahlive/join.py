@@ -1,7 +1,7 @@
 import numpy as np
 import xarray as xr
 
-from .configuration import ITEMS, VARS
+from .configuration import OPTIONS, VARS
 from .util import fillna, is_str, srange, to_scalar
 
 
@@ -279,6 +279,6 @@ def merge(objs, join="overlay"):
         obj = slide(objs)
     else:
         raise NotImplementedError(
-            f'Only {ITEMS["join"]} are implemented for merge; got {join}'
+            f'Only {OPTIONS["join"]} are implemented for merge; got {join}'
         )
     return obj

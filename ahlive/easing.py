@@ -71,7 +71,7 @@ class Easing(param.Parameterized):
         steps = np.linspace(0, 1, num_steps)
         interp_args = (steps, interp, ease, num_states, num_steps, num_items)
         array_dtype = array.dtype
-        if name in ["duration", "remark"]:
+        if name in ["duration", "remark", "xerr", "yerr"]:
             result = self._interp_first(
                 array, num_states, num_steps, num_items, num_result, name
             )

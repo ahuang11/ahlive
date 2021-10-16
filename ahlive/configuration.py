@@ -175,8 +175,25 @@ CANVAS = {
 }
 
 CHARTS = {
-    "basic": ["scatter", "line", "barh", "bar", "pie"],
-    "grid": ["pcolormesh", "pcolorfast", "contourf", "contour"],
+    "basic": [
+        "scatter",
+        "line",
+        "barh",
+        "bar",
+        "pie",
+        "errorbar",
+        "area",
+        "annotation",
+    ],
+    "grid": [
+        "pcolormesh",
+        "pcolorfast",
+        "contourf",
+        "contour",
+        "hexbin",
+        "quiver",
+        "streamplot",
+    ],
     "ref": ["rectangle", "axvspan", "axhspan", "axvline", "axhline", "scatter"],
 }
 CHARTS["all"] = CHARTS["basic"] + CHARTS["grid"] + CHARTS["ref"]
@@ -185,13 +202,16 @@ PRESETS = {
     "none": [None],
     "line": ["morph", "morph_trail"],
     "scatter": ["trail", "morph", "morph_trail"],
-    "pie": [],
     **{
         chart: ["stacked", "morph_stacked", "race", "delta", "morph"]
         for chart in ["bar", "barh"]
     },
     **{chart: ["rotate", "scan_x", "scan_y"] for chart in CHARTS["grid"]},
 }
+for chart in CHARTS["basic"] + CHARTS["grid"] + CHARTS["ref"]:
+    if chart not in PRESETS.keys():
+        PRESETS[chart] = []
+
 PRESETS["all"] = PRESETS["scatter"] + PRESETS["bar"] + PRESETS["pcolormesh"]
 
 DIMS = {
@@ -219,6 +239,7 @@ VARS = {
     ],
 }
 
+# internal item mappings
 ITEMS = {
     "axes": ["x", "y", "c", "grid_c"],
     "limit": ["xlim0s", "xlim1s", "ylim0s", "ylim1s", "xlims", "ylims"],
@@ -235,22 +256,10 @@ ITEMS = {
         "grid_scan_y_diff_inline",
     ],  # base magnitude
     "interpolate": ["interp", "ease"],
-    "datasets": [
-        "annual_co2",
-        "tc_tracks",
-        "covid19_us_cases",
-        "covid19_global_cases",
-        "covid19_population",
-        "gapminder_life_expectancy",
-        "gapminder_income",
-        "gapminder_population",
-        "gapminder_country",
-        "iem_asos",
-    ],
-    "join": ["overlay", "layout", "cascade"],
     "transformables": [
         "plot_kwds",
         "inline_kwds",
+        "text_inline_kwds",
         "ref_plot_kwds",
         "ref_inline_kwds",
         "grid_plot_kwds",
@@ -260,8 +269,12 @@ ITEMS = {
         "grid_kwds",
         "margins_kwds",
     ],
+    "continual": ["line", "errorbar", "area"],  # need more than one data point
+    "bar": ["bar", "barh"],  # need more than one data point
+    "not_scalar": ["c", "s", "labels", "xerr", "yerr", "y2", "u", "v"],
 }
 
+# frontend facing options
 OPTIONS = {
     "fmt": ["gif", "mp4", "jpg", "png"],
     "style": ["graph", "minimal", "bare"],
@@ -281,6 +294,7 @@ OPTIONS = {
         False,
     ],
     "grid": ["x", "y", "both", True, False],
+    "join": ["overlay", "layout", "cascade"],
     "limit": ["zero", "fixed", "follow", "explore"],
     "scheduler": ["single-threaded", "processes"],
     "state_xy": [
@@ -290,6 +304,18 @@ OPTIONS = {
         "title_start",
         "subtitle_start",
         "suptitle_start",
+    ],
+    "datasets": [
+        "annual_co2",
+        "tc_tracks",
+        "covid19_us_cases",
+        "covid19_global_cases",
+        "covid19_population",
+        "gapminder_life_expectancy",
+        "gapminder_income",
+        "gapminder_population",
+        "gapminder_country",
+        "iem_asos",
     ],
 }
 
@@ -397,6 +423,8 @@ DEFAULTS["state_kwds"].update(
 
 DEFAULTS["inline_kwds"] = DEFAULTS["label_kwds"].copy()
 DEFAULTS["inline_kwds"].update({"textcoords": "offset points"})
+
+DEFAULTS["text_inline_kwds"] = DEFAULTS["inline_kwds"].copy()
 
 DEFAULTS["ref_inline_kwds"] = DEFAULTS["inline_kwds"].copy()
 DEFAULTS["grid_inline_kwds"] = DEFAULTS["inline_kwds"].copy()
