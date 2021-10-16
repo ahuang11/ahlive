@@ -323,25 +323,29 @@ class Animation(param.Parameterized):
         elif isinstance(state_xy, tuple):
             ax.annotate(**state_kwds)
 
-    @staticmethod
-    def _get_color(overlay_ds, plot):
+    def _extract_color(self, plot):
+        if isinstance(plot, list):
+            plot = plot[0]
+
+        if hasattr(plot, "get_color"):
+            color = plot.get_color()
+        elif hasattr(plot, "get_facecolor"):
+            color = plot.get_facecolor()
+        elif hasattr(plot, "get_edgecolor"):
+            color = plot.get_edgecolor()
+        else:
+            color = self._extract_color(plot.get_children())
+
+        return color
+
+    def _get_color(self, overlay_ds, plot):
         if isinstance(plot, list):
             plot = plot[0]
 
         if "cmap" in overlay_ds.attrs["plot_kwds"]:
             color = "black"
         else:
-            if isinstance(plot, list):
-                plot = plot[0]
-
-            if hasattr(plot, "get_color"):
-                color = plot.get_color()
-            elif hasattr(plot, "get_facecolor"):
-                color = plot.get_facecolor()
-            elif hasattr(plot, "get_edgecolor"):
-                color = plot.get_edgecolor()
-            else:
-                color = plot.get_children()[0].get_color()
+            color = self._extract_color(plot)
 
         if isinstance(color, np.ndarray):
             if len(color) == 1:
