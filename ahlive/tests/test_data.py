@@ -908,7 +908,7 @@ def test_stacked_fixed_limit():
     ).finalize()
     ds = ah_obj[1, 1]
     np.testing.assert_almost_equal(ds["ylim0"].values, 0)
-    np.testing.assert_almost_equal(ds["ylim1"].values, 3)
+    np.testing.assert_almost_equal(ds["ylim1"].values, 2)
 
 
 def test_morph_stacked():
