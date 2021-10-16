@@ -60,7 +60,16 @@ class Easing(param.Parameterized):
         if is_xarray:
             if "state" not in da.dims:
                 return da_origin
-            da, name, dims, coords, interp, ease, is_bar, is_errorbar_morph = self._prep_xarray(da)
+            (
+                da,
+                name,
+                dims,
+                coords,
+                interp,
+                ease,
+                is_bar,
+                is_errorbar_morph,
+            ) = self._prep_xarray(da)
 
         array = self._prep_array(da)
 

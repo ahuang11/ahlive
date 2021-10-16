@@ -1,7 +1,6 @@
 import warnings
 from collections.abc import Iterable
 from copy import deepcopy
-from itertools import chain
 
 import matplotlib.pyplot as plt
 import numpy as np
