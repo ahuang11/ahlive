@@ -418,6 +418,8 @@ class Animation(param.Parameterized):
 
         preset = overlay_ds.attrs["preset_kwds"].get("preset", "trail")
         preset_kwds = load_defaults("preset_kwds", overlay_ds, base_chart=preset)
+        for key in preset_kwds.keys():
+            trail_plot_kwds.pop(key, None)
         preset_kwds.update(**trail_plot_kwds)
         chart = preset_kwds.pop("chart", "both")
         expire = preset_kwds.pop("expire")
@@ -1312,8 +1314,9 @@ class Animation(param.Parameterized):
                 axis_lim0 = to_scalar(limits.get(f"{axis}lim0"))
                 axis_lim1 = to_scalar(limits.get(f"{axis}lim1"))
                 if axis_lim0 is not None or axis_lim1 is not None:
-                    if not np.isnan([axis_lim0, axis_lim1]).any():
-                        getattr(ax, f"set_{axis}lim")(to_pydt(axis_lim0, axis_lim1))
+                    axis_lim0 = None if pd.isnull(axis_lim0) else axis_lim0
+                    axis_lim1 = None if pd.isnull(axis_lim1) else axis_lim1
+                    getattr(ax, f"set_{axis}lim")(to_pydt(axis_lim0, axis_lim1))
         ax.margins(**margins_kwds)
 
     def _update_geo(self, state_ds, ax):
@@ -1392,8 +1395,13 @@ class Animation(param.Parameterized):
             preset_kwds = load_defaults("preset_kwds", state_ds, base_chart=preset)
             xs = to_1d(pop(state_ds, "x"), unique=True, flat=False)
             limit = preset_kwds.get("limit", None)
-            limit1 = len(xs) + 0.5
-            limit0 = limit1 - limit if limit is not None else -1
+            if limit is not None:
+                limit1 = len(xs) + 0.5
+                limit0 = limit1 - limit if limit is not None else -1
+            else:
+                limit1 = -1
+                limit0 = -1
+
             if xticks_labels is not None:
                 num_labels = len(xticks_labels)
                 step = int(np.floor(len(xs) / num_labels))

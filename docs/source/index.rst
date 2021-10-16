@@ -12,6 +12,7 @@
    :caption: ESSENTIALS
 
    essentials/serializing.ipynb
+   essentials/charting.ipynb
    essentials/merging.ipynb
    essentials/labeling.ipynb
    essentials/remarking.ipynb
