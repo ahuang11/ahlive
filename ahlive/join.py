@@ -1,7 +1,7 @@
 import numpy as np
 import xarray as xr
 
-from .configuration import ITEMS, VARS
+from .configuration import OPTIONS, VARS
 from .util import fillna, is_str, srange, to_scalar
 
 
