@@ -239,6 +239,7 @@ VARS = {
     ],
 }
 
+# internal item mappings
 ITEMS = {
     "axes": ["x", "y", "c", "grid_c"],
     "limit": ["xlim0s", "xlim1s", "ylim0s", "ylim1s", "xlims", "ylims"],
@@ -255,19 +256,6 @@ ITEMS = {
         "grid_scan_y_diff_inline",
     ],  # base magnitude
     "interpolate": ["interp", "ease"],
-    "datasets": [
-        "annual_co2",
-        "tc_tracks",
-        "covid19_us_cases",
-        "covid19_global_cases",
-        "covid19_population",
-        "gapminder_life_expectancy",
-        "gapminder_income",
-        "gapminder_population",
-        "gapminder_country",
-        "iem_asos",
-    ],
-    "join": ["overlay", "layout", "cascade"],
     "transformables": [
         "plot_kwds",
         "inline_kwds",
@@ -286,6 +274,7 @@ ITEMS = {
     "not_scalar": ["c", "s", "labels", "xerr", "yerr", "y2", "u", "v"],
 }
 
+# frontend facing options
 OPTIONS = {
     "fmt": ["gif", "mp4", "jpg", "png"],
     "style": ["graph", "minimal", "bare"],
@@ -305,6 +294,7 @@ OPTIONS = {
         False,
     ],
     "grid": ["x", "y", "both", True, False],
+    "join": ["overlay", "layout", "cascade"],
     "limit": ["zero", "fixed", "follow", "explore"],
     "scheduler": ["single-threaded", "processes"],
     "state_xy": [
@@ -314,6 +304,18 @@ OPTIONS = {
         "title_start",
         "subtitle_start",
         "suptitle_start",
+    ],
+    "datasets": [
+        "annual_co2",
+        "tc_tracks",
+        "covid19_us_cases",
+        "covid19_global_cases",
+        "covid19_population",
+        "gapminder_life_expectancy",
+        "gapminder_income",
+        "gapminder_population",
+        "gapminder_country",
+        "iem_asos",
     ],
 }
 

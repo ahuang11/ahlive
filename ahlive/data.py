@@ -2065,8 +2065,8 @@ class DataStructure(Array):
     )
 
     join = param.ObjectSelector(
-        objects=ITEMS["join"],
-        doc=f"Method to join; {ITEMS['join']}",
+        objects=OPTIONS["join"],
+        doc=f"Method to join; {OPTIONS['join']}",
         precedence=PRECEDENCES["common"],
     )
 

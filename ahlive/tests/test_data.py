@@ -57,7 +57,7 @@ def test_ah_array(container, x, y):
 @pytest.mark.parametrize("x", XS)
 @pytest.mark.parametrize("y", YS)
 @pytest.mark.parametrize("label", LABELS)
-@pytest.mark.parametrize("join", ITEMS["join"])
+@pytest.mark.parametrize("join", OPTIONS["join"])
 def test_ah_dataframe(x, y, label, join):
     df = pd.DataFrame(
         {"x": np.array(x).squeeze(), "y": np.array(y).squeeze(), "label": label}
@@ -125,7 +125,7 @@ def test_ah_array2d(grid_x, grid_y, grid_c):
 @pytest.mark.parametrize("grid_y", GRID_YS)
 @pytest.mark.parametrize("grid_c", GRID_CS)
 @pytest.mark.parametrize("grid_label", GRID_LABELS)
-@pytest.mark.parametrize("join", ITEMS["join"])
+@pytest.mark.parametrize("join", OPTIONS["join"])
 def test_ah_dataset(grid_x, grid_y, grid_c, grid_label, join):
     base_ds = xr.Dataset()
     base_ds["c"] = xr.DataArray(

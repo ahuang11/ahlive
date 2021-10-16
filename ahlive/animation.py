@@ -380,6 +380,8 @@ class Animation(param.Parameterized):
         plot_kwds = self._pop_invalid_kwds(chart, plot_kwds)
         if chart == "line":
             plot = ax.plot(xs, ys, **plot_kwds)
+        elif chart == "pie":
+            plot, _ = ax.pie(ys, **plot_kwds)
         elif chart == "area":
             plot = ax.fill_between(xs, ys, **plot_kwds)
         elif chart.startswith("bar"):

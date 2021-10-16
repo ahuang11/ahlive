@@ -279,6 +279,6 @@ def merge(objs, join="overlay"):
         obj = slide(objs)
     else:
         raise NotImplementedError(
-            f'Only {ITEMS["join"]} are implemented for merge; got {join}'
+            f'Only {OPTIONS["join"]} are implemented for merge; got {join}'
         )
     return obj

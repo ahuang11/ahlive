@@ -1,12 +1,12 @@
 import pandas as pd
 import param
 
-from .configuration import ITEMS
+from .configuration import OPTIONS
 
 
 class TutorialData(param.Parameterized):
 
-    label = param.ObjectSelector(objects=ITEMS["datasets"])
+    label = param.ObjectSelector(objects=OPTIONS["datasets"])
 
     _source = None
     _base_url = None
