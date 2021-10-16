@@ -48,7 +48,7 @@ documentation
 - Fix documentation crashes (:pull:`65`).
   By `Andrew Huang <https://github.com/ahuang11>`_
 
-- Re-order params by setting `precedence`s (:pull:`70`).
+- Re-order params by setting precedences (:pull:`70`).
   By `Andrew Huang <https://github.com/ahuang11>`_
 
 - Documented presets and defaults (:pull:`91`).
@@ -66,10 +66,10 @@ enhancements
 - Default `coastline` only if `crs` or `projection` is set, but not any other geo features (:pull:`67`).
   By `Andrew Huang <https://github.com/ahuang11>`_
 
-- Improve `print` of objects by showing modified configurations (:pull: `92`).
+- Improve `print` of objects by showing modified configurations (:pull:`92`).
   By `Andrew Huang <https://github.com/ahuang11>`_
 
-- Remove temp file (:pull: `96`).
+- Remove temp file (:pull:`96`).
   By `Andrew Huang <https://github.com/ahuang11>`_
 
 bug fixes
@@ -105,6 +105,9 @@ bug fixes
   By `Andrew Huang <https://github.com/ahuang11>`_
 
 - Fix grid charts, removing warnings and updating to valid keys. (:pull:`95`)
+  By `Andrew Huang <https://github.com/ahuang11>`_
+
+- Add missing charting notebook to docs and fix various bugs in presetting. (:pull:`98`)
   By `Andrew Huang <https://github.com/ahuang11>`_
 
 internal changes
