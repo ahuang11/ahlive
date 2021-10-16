@@ -16,7 +16,7 @@ import pandas as pd
 import param
 import xarray as xr
 from matplotlib import pyplot as plt
-from matplotlib.colors import to_hex
+from matplotlib.colors import to_hex, Normalize
 from matplotlib.dates import AutoDateLocator, ConciseDateFormatter
 from matplotlib.patches import Rectangle
 from matplotlib.patheffects import withStroke
@@ -1080,12 +1080,21 @@ class Animation(param.Parameterized):
                 **plot_kwds,
             )
 
-            if chart == "quiver":
-                plot_kwds["clim"] = plot_kwds.pop("vmin"), plot_kwds.pop("vmax")
+            if chart in ["quiver", "streamplot"]:
                 xs, ys = np.meshgrid(xs, ys)
                 us = plot_kwds.pop("u")
                 vs = plot_kwds.pop("v")
-                mappable = ax.quiver(xs, ys, us, vs, cs, **plot_kwds)
+                if chart == "quiver":
+                    clim = plot_kwds.pop("vmin"), plot_kwds.pop("vmax")
+                    mappable = ax.quiver(xs, ys, us, vs, cs, clim=clim, **plot_kwds)
+                elif chart == "streamplot":
+                    norm = Normalize(
+                        vmin=plot_kwds.pop("vmin"), vmax=plot_kwds.pop("vmax")
+                    )
+                    streamplot = ax.streamplot(
+                        xs, ys, us, vs, color=cs, norm=norm, **plot_kwds
+                    )
+                    mappable = streamplot.lines
             else:
                 mappable = getattr(ax, chart)(xs, ys, cs, **plot_kwds)
 

@@ -185,7 +185,15 @@ CHARTS = {
         "area",
         "annotation",
     ],
-    "grid": ["pcolormesh", "pcolorfast", "contourf", "contour", "hexbin", "quiver"],
+    "grid": [
+        "pcolormesh",
+        "pcolorfast",
+        "contourf",
+        "contour",
+        "hexbin",
+        "quiver",
+        "streamplot",
+    ],
     "ref": ["rectangle", "axvspan", "axhspan", "axvline", "axhline", "scatter"],
 }
 CHARTS["all"] = CHARTS["basic"] + CHARTS["grid"] + CHARTS["ref"]
