@@ -26,12 +26,12 @@ from mpl_toolkits.axes_grid1 import make_axes_locatable
 from .configuration import (
     CHARTS,
     CONFIGURABLES,
+    DEFAULTS,
     ITEMS,
     NULL_VALS,
     OPTIONS,
     PRECEDENCES,
     TEMP_FILE,
-    defaults,
     load_defaults,
 )
 from .util import (
@@ -1414,10 +1414,10 @@ class Animation(param.Parameterized):
             for key in ["axis", "which", "length", "labelsize"]:
                 if key == "labelsize":
                     xticks_kwds["size"] = xticks_kwds.pop(
-                        key, defaults["ticks_kwds"]["labelsize"]
+                        key, DEFAULTS["ticks_kwds"]["labelsize"]
                     )
                     yticks_kwds["size"] = yticks_kwds.pop(
-                        key, defaults["ticks_kwds"]["labelsize"]
+                        key, DEFAULTS["ticks_kwds"]["labelsize"]
                     )
                 else:
                     xticks_kwds.pop(key, "")

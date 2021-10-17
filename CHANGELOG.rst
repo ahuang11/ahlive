@@ -39,6 +39,9 @@ new features
 - Expanded preset support for various charts (:pull:`100`).
   By `Andrew Huang <https://github.com/ahuang11>`_
 
+- Capability to set defaults (:pull:`101`).
+  By `Andrew Huang <https://github.com/ahuang11>`_
+
 documentation
 ~~~~~~~~~~~~~
 
