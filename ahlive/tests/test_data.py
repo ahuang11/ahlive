@@ -941,15 +941,15 @@ def test_pie_chart():
     )  # normalize
 
 
-def test_set_defaults_positional():
-    ah.set_defaults("durations", final_frame=3, transition_frames=0.1)
+def test_config_defaults_positional():
+    ah.config_defaults("durations", final_frame=3, transition_frames=0.1)
 
     assert DEFAULTS["durations_kwds"]["final_frame"] == 3
     assert DEFAULTS["durations_kwds"]["transition_frames"] == 0.1
 
 
-def test_set_defaults_batch():
-    ah.set_defaults(
+def test_config_defaults_batch():
+    ah.config_defaults(
         **{
             "durations_kwds": dict(final_frame=5, transition_frames=0.5),
             "plot": {"scatter": dict(color="red", s=1000)},

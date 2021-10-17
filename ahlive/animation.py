@@ -885,7 +885,8 @@ class Animation(param.Parameterized):
         mappable = None
         for _, overlay_ds in iter_ds:
             try:
-                overlay_ds = overlay_ds.squeeze("item")
+                if "batch" not in overlay_ds.dims:
+                    overlay_ds = overlay_ds.squeeze("item")
             except (KeyError, ValueError):
                 pass
 

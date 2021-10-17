@@ -63,6 +63,9 @@ documentation
 - Documented presets and defaults (:pull:`91`).
   By `Andrew Huang <https://github.com/ahuang11>`_
 
+- Fix documentation and rename `set_defaults` to `config_defaults` (:pull:`101`).
+  By `Andrew Huang <https://github.com/ahuang11>`_
+
 enhancements
 ~~~~~~~~~~~~
 
