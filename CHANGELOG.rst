@@ -36,6 +36,9 @@ new features
 - Added new charts including errorbar, area, annotation, hexbin, quiver, streamplot (:pull:`99`).
   By `Andrew Huang <https://github.com/ahuang11>`_
 
+- Expanded preset support for various charts (:pull:`100`).
+  By `Andrew Huang <https://github.com/ahuang11>`_
+
 documentation
 ~~~~~~~~~~~~~
 

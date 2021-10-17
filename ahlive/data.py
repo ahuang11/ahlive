@@ -1,7 +1,6 @@
 import warnings
 from collections.abc import Iterable
 from copy import deepcopy
-from itertools import chain
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -64,7 +63,8 @@ class Data(Easing, Animation, Configuration):
         precedence=PRECEDENCES["common"],
     )
     preset = param.ObjectSelector(
-        objects=list(chain(*PRESETS.values())),
+        objects=list(PRESETS.keys()),
+        allow_None=True,
         doc=f"Chart preset; {PRESETS}",
         precedence=PRECEDENCES["common"],
     )
@@ -502,10 +502,10 @@ class Data(Easing, Animation, Configuration):
         return ds
 
     @staticmethod
-    def _config_morph_chart(ds):
+    def _config_morph_chart(ds, chart):
         group_ds_list = []
         ref_vars = [var for var in ds.data_vars if var.startswith("ref_")]
-        ds["chart"] = ds["chart"].values.ravel()[-1]
+        ds["chart"] = chart
         if len(ref_vars) > 0:
             ref_ds = ds[ref_vars]
             ds = ds.drop_vars(ref_vars)
@@ -533,6 +533,10 @@ class Data(Easing, Animation, Configuration):
             ref_ds = ref_ds.isel(state=0, drop=True)
             ds = xr.merge([ds, ref_ds])
 
+        if chart == "errorbar":
+            for key in ["xerr", "yerr"]:
+                if key in ds.data_vars:
+                    ds[key].attrs["is_errorbar_morph"] = True
         return ds
 
     def _config_pie_chart(self, ds):
@@ -586,11 +590,11 @@ class Data(Easing, Animation, Configuration):
 
     def _config_chart(self, ds, chart):
         preset = ds.attrs["preset_kwds"].get("preset", "")
-        if preset != "" and preset not in PRESETS[chart]:
+        if preset != "" and chart not in PRESETS[preset]:
             raise ValueError(f"{preset} preset is not supported for {chart} charts")
 
         if "morph" in preset:
-            ds = self._config_morph_chart(ds)
+            ds = self._config_morph_chart(ds, chart)
 
         if chart.startswith("bar"):
             ds = self._config_bar_chart(ds, chart, preset)
@@ -1630,6 +1634,33 @@ class GeographicData(Data):
         super().__init__(**kwds)
         self.configurables["geo"] = CONFIGURABLES["geo"]
 
+    def _config_rotate_chart(self, ds):
+        num_states = self.num_states
+        x_dim = "grid_x" if "grid_x" in ds else "x"
+        central_lon = ds.attrs["projection_kwds"].get(
+            "central_longitude", ds[x_dim].min()
+        )
+        if is_scalar(central_lon):
+            central_lon_end = ds[x_dim].max()
+            central_lons = np.linspace(central_lon, central_lon_end, num_states)
+        elif length(central_lon) != num_states:
+            central_lons = np.linspace(
+                np.min(central_lon), np.max(central_lon), num_states
+            )
+        else:
+            central_lons = central_lon
+        ds["central_longitude"] = ("state", central_lons)
+        if "projection" not in ds.attrs["projection_kwds"]:
+            ds.attrs["projection_kwds"]["projection"] = "Orthographic"
+        return ds
+
+    def _config_chart(self, ds, chart):
+        ds = super()._config_chart(ds, chart)
+        preset = ds.attrs["preset_kwds"].get("preset", "")
+        if "rotate" in preset:
+            ds = self._config_rotate_chart(ds)
+        return ds
+
 
 class ReferenceArray(param.Parameterized):
     def __init__(self, **kwds):
@@ -1970,26 +2001,6 @@ class Array2D(Array):
         )
         self._ds = ds
 
-    def _config_rotate_chart(self, ds):
-        num_states = self.num_states
-        x_dim = "grid_x" if "grid_x" in ds else "x"
-        central_lon = ds.attrs["projection_kwds"].get(
-            "central_longitude", ds[x_dim].min()
-        )
-        if is_scalar(central_lon):
-            central_lon_end = ds[x_dim].max()
-            central_lons = np.linspace(central_lon, central_lon_end, num_states)
-        elif length(central_lon) != num_states:
-            central_lons = np.linspace(
-                np.min(central_lon), np.max(central_lon), num_states
-            )
-        else:
-            central_lons = central_lon
-        ds["central_longitude"] = ("state", central_lons)
-        if "projection" not in ds.attrs["projection_kwds"]:
-            ds.attrs["projection_kwds"]["projection"] = "Orthographic"
-        return ds
-
     def _config_scan_chart(self, ds, preset):
         preset, axis = preset.split("_")
         grid_axis = f"grid_{axis}"
@@ -2044,9 +2055,7 @@ class Array2D(Array):
     def _config_chart(self, ds, chart):
         ds = super()._config_chart(ds, chart)
         preset = ds.attrs["preset_kwds"].get("preset", "")
-        if preset == "rotate":
-            ds = self._config_rotate_chart(ds)
-        elif preset.startswith("scan"):
+        if preset.startswith("scan"):
             ds = self._config_scan_chart(ds, preset)
         return ds
 

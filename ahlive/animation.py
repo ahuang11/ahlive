@@ -394,6 +394,8 @@ class Animation(param.Parameterized):
             plot = ax.annotate(xy=(xs, ys), **plot_kwds)
         else:
             plot = getattr(ax, chart)(xs, ys, **plot_kwds)
+            if isinstance(plot, tuple):
+                plot = plot[0]
         color = self._get_color(overlay_ds, plot)
 
         if ys.ndim == 2:  # a grouped batch with same label
@@ -883,6 +885,11 @@ class Animation(param.Parameterized):
         mappable = None
         for _, overlay_ds in iter_ds:
             try:
+                overlay_ds = overlay_ds.squeeze("item")
+            except (KeyError, ValueError):
+                pass
+
+            try:
                 overlay_ds = overlay_ds.transpose(..., "state")
             except ValueError:
                 pass
@@ -1272,7 +1279,7 @@ class Animation(param.Parameterized):
             axes_kwds["xticks"] = []
             axes_kwds["yticks"] = []
 
-        axes_kwds["projection"] = pop(state_ds, "projection", squeeze=True)
+        axes_kwds["projection"] = pop(state_ds, "projection", squeeze=True, get=-1)
         axes_kwds = load_defaults("axes_kwds", state_ds, **axes_kwds)
         axes_kwds.pop("style", "")
 

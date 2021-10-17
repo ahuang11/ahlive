@@ -121,7 +121,7 @@ def pop(ds, key, dflt=None, get=None, squeeze=False, to_numpy=True):
     if get is not None:
         array = to_scalar(array, get=get)
 
-    if squeeze:
+    if squeeze and hasattr(array, "squeeze"):
         array = array.squeeze()
         if is_scalar(array):
             array = array.item()
