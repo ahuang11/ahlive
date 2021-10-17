@@ -64,6 +64,7 @@ class Data(Easing, Animation, Configuration):
     )
     preset = param.ObjectSelector(
         objects=list(PRESETS.keys()),
+        allow_None=True,
         doc=f"Chart preset; {PRESETS}",
         precedence=PRECEDENCES["common"],
     )
