@@ -742,7 +742,7 @@ def load_defaults(default_key, input_kwds=None, **other_kwds):
     return updated_kwds
 
 
-def set_defaults(*default_key, **default_kwds):
+def config_defaults(*default_key, **default_kwds):
     """
     See ah.DEFAULTS.items() for available settings.
     """
