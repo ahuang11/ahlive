@@ -751,8 +751,10 @@ def set_defaults(*default_key, **default_kwds):
     for default_key in select_defaults:
         valid_keys = DEFAULTS.keys()
         if not default_key.endswith("_kwds"):
+            original_default_key = default_key
             default_key = f"{default_key}_kwds"
-            default_kwds[default_key] = default_kwds.pop(default_key[:-5])
+            if original_default_key in default_kwds:
+                default_kwds[default_key] = default_kwds.pop(original_default_key)
 
         if default_key is not None and default_key not in valid_keys:
             raise KeyError(f"{default_key} must be one of: {valid_keys}")

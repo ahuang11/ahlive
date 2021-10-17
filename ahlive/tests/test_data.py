@@ -75,7 +75,7 @@ def test_ah_dataframe(x, y, label, join):
         }
 
         num_labels = len(np.unique(df["label"]))
-        if join in ["overlay", "cascade"]:
+        if join in ["overlay", "cascade", "slide", "stagger"]:
             assert num_labels == len(ds["item"])
         else:
             assert 1 == len(ds["item"])
