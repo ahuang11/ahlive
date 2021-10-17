@@ -8,7 +8,7 @@ import pytest
 import xarray as xr
 
 import ahlive as ah
-from ahlive.configuration import CONFIGURABLES, ITEMS, OPTIONS, VARS
+from ahlive.configuration import CONFIGURABLES, DEFAULTS, ITEMS, OPTIONS, VARS
 from ahlive.tests.test_configuration import (  # noqa: F401
     CONTAINERS,
     DIRECTIONS,
@@ -939,3 +939,24 @@ def test_pie_chart():
     np.testing.assert_almost_equal(
         ds["y"].values.ravel(), np.array([0, 1, 0.6666666, 1, 0, 0.3333333])
     )  # normalize
+
+
+def test_set_defaults_positional():
+    ah.set_defaults("durations", final_frame=3, transition_frames=0.1)
+
+    assert DEFAULTS["durations_kwds"]["final_frame"] == 3
+    assert DEFAULTS["durations_kwds"]["transition_frames"] == 0.1
+
+
+def test_set_defaults_batch():
+    ah.set_defaults(
+        **{
+            "durations_kwds": dict(final_frame=5, transition_frames=0.5),
+            "plot": {"scatter": dict(color="red", s=1000)},
+        }
+    )
+
+    assert DEFAULTS["durations_kwds"]["final_frame"] == 5
+    assert DEFAULTS["durations_kwds"]["transition_frames"] == 0.5
+    assert DEFAULTS["plot_kwds"]["scatter"]["color"] == "red"
+    assert DEFAULTS["plot_kwds"]["scatter"]["s"] == 1000

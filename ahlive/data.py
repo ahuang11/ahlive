@@ -27,7 +27,6 @@ from .configuration import (
     CartopyFeature,
     CartopyTiles,
     Configuration,
-    defaults,
     load_defaults,
 )
 from .easing import Easing
@@ -866,7 +865,7 @@ class Data(Easing, Animation, Configuration):
         if c_var in ds:
             cticks = cticks_kwds.get("ticks")
             if cticks is None:
-                num_colors = defaults["cticks_kwds"]["num_colors"]
+                num_colors = DEFAULTS["cticks_kwds"]["num_colors"]
             else:
                 num_colors = len(cticks) - 1
             if "num_colors" in cticks_kwds and chart == "contourf":

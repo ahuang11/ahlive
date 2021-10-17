@@ -291,7 +291,7 @@ OPTIONS = {
         False,
     ],
     "grid": ["x", "y", "both", True, False],
-    "join": ["overlay", "layout", "cascade"],
+    "join": ["overlay", "layout", "cascade", "stagger", "slide"],
     "limit": ["zero", "fixed", "follow", "explore"],
     "scheduler": ["single-threaded", "processes"],
     "state_xy": [
@@ -495,7 +495,7 @@ DEFAULTS["compute_kwds"] = {
 
 DEFAULTS["animate_kwds"] = {"mode": "I", "loop": 0, "pygifsicle": True}
 
-defaults = DEFAULTS.copy()
+ORIGINAL_DEFAULTS = DEFAULTS.copy()
 
 
 class CartopyCRS(param.ClassSelector):
@@ -602,18 +602,9 @@ class Configuration(param.Parameterized):
             self._set_config(attrs, configurable, param_=param_, method_key=method_key)
         return attrs
 
-    def _config_data(
-        self,
-        input_data,
-        *configurables,
-        rowcols=None,
-        reset=False,
-        **configurable_kwds,
-    ):
-        if rowcols is None:
-            rowcols = input_data.keys()
-
-        all_configurables = list(chain(*self.configurables.values()))
+    @staticmethod
+    def _parse_configurables(configurables, configurable_kwds):
+        select_configurables = None
         if configurables:
             if len(configurables) > 1:
                 raise ValueError(
@@ -631,7 +622,24 @@ class Configuration(param.Parameterized):
             select_configurables = configurables
         elif configurable_kwds.keys():
             select_configurables = list(configurable_kwds.keys())
-        else:
+        return select_configurables
+
+    def _config_data(
+        self,
+        input_data,
+        *configurables,
+        rowcols=None,
+        reset=False,
+        **configurable_kwds,
+    ):
+        if rowcols is None:
+            rowcols = input_data.keys()
+
+        all_configurables = list(chain(*self.configurables.values()))
+        select_configurables = self._parse_configurables(
+            configurables, configurable_kwds
+        )
+        if select_configurables is None:
             select_configurables = all_configurables
 
         data = {}
@@ -649,7 +657,12 @@ class Configuration(param.Parameterized):
                         f'following: {", ".join(all_configurables)}'
                     )
 
-                configurable_key = f"{configurable}_kwds"
+                if not configurable.endswith("_kwds"):
+                    configurable_key = f"{configurable}_kwds"
+                else:
+                    configurable_key = configurable
+                    configurable = configurable.replace("_kwds", "")
+
                 if "configured" not in attrs:
                     attrs["configured"] = {}
 
@@ -729,5 +742,22 @@ def load_defaults(default_key, input_kwds=None, **other_kwds):
     return updated_kwds
 
 
-def update_defaults(default_key, **kwds):
-    DEFAULTS[default_key].update(**kwds)
+def set_defaults(*default_key, **default_kwds):
+    """
+    See ah.DEFAULTS.items() for available settings.
+    """
+    select_defaults = Configuration._parse_configurables(default_key, default_kwds)
+
+    for default_key in select_defaults:
+        valid_keys = DEFAULTS.keys()
+        if not default_key.endswith("_kwds"):
+            default_key = f"{default_key}_kwds"
+            default_kwds[default_key] = default_kwds.pop(default_key[:-5])
+
+        if default_key is not None and default_key not in valid_keys:
+            raise KeyError(f"{default_key} must be one of: {valid_keys}")
+
+        if default_key in default_kwds.keys():
+            DEFAULTS[default_key].update(**default_kwds[default_key])
+        else:
+            DEFAULTS[default_key].update(**default_kwds)
