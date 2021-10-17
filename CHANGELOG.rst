@@ -84,6 +84,9 @@ enhancements
 - Remove temp file (:pull:`96`).
   By `Andrew Huang <https://github.com/ahuang11>`_
 
+- Stylize plots for less chart junk (:pull:`102`).
+  By `Andrew Huang <https://github.com/ahuang11>`_
+
 bug fixes
 ~~~~~~~~~
 

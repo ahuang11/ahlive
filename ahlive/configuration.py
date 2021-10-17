@@ -1,8 +1,26 @@
 from copy import deepcopy
 from itertools import chain
 
+import matplotlib.pyplot as plt
 import param
 import xarray as xr
+from cycler import cycler
+
+# https://github.com/matplotlib/matplotlib/issues/9460#issuecomment-875185352
+colors = [
+    "#bd1f01",
+    "#3f90da",
+    "#94a4a2",
+    "#832db6",
+    "#a96b59",
+    "#e76300",
+    "#ffa90e",
+    "#b9ac70",
+    "#92dadd",
+    "#717581",
+]
+plt.rc("axes", prop_cycle=cycler("color", colors))
+
 
 TEMP_FILE = "TEMP_AHLIVE_PYGIFSICLE_OUTPUT.gif"
 NULL_VALS = [(), {}, [], None, "", "nan"]  # np.nan is not picked up here
@@ -319,7 +337,7 @@ OPTIONS = {
 SIZES = {
     "xx-small": 9,
     "x-small": 11,
-    "small": 13,
+    "small": 14.8,
     "medium": 16,
     "large": 19,
     "x-large": 28,
@@ -338,6 +356,7 @@ DEFAULTS["durations_kwds"] = {
 DEFAULTS["label_kwds"] = {
     "fontsize": SIZES["medium"],
     "replacements": {"_": " "},
+    "color": "#262626",
 }
 
 DEFAULTS["preset_kwds"] = {}
@@ -359,6 +378,9 @@ DEFAULTS["preset_kwds"]["scan"] = {"color": "black", "stride": 1}
 
 DEFAULTS["plot_kwds"] = {}
 DEFAULTS["plot_kwds"]["pie"] = {"normalize": False}
+DEFAULTS["plot_kwds"]["scatter"] = {"alpha": 0.9}
+DEFAULTS["plot_kwds"]["bar"] = {"alpha": 0.9}
+DEFAULTS["plot_kwds"]["barh"] = {"alpha": 0.9}
 
 DEFAULTS["ref_plot_kwds"] = {}
 DEFAULTS["ref_plot_kwds"]["rectangle"] = {
@@ -438,11 +460,15 @@ DEFAULTS["remark_inline_kwds"].update(
 )
 
 DEFAULTS["legend_kwds"] = DEFAULTS["label_kwds"].copy()
-DEFAULTS["legend_kwds"].update({"framealpha": 0, "loc": "upper left"})
+DEFAULTS["legend_kwds"]["labelcolor"] = DEFAULTS["legend_kwds"].pop("color")
+DEFAULTS["legend_kwds"].update(
+    {"framealpha": 0.28, "facecolor": "whitesmoke", "loc": "upper left"}
+)
 
 DEFAULTS["colorbar_kwds"] = {"orientation": "vertical"}
 
 DEFAULTS["ticks_kwds"] = DEFAULTS["label_kwds"].copy()
+DEFAULTS["ticks_kwds"]["labelcolor"] = DEFAULTS["ticks_kwds"].pop("color")
 DEFAULTS["ticks_kwds"].pop("fontsize")
 DEFAULTS["ticks_kwds"].update(
     {"length": 0, "which": "both", "labelsize": SIZES["small"]}
@@ -457,7 +483,7 @@ DEFAULTS["yticks_kwds"].update({"axis": "y"})
 DEFAULTS["cticks_kwds"] = DEFAULTS["ticks_kwds"].copy()
 DEFAULTS["cticks_kwds"].update({"num_colors": 11})
 
-DEFAULTS["grid_kwds"] = {"show": True}
+DEFAULTS["grid_kwds"] = {"show": True, "alpha": 0.28, "color": "lightgray"}
 
 DEFAULTS["tiles_kwds"] = {"style": "toner"}  # TODO: change to show
 
