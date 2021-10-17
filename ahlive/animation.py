@@ -150,7 +150,7 @@ class Animation(param.Parameterized):
 
     _canvas_kwds = defaultdict(dict)
     _temp_file = f"{uuid.uuid4()}_{TEMP_FILE}"
-    _path_effects = [withStroke(linewidth=1, alpha=0.5, foreground="white")]
+    _path_effects = [withStroke(linewidth=1, alpha=0.5, foreground="whitesmoke")]
 
     def __init__(self, **kwds):
         super().__init__(**kwds)
@@ -1291,6 +1291,7 @@ class Animation(param.Parameterized):
             ax.set_frame_on(False)
             for spine in ax.spines.values():
                 spine.set_visible(False)
+
         return ax
 
     def _update_grid(self, state_ds, ax):
@@ -1322,8 +1323,12 @@ class Animation(param.Parameterized):
                 gridlines.right_labels = False
         else:
             ax.grid(**grid_kwds)
-            ax.set_axisbelow(True)
+            ax.set_axisbelow(False)
             gridlines = None
+            for spine in ax.spines.values():
+                spine.set_alpha(0.18)
+                spine.set_linewidth(0.5)
+
         return gridlines
 
     def _update_limits(self, state_ds, ax):

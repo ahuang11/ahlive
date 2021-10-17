@@ -152,12 +152,12 @@ class Data(Easing, Animation, Configuration):
         precedence=PRECEDENCES["limit"],
     )
     xmargins = param.Number(
-        default=None,
+        default=0.01,
         doc="Margins on the x-axis; ranges from 0-1",
         precedence=PRECEDENCES["limit"],
     )
     ymargins = param.Number(
-        default=None,
+        default=0.01,
         doc="Margins on the y-axis; ranges from 0-1",
         precedence=PRECEDENCES["limit"],
     )
@@ -881,7 +881,7 @@ class Data(Easing, Animation, Configuration):
             elif "grid_cmap" in ds.data_vars:
                 cmap = pop(ds, "grid_cmap", get=-1)
             else:
-                cmap = ds.attrs[plot_key].get("cmap", "plasma")
+                cmap = ds.attrs[plot_key].get("cmap", "RdYlBu_r")
             ds.attrs[plot_key]["cmap"] = plt.get_cmap(cmap, num_colors)
 
             vmin = pop(ds, "vmin", get=-1)
