@@ -152,12 +152,12 @@ class Data(Easing, Animation, Configuration):
         precedence=PRECEDENCES["limit"],
     )
     xmargins = param.Number(
-        default=0.,
+        default=0.0,
         doc="Margins on the x-axis; ranges from 0-1",
         precedence=PRECEDENCES["limit"],
     )
     ymargins = param.Number(
-        default=0.,
+        default=0.0,
         doc="Margins on the y-axis; ranges from 0-1",
         precedence=PRECEDENCES["limit"],
     )
