@@ -1,16 +1,111 @@
+import os
+import re
+import json
+import pickle
+from urllib.request import urlopen
+from urllib.parse import quote
+
 import pandas as pd
 import param
 
-from .configuration import OPTIONS
+from .configuration import DEFAULTS, OPTIONS
 
 
 class TutorialData(param.Parameterized):
 
-    label = param.ObjectSelector(objects=OPTIONS["datasets"])
+    label = param.String(allow_None=True)
 
     _source = None
     _base_url = None
     _data_url = None
+
+    def __init__(self, **kwds):
+        super().__init__(**kwds)
+        self._cache_dir = DEFAULTS["cache_kwds"]["directory"]
+        os.makedirs(self._cache_dir, exist_ok=True)
+        self._init_owid()
+
+    def _cache_dataset(self, df, cached_path):
+        df.to_pickle(cached_path)
+
+    def _read_cached(self, cached_path):
+        try:
+            if os.path.exists(cached_path):
+                with open(cached_path, 'wb') as f:
+                    return pickle.load(f)
+        except Exception:
+            os.remove(cached_path)
+        return None
+
+    @staticmethod
+    def _snake_urlify(s):
+        # Replace all hyphens with underscore
+        s = s.replace(" - ", "_").replace("-", "_")
+        # Remove all non-word characters (everything except numbers and letters)
+        s = re.sub(r"[^\w\s]", '', s)
+        # Replace all runs of whitespace with a underscore
+        s = re.sub(r"\s+", '_', s)
+        return s.lower()
+
+    def _init_owid(self):
+        owid_labels_path = os.path.join(self._cache_dir, "owid_labels.pkl")
+
+        self._owid_labels = self._read_cached(owid_labels_path)
+        if self._owid_labels is not None:
+            return
+
+        owid_api_url = (
+            "https://api.github.com/"
+            "repos/owid/owid-datasets/"
+            "git/trees/master?recursive=1"
+        )
+        with urlopen(owid_api_url) as f:
+            sources = json.loads(f.read().decode("utf-8"))
+
+        self._owid_labels = {}
+        owid_raw_url = (
+            "https://raw.githubusercontent.com/"
+            "owid/owid-datasets/master/"
+        )
+        for source_tree in sources["tree"]:
+            path = source_tree["path"]
+            if ".csv" not in path and ".json" not in path:
+                continue
+
+            label = "owid_" + self._snake_urlify(
+                path.split("/")[-2].strip()
+            )
+            if label not in self._owid_labels:
+                self._owid_labels[label] = {}
+
+            url = f"{owid_raw_url}/{quote(path)}"
+            if ".csv" in path:
+                self._owid_labels[label]["data"] = url
+            elif ".json" in path:
+                self._owid_labels[label]["meta"] = url
+
+        with open(owid_labels_path, "wb") as f:
+            pickle.dump(self._owid_labels, f)
+
+    def _load_owid(self, raw, **kwds):
+        self._data_url = self._owid_labels[self.label]["data"]
+        meta_url = self._owid_labels[self.label]["meta"]
+        df = pd.read_csv(self._data_url, **kwds)
+        with urlopen(meta_url) as response:
+            meta = json.loads(response.read().decode())
+        self._source = (
+            " & ".join(source["dataPublishedBy"] for source in meta["sources"]) +
+            " curated by Our World in Data (OWID)"
+        )
+        self._base_url = (
+            " & ".join(source["link"] for source in meta["sources"]) +
+            " through https://github.com/owid/owid-datasets"
+        )
+        if raw:
+            return df
+
+        df.columns = [self._snake_urlify(col) for col in df.columns]
+        return df
 
     def _load_annual_co2(self, raw, **kwds):
         self._source = "NOAA ESRL"
@@ -246,9 +341,19 @@ class TutorialData(param.Parameterized):
         return df
 
     def open_dataset(self, raw, verbose, **kwds):
-        data = getattr(self, f"_load_{self.label}")(raw=raw, **kwds)
+        options = "\n".join(
+            OPTIONS["datasets"] +
+            list(self._owid_labels.keys())
+        )
+        if self.label is None or self.label not in options:
+            raise ValueError(f"Select from one of the following:\n{options}")
+
+        if self.label.startswith("owid_"):
+            data = getattr(self, f"_load_owid")(raw, **kwds)
+        else:
+            data = getattr(self, f"_load_{self.label}")(raw, **kwds)
         label = self.label.replace("_", " ").upper()
-        attr = f"{label} | Source: {self._source} | {self._base_url}"
+        attr = f"{label}\nSource: {self._source}\n{self._base_url}"
         if verbose:
             attr = f"{attr}\nData: {self._data_url}"
         print(attr)
