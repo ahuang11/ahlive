@@ -214,7 +214,7 @@ class Data(Easing, Animation, Configuration):
     )
 
     _crs_names = {}
-    _tile_names = {}
+    _tiles_names = {}
 
     def __init__(self, **kwds):
         self._ds = None
