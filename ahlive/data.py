@@ -214,6 +214,7 @@ class Data(Easing, Animation, Configuration):
     )
 
     _crs_names = {}
+    _tile_names = {}
 
     def __init__(self, **kwds):
         self._ds = None
@@ -1274,8 +1275,8 @@ class Data(Easing, Animation, Configuration):
                     f"To use tiles, ensure cartopy>=0.19.0; got {cartopy_version}"
                 )
 
-            if not self._canvas_kwds["tiles_names"]:
-                self._canvas_kwds["tiles_names"] = {
+            if len(self._tiles_names) == 0:
+                self._tiles_names = {
                     name.lower(): name
                     for name, obj in vars(ctiles).items()
                     if isinstance(obj, type)
@@ -1315,7 +1316,7 @@ class Data(Easing, Animation, Configuration):
                 tiles_obj = "OSM"
 
             if isinstance(tiles_obj, str):
-                tiles_obj = self._canvas_kwds["tiles_names"][tiles_obj.lower()]
+                tiles_obj = self._tiles_names[tiles_obj.lower()]
                 try:
                     tiles_obj = getattr(ctiles, tiles_obj)(style=style, cache=True)
                 except TypeError:
