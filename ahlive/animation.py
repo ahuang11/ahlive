@@ -3,7 +3,6 @@ import os
 import pathlib
 import uuid
 import warnings
-from collections import defaultdict
 from collections.abc import Iterable
 from io import BytesIO
 
@@ -1263,9 +1262,7 @@ class Animation(param.Parameterized):
         figure = plt.figure(**figure_kwds)
 
         if "suptitle_kwds" in canvas_kwds:
-            suptitle_kwds = load_defaults(
-                "suptitle_kwds", canvas_kwds["suptitle_kwds"]
-            )
+            suptitle_kwds = load_defaults("suptitle_kwds", canvas_kwds["suptitle_kwds"])
             suptitle_kwds = self._update_text(suptitle_kwds, "t")
             figure.suptitle(**suptitle_kwds)
         return figure
@@ -1564,9 +1561,7 @@ class Animation(param.Parameterized):
             hook(figure, ax)
 
     def _update_watermark(self, figure, canvas_kwds):
-        watermark_kwds = load_defaults(
-            "watermark_kwds", canvas_kwds["watermark_kwds"]
-        )
+        watermark_kwds = load_defaults("watermark_kwds", canvas_kwds["watermark_kwds"])
         if watermark_kwds["s"]:
             figure.text(**watermark_kwds)
 

@@ -1,9 +1,9 @@
-import os
-import re
 import json
+import os
 import pickle
-from urllib.request import urlopen
+import re
 from urllib.parse import quote
+from urllib.request import urlopen
 
 import pandas as pd
 import param
@@ -31,7 +31,7 @@ class TutorialData(param.Parameterized):
     def _read_cached(self, cached_path):
         try:
             if os.path.exists(cached_path):
-                with open(cached_path, 'wb') as f:
+                with open(cached_path, "wb") as f:
                     return pickle.load(f)
         except Exception:
             os.remove(cached_path)
@@ -42,9 +42,9 @@ class TutorialData(param.Parameterized):
         # Replace all hyphens with underscore
         s = s.replace(" - ", "_").replace("-", "_")
         # Remove all non-word characters (everything except numbers and letters)
-        s = re.sub(r"[^\w\s]", '', s)
+        s = re.sub(r"[^\w\s]", "", s)
         # Replace all runs of whitespace with a underscore
-        s = re.sub(r"\s+", '_', s)
+        s = re.sub(r"\s+", "_", s)
         return s.lower()
 
     def _init_owid(self):
@@ -63,18 +63,13 @@ class TutorialData(param.Parameterized):
             sources = json.loads(f.read().decode("utf-8"))
 
         self._owid_labels = {}
-        owid_raw_url = (
-            "https://raw.githubusercontent.com/"
-            "owid/owid-datasets/master/"
-        )
+        owid_raw_url = "https://raw.githubusercontent.com/" "owid/owid-datasets/master/"
         for source_tree in sources["tree"]:
             path = source_tree["path"]
             if ".csv" not in path and ".json" not in path:
                 continue
 
-            label = "owid_" + self._snake_urlify(
-                path.split("/")[-2].strip()
-            )
+            label = "owid_" + self._snake_urlify(path.split("/")[-2].strip())
             if label not in self._owid_labels:
                 self._owid_labels[label] = {}
 
@@ -94,12 +89,12 @@ class TutorialData(param.Parameterized):
         with urlopen(meta_url) as response:
             meta = json.loads(response.read().decode())
         self._source = (
-            " & ".join(source["dataPublishedBy"] for source in meta["sources"]) +
-            " curated by Our World in Data (OWID)"
+            " & ".join(source["dataPublishedBy"] for source in meta["sources"])
+            + " curated by Our World in Data (OWID)"
         )
         self._base_url = (
-            " & ".join(source["link"] for source in meta["sources"]) +
-            " through https://github.com/owid/owid-datasets"
+            " & ".join(source["link"] for source in meta["sources"])
+            + " through https://github.com/owid/owid-datasets"
         )
         if raw:
             return df
@@ -341,10 +336,7 @@ class TutorialData(param.Parameterized):
         return df
 
     def open_dataset(self, raw, verbose, **kwds):
-        options = "\n".join(
-            OPTIONS["datasets"] +
-            list(self._owid_labels.keys())
-        )
+        options = "\n".join(OPTIONS["datasets"] + list(self._owid_labels.keys()))
         if self.label is None or self.label not in options:
             raise ValueError(f"Select from one of the following:\n{options}")
 
