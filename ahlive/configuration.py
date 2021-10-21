@@ -521,9 +521,7 @@ DEFAULTS["compute_kwds"] = {
 
 DEFAULTS["animate_kwds"] = {"mode": "I", "loop": 0, "pygifsicle": True}
 
-DEFAULTS["cache_kwds"] = {
-    "directory": os.path.expandvars("$HOME/.ahlive/")
-}
+DEFAULTS["cache_kwds"] = {"directory": os.path.expandvars("$HOME/.ahlive/")}
 
 ORIGINAL_DEFAULTS = DEFAULTS.copy()
 
