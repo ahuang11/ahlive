@@ -1,3 +1,4 @@
+import os
 from copy import deepcopy
 from itertools import chain
 
@@ -20,7 +21,6 @@ colors = [
     "#717581",
 ]
 plt.rc("axes", prop_cycle=cycler("color", colors))
-
 
 TEMP_FILE = "TEMP_AHLIVE_PYGIFSICLE_OUTPUT.gif"
 NULL_VALS = [(), {}, [], None, "", "nan"]  # np.nan is not picked up here
@@ -520,6 +520,10 @@ DEFAULTS["compute_kwds"] = {
 }
 
 DEFAULTS["animate_kwds"] = {"mode": "I", "loop": 0, "pygifsicle": True}
+
+DEFAULTS["cache_kwds"] = {
+    "directory": os.path.expandvars("$HOME/.ahlive/")
+}
 
 ORIGINAL_DEFAULTS = DEFAULTS.copy()
 

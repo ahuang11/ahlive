@@ -1448,8 +1448,14 @@ class Data(Easing, Animation, Configuration):
         num_states = self.num_states
         val = np.array(val)
         ndim = val.ndim
+
         if is_scalar(val):
             val = np.repeat(val, num_states)
+        elif ndim > 1:
+            other_lengths = np.sum(val.shape[1:])
+            if other_lengths == 1:
+                val = val.squeeze()
+                ndim = val.ndim
 
         if not is_datetime(val):
             # make string '1' into 1
