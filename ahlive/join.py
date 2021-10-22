@@ -174,12 +174,6 @@ def _stack_data(data_list, join, rowcol):
     joined_ds = _drop_state(joined_ds.map(fillna, how=fillna_how, keep_attrs=True))
     joined_ds[item_dim] = srange(joined_ds[item_dim])
     joined_ds = joined_ds.transpose(..., "state")
-
-    if "state_label" in joined_ds:
-        if "item" in joined_ds["state_label"].dims:
-            joined_ds["state_label"] = fillna(
-                joined_ds["state_label"], dim=item_dim
-            ).isel(item=-1)
     return joined_ds
 
 

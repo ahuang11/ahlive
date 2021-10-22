@@ -844,14 +844,17 @@ class Animation(param.Parameterized):
         stripped_kwds = {}
         for key, val in kwds.items():
             try:
-                unique_vals = np.unique(val)
+                try:
+                    unique_vals = np.unique(val)
+                except TypeError:
+                    unique_vals = pd.unique(val)
                 if len(unique_vals) == 1:
                     unique_val = unique_vals.item()
                     if unique_val in NULL_VALS or pd.isnull(unique_val):
                         continue
                 elif pd.isnull(unique_vals).all():
                     continue
-            except TypeError:
+            except TypeError as e:
                 continue
             stripped_kwds[key] = val
         return stripped_kwds
@@ -1446,7 +1449,7 @@ class Animation(param.Parameterized):
             xs = to_1d(pop(state_ds, "x"), unique=True, flat=False)
             limit = preset_kwds.get("limit", None)
             if limit is not None:
-                limit1 = len(xs) + 0.5
+                limit1 = max(xs) + 0.5
                 limit0 = limit1 - limit if limit is not None else -1
             else:
                 limit1 = -1
@@ -1460,16 +1463,17 @@ class Animation(param.Parameterized):
                     step = 1
                 xticks = xs[start::step][:num_labels]
                 xticks_labels = xticks_labels[: len(xticks)]
+
             if chart == "bar":
-                if limit0 >= 0:
-                    ax.set_xlim(limit0, limit1)
                 ax.set_xticks(xticks)
                 ax.set_xticklabels(xticks_labels)
-            elif chart == "barh":
                 if limit0 >= 0:
-                    ax.set_ylim(limit0, limit1)
+                    ax.set_xlim(limit0, limit1)
+            elif chart == "barh":
                 ax.set_yticks(xticks)
                 ax.set_yticklabels(xticks_labels)
+                if limit0 >= 0:
+                    ax.set_ylim(limit0, limit1)
         else:
             if not x_is_datetime and not x_is_str:
                 xformatter = FormatStrFormatter(f"%{xformat}")
