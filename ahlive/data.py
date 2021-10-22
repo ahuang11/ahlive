@@ -623,7 +623,7 @@ class Data(Easing, Animation, Configuration):
                 try:
                     ds[var] = ds[var].astype(float)
                 except ValueError:
-                    ds[var] = fillna(ds[var], how="both")
+                    pass
         return ds
 
     def _compute_limit_offset(self, limit, margin):
@@ -1501,10 +1501,11 @@ class Data(Easing, Animation, Configuration):
             chart = self.chart
 
         try:
-            if to_scalar(input_vars["ys"]) is None:
+            if input_vars.get("ys", np.array(None)).item() is None:
                 input_vars["ys"] = input_vars["xs"]
                 input_vars["xs"] = np.arange(num_states)
-        except KeyError:
+        except (ValueError, KeyError):
+            # ValueError no xs for ref
             pass  # ref or grid
 
         coords = {}

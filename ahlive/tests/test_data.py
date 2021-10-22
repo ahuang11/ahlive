@@ -336,7 +336,7 @@ def test_config_scan_chart(preset):  # TODO: improve test
 def test_config_legend_sortby():
     ah_obj = (ah_array1 * ah_array2).config("legend", sortby="y").finalize()
     ds = ah_obj[1, 1]
-    assert (ds["label"] == [2, 1]).all()
+    assert (pd.unique(ds["label"].values.ravel()) == [2, 1]).all()
     assert ds.attrs["legend_kwds"]["show"]
 
 
@@ -790,7 +790,7 @@ def test_labels(key, label):
         sub_key = "text" if key == "clabel" else key
         assert ah_obj[1, 1].attrs[f"{key}_kwds"][sub_key] == label
     else:
-        assert ah_obj[1, 1][key].values == [label]
+        assert np.unique(ah_obj[1, 1][key].values) == [label]
 
 
 @pytest.mark.parametrize("x0s", [None, 0])
@@ -933,7 +933,7 @@ def test_pie_chart():
     ).finalize()
     ds = ah_obj[1, 1]
     assert (ds["group"] == "_pie_group").all()
-    assert ds["labels"].values.tolist() == ["a", ""]
+    assert (pd.unique(ds["labels"].values.ravel()) == ["a", ""]).all()
     assert ds["item"].values.tolist() == [1, 2]
     assert ds["state"].values.tolist() == [1, 2, 3]
     np.testing.assert_almost_equal(

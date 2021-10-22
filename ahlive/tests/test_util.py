@@ -41,7 +41,7 @@ def assert_values(ds, var_dict):
             except ValueError:
                 pass
 
-        print(actual, expect)
+        print(var, actual, expect)
         try:
             assert np.allclose(actual, expect, equal_nan=True)
         except TypeError:
