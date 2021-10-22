@@ -854,7 +854,7 @@ class Animation(param.Parameterized):
                         continue
                 elif pd.isnull(unique_vals).all():
                     continue
-            except TypeError as e:
+            except TypeError:
                 continue
             stripped_kwds[key] = val
         return stripped_kwds
