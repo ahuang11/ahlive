@@ -100,7 +100,10 @@ def _combine_ds_list(ds_list, method="concat", concat_dim="state", **kwds):
 
     for var in ds.data_vars:
         if is_str(ds[var]):
-            val = to_scalar(ds[var])
+            if "label" in var:
+                continue
+            else:
+                val = to_scalar(ds[var])
             try:
                 ds[var] = ds[var].astype(str).str.replace("nan", val)
             except TypeError:
@@ -130,7 +133,7 @@ def _stack_data(data_list, join, rowcol):
         if num_item == 1:
             item = [max_item + offset]
         else:
-            item = srange(max_item) + offset
+            item = srange(max_item) + offset * i
 
         if join == "stagger":
             # interweave the states
@@ -153,8 +156,7 @@ def _stack_data(data_list, join, rowcol):
 
     if join == "cascade":
         joined_ds = _combine_ds_list(ds_list, method="combine_by_coords")
-        joined_ds["state"] = srange(joined_ds["state"])
-        joined_ds = joined_ds.map(fillna, keep_attrs=True)
+        fillna_how = "ffill"
     elif join == "overlay":
         try:
             joined_ds = _combine_ds_list(ds_list, method="combine_by_coords")
@@ -162,14 +164,14 @@ def _stack_data(data_list, join, rowcol):
             joined_ds = _combine_ds_list(
                 ds_list, concat_dim=item_dim, method="combine_by_coords"
             )
-        joined_ds["state"] = srange(joined_ds["state"])
+        fillna_how = "ffill"
     else:
         joined_ds = _combine_ds_list(ds_list, method="merge")
         joined_ds = joined_ds.sortby("state")
-        joined_ds = joined_ds.map(fillna, how="both", keep_attrs=True)
-        joined_ds["state"] = srange(joined_ds["state"])
+        fillna_how = "both"
 
-    joined_ds = _drop_state(joined_ds).map(fillna, keep_attrs=True)
+    joined_ds["state"] = srange(joined_ds["state"])
+    joined_ds = _drop_state(joined_ds.map(fillna, how=fillna_how, keep_attrs=True))
     joined_ds[item_dim] = srange(joined_ds[item_dim])
     joined_ds = joined_ds.transpose(..., "state")
     return joined_ds
