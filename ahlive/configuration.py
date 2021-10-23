@@ -230,13 +230,10 @@ VARS = {
     "item": ("grid_item", "item", "ref_item"),
     "stateless": [
         "chart",
-        "label",
         "group",
         "interp",
         "ease",
-        "ref_label",
         "ref_chart",
-        "grid_label",
         "grid_chart",
     ],
 }

@@ -214,6 +214,7 @@ class Data(Easing, Animation, Configuration):
     )
 
     _crs_names = {}
+    _tiles_names = {}
 
     def __init__(self, **kwds):
         self._ds = None
@@ -250,7 +251,10 @@ class Data(Easing, Animation, Configuration):
             else:
                 num_states = len(cs)
         else:
-            num_states = max(length(val) for val in self._input_vars.values())
+            num_states = max(
+                max(np.shape(val)) if np.shape(val) else 1
+                for val in self._input_vars.values()
+            )
 
         with param.edit_constant(self):
             self.num_states = num_states
@@ -273,6 +277,13 @@ class Data(Easing, Animation, Configuration):
         self._data = self._config_data(data)
         with param.edit_constant(self):
             ds = list(self._data.values())[0]
+
+            if "state_label" in ds:
+                if "item" in ds["state_label"].dims:
+                    ds["state_label"] = fillna(ds["state_label"], dim="item").isel(
+                        item=-1
+                    )
+
             self._ds = ds
             self.attrs = ds.attrs
             self.num_states = len(ds["state"])
@@ -454,12 +465,16 @@ class Data(Easing, Animation, Configuration):
                 ds["y"] *= -1
             ds["y"] = ds["y"].fillna(-np.inf)
             ranks = ds["y"].rank("item")
-            # only keep items that are show at least once above the limit
-            # to optimize and keep a smaller dataset
-            ds = ds.sel(
-                item=ds.where(ranks >= len(ds["item"]) - limit, drop=True)["item"]
-            )
             ds["x"] = ranks
+            for x in pd.unique(ds["x"].values.ravel()):
+                if not x.is_integer():
+                    ds["x"] = ds["x"].where(ds["x"] != x, ds["x"] + 0.5)
+            limit_labels = pd.unique(
+                ds["label"]
+                .where(ds["x"] >= (ds["x"].max() - limit), drop=True)
+                .values.ravel()
+            )
+            ds = ds.where(ds["label"].isin(limit_labels), drop=True)
             # fill back in NaNs
             ds["y"] = ds["y"].where(np.isfinite(ds["y"]))
             if ascending:
@@ -622,7 +637,7 @@ class Data(Easing, Animation, Configuration):
                 try:
                     ds[var] = ds[var].astype(float)
                 except ValueError:
-                    ds[var] = fillna(ds[var], how="both")
+                    pass
         return ds
 
     def _compute_limit_offset(self, limit, margin):
@@ -643,6 +658,7 @@ class Data(Easing, Animation, Configuration):
             return array
         nan_indices = np.where(np.isnan(array))
         array[nan_indices] = array.ravel()[0]
+        array = np.unique(array)
         if array.ndim > 1 and array.shape[-1] > 1:
             base_diff = np.nanmedian(np.diff(array, axis=1))
         else:
@@ -950,7 +966,8 @@ class Data(Easing, Animation, Configuration):
                             base = key_values[0]
                         elif not is_str(key_values):
                             base_diff = self._get_median_diff(key_values)
-                            if is_datetime(base_diff):
+                            if is_datetime(base):
+                                print(base_diff, key_label)
                                 base = np.nanmin(base_diff) / 5
                             else:
                                 base = np.nanquantile(base_diff, 0.25)
@@ -1274,8 +1291,8 @@ class Data(Easing, Animation, Configuration):
                     f"To use tiles, ensure cartopy>=0.19.0; got {cartopy_version}"
                 )
 
-            if not self._canvas_kwds["tiles_names"]:
-                self._canvas_kwds["tiles_names"] = {
+            if len(self._tiles_names) == 0:
+                self._tiles_names = {
                     name.lower(): name
                     for name, obj in vars(ctiles).items()
                     if isinstance(obj, type)
@@ -1315,7 +1332,7 @@ class Data(Easing, Animation, Configuration):
                 tiles_obj = "OSM"
 
             if isinstance(tiles_obj, str):
-                tiles_obj = self._canvas_kwds["tiles_names"][tiles_obj.lower()]
+                tiles_obj = self._tiles_names[tiles_obj.lower()]
                 try:
                     tiles_obj = getattr(ctiles, tiles_obj)(style=style, cache=True)
                 except TypeError:
@@ -1465,14 +1482,17 @@ class Data(Easing, Animation, Configuration):
                 pass
 
         if reshape:
-            if ndim == 3:
-                val = val.reshape(-1, *val.shape)
-            elif ndim == 2 and val.shape[0] > 1:
-                val = val.reshape(-1, num_states, *val.shape)
-            elif shape is not None:
-                val = val.reshape(-1, num_states, *shape)
-            else:
-                val = val.reshape(-1, num_states)
+            try:
+                if ndim == 3:
+                    val = val.reshape(-1, *val.shape)
+                elif ndim == 2 and val.shape[0] > 1:
+                    val = val.reshape(-1, num_states, *val.shape)
+                elif shape is not None:
+                    val = val.reshape(-1, num_states, *shape)
+                else:
+                    val = val.reshape(-1, num_states)
+            except ValueError:
+                pass
 
         if num_items is not None and val.shape[0] != num_items:
             val = np.tile(val, (num_items, 1))
@@ -1500,10 +1520,11 @@ class Data(Easing, Animation, Configuration):
             chart = self.chart
 
         try:
-            if to_scalar(input_vars["ys"]) is None:
+            if input_vars.get("ys", np.array(None)).item() is None:
                 input_vars["ys"] = input_vars["xs"]
                 input_vars["xs"] = np.arange(num_states)
-        except KeyError:
+        except (ValueError, KeyError):
+            # ValueError no xs for ref
             pass  # ref or grid
 
         coords = {}

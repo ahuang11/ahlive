@@ -84,6 +84,7 @@ def to_scalar(value, get=-1):
             get -= 1
         else:
             return value[get]
+    return value[-1]
 
 
 def is_datetime(value):
