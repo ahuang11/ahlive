@@ -235,6 +235,8 @@ VARS = {
         "ease",
         "ref_chart",
         "grid_chart",
+        "bar_label",
+        "tick_label"
     ],
 }
 
@@ -316,19 +318,7 @@ OPTIONS = {
         "title_start",
         "subtitle_start",
         "suptitle_start",
-    ],
-    "datasets": [
-        "annual_co2",
-        "tc_tracks",
-        "covid19_us_cases",
-        "covid19_global_cases",
-        "covid19_population",
-        "gapminder_life_expectancy",
-        "gapminder_income",
-        "gapminder_population",
-        "gapminder_country",
-        "iem_asos",
-    ],
+    ]
 }
 
 SIZES = {
@@ -389,6 +379,8 @@ DEFAULTS["ref_plot_kwds"]["axvline"] = {"color": "darkgray", "linestyle": "--"}
 DEFAULTS["ref_plot_kwds"]["axhline"] = {"color": "darkgray", "linestyle": "--"}
 DEFAULTS["ref_plot_kwds"]["axvspan"] = {"color": "darkgray", "alpha": 0.45}
 DEFAULTS["ref_plot_kwds"]["axhspan"] = {"color": "darkgray", "alpha": 0.45}
+
+DEFAULTS["remark_plot_kwds"] = {"marker": "x", "persist": False}
 
 DEFAULTS["xlabel_kwds"] = DEFAULTS["label_kwds"].copy()
 DEFAULTS["xlabel_kwds"].update({"fontsize": SIZES["medium"]})
@@ -453,6 +445,7 @@ DEFAULTS["remark_inline_kwds"].update(
         "xytext": (1, -1),
         "ha": "left",
         "va": "top",
+        "persist": False
     }
 )
 
