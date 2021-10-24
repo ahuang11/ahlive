@@ -8,7 +8,7 @@ from urllib.request import urlopen
 import pandas as pd
 import param
 
-from .configuration import DEFAULTS, OPTIONS
+from .configuration import DEFAULTS
 
 
 class TutorialData(param.Parameterized):
@@ -511,7 +511,7 @@ class TutorialData(param.Parameterized):
             raise ValueError("Select a valid dataset listed above")
 
         if self.label.startswith("owid_"):
-            data = getattr(self, f"_load_owid")(**kwds)
+            data = getattr(self, "_load_owid")(**kwds)
         else:
             data = getattr(self, f"_load_{self.label}")(**kwds)
 

@@ -1064,14 +1064,7 @@ class Animation(param.Parameterized):
             )
 
             self._add_remarks(
-                overlay_ds,
-                ax,
-                chart,
-                xs_full,
-                ys_full,
-                remarks,
-                color,
-                plot=plot
+                overlay_ds, ax, chart, xs_full, ys_full, remarks, color, plot=plot
             )
 
         return mappable
@@ -1614,9 +1607,6 @@ class Animation(param.Parameterized):
             clabel = state_ds.attrs.get("clabel_kwds", {}).get("text")
             if clabel is not None:
                 wspace = 0.25
-
-            inline_label = state_ds.get("inline_label")
-
 
         spacing_kwds = canvas_kwds["spacing_kwds"]
         if "spacing" in spacing_kwds:

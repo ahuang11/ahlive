@@ -238,10 +238,7 @@ VARS = {
         "bar_label",
         "tick_label",
     ],
-    "itemless": [
-        "state_label",
-        "ref_last_item"
-    ]
+    "itemless": ["state_label", "ref_last_item"],
 }
 
 # internal item mappings

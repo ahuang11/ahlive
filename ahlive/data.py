@@ -282,9 +282,7 @@ class Data(Easing, Animation, Configuration):
             for var in VARS["itemless"]:
                 if var in ds:
                     if "item" in ds[var].dims:
-                        ds[var] = fillna(ds[var], dim="item").isel(
-                            item=-1
-                        )
+                        ds[var] = fillna(ds[var], dim="item").isel(item=-1)
 
             self._ds = ds
             self.attrs = ds.attrs
@@ -1556,13 +1554,11 @@ class Data(Easing, Animation, Configuration):
         dims = DIMS["basic"] if self._dim_type == "grid" else dims
 
         if self.state_labels is not None:
-            state_labels = self._adapt_input(
-                self.state_labels, reshape=False)
+            state_labels = self._adapt_input(self.state_labels, reshape=False)
             data_vars["state_label"] = ("state", state_labels)
 
         if self.inline_labels is not None:
-            inline_labels = self._adapt_input(
-                self.inline_labels, num_items=num_items)
+            inline_labels = self._adapt_input(self.inline_labels, num_items=num_items)
             data_vars["inline_label"] = dims, inline_labels
 
         # pass unique for dataframe
@@ -1825,16 +1821,20 @@ class RemarkArray(param.Parameterized):
             if first:
                 # + 1 because state starts counting at 1
                 da_masked = da.where(new_condition)
-                new_condition = xr.concat(
-                    (
-                        da_masked.where(
-                            da_masked["state"]
-                            == (da_masked >= value).argmax("state") + 1
-                        )
-                        for value in values
-                    ),
-                    "match",
-                ).sum("match").astype(bool)
+                new_condition = (
+                    xr.concat(
+                        (
+                            da_masked.where(
+                                da_masked["state"]
+                                == (da_masked >= value).argmax("state") + 1
+                            )
+                            for value in values
+                        ),
+                        "match",
+                    )
+                    .sum("match")
+                    .astype(bool)
+                )
         except TypeError as e:
             if self.debug:
                 warnings.warn(e)

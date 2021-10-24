@@ -908,23 +908,15 @@ def test_remark_cascade_first(first):
     arr = ah.Array(xs, ys)
     arr = arr - arr
 
-    arr = arr.remark(
-        ys=4,
-        remarks='4!!',
-        first=first
-    )
+    arr = arr.remark(ys=4, remarks="4!!", first=first)
 
     ds = arr._ds
     actual = ds["remark"]
     if first:
-        expected = np.array(
-            [['', '4!!', '', '', '', ''],
-            ['', '', '', '', '4!!', '']]
-        )
+        expected = np.array([["", "4!!", "", "", "", ""], ["", "", "", "", "4!!", ""]])
     else:
-        expected = np.array([
-            ['', '4!!', '4!!', '4!!', '4!!', '4!!'],
-            ['', '', '', '', '4!!', '4!!']]
+        expected = np.array(
+            [["", "4!!", "4!!", "4!!", "4!!", "4!!"], ["", "", "", "", "4!!", "4!!"]]
         )
     assert (actual == expected).all()
 
