@@ -4,7 +4,7 @@ from .configuration import CONFIGURABLES, DEFAULTS, PRESETS, config_defaults  # 
 from .data import Array, Array2D, DataFrame, Dataset, Reference  # noqa
 from .easing import Easing  # noqa
 from .join import cascade, layout, merge, overlay, slide, stagger  # noqa
-from .tutorial import open_dataset  # noqa
+from .tutorial import open_dataset, list_datasets  # noqa
 
 try:
     __version__ = get_distribution(__name__).version
