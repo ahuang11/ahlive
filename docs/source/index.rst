@@ -4,13 +4,14 @@
    :maxdepth: 1
    :caption: INTRODUCTIONS
 
-   introductions/overview.ipynb
+   introductions/quick_start.ipynb
    introductions/about.ipynb
 
 .. toctree::
    :maxdepth: 1
    :caption: ESSENTIALS
 
+   essentials/fetching.ipynb
    essentials/serializing.ipynb
    essentials/charting.ipynb
    essentials/merging.ipynb
@@ -32,24 +33,15 @@
 
 .. toctree::
    :maxdepth: 1
-   :caption: TUTORIALS
-
-   tutorials/covid_19_time_series.ipynb
-   tutorials/covid_19_bar_chart_race.ipynb
-   tutorials/covid_19_geographic_map.ipynb
-
-.. toctree::
-   :maxdepth: 1
    :caption: EXAMPLES
 
    examples/gapminder.ipynb
    examples/rain_simulation.ipynb
    examples/hurricane_tracks.ipynb
-   examples/temperature_comparison.ipynb
 
 .. toctree::
    :maxdepth: 1
-   :caption: REFERENCE
+   :caption: REFERENCES
 
    changelog
    release

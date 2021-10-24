@@ -236,8 +236,12 @@ VARS = {
         "ref_chart",
         "grid_chart",
         "bar_label",
-        "tick_label"
+        "tick_label",
     ],
+    "itemless": [
+        "state_label",
+        "ref_last_item"
+    ]
 }
 
 # internal item mappings
@@ -272,7 +276,7 @@ ITEMS = {
     ],
     "continual": ["line", "errorbar", "area"],  # need more than one data point
     "bar": ["bar", "barh"],  # need more than one data point
-    "not_scalar": ["c", "s", "labels", "xerr", "yerr", "y2", "u", "v"],
+    "not_scalar": ["labels", "xerr", "yerr", "y2", "u", "v"],
 }
 
 PRESETS = {
@@ -318,7 +322,7 @@ OPTIONS = {
         "title_start",
         "subtitle_start",
         "suptitle_start",
-    ]
+    ],
 }
 
 SIZES = {
@@ -445,7 +449,7 @@ DEFAULTS["remark_inline_kwds"].update(
         "xytext": (1, -1),
         "ha": "left",
         "va": "top",
-        "persist": False
+        "persist": False,
     }
 )
 

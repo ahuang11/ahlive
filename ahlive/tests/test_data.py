@@ -259,7 +259,10 @@ def test_config_bar_chart(preset, x_type):
     for var in ["tick_label", "bar_label"]:
         if preset is None or preset == "stacked" and var == "bar_label":
             continue
-        expected = [1, 1, 1, 2, 2, 2]
+        if preset == "race":
+            expected = [1, 2]
+        else:
+            expected = [1, 1, 1, 2, 2, 2]
         actual = ds[var].values.ravel()
         assert (actual == expected).all()
 
@@ -895,6 +898,35 @@ def test_remark_overlay():
     remarks = ds["remark"]
     assert remarks.isel(item=0, state=0).item() == "abc"
     assert remarks.isel(item=1, state=-1).item() == "abc"
+
+
+@pytest.mark.parametrize("first", [False, True])
+def test_remark_cascade_first(first):
+    xs = np.array([0, 1, 2])
+    ys = np.array([3, 4, 4])
+
+    arr = ah.Array(xs, ys)
+    arr = arr - arr
+
+    arr = arr.remark(
+        ys=4,
+        remarks='4!!',
+        first=first
+    )
+
+    ds = arr._ds
+    actual = ds["remark"]
+    if first:
+        expected = np.array(
+            [['', '4!!', '', '', '', ''],
+            ['', '', '', '', '4!!', '']]
+        )
+    else:
+        expected = np.array([
+            ['', '4!!', '4!!', '4!!', '4!!', '4!!'],
+            ['', '', '', '', '4!!', '4!!']]
+        )
+    assert (actual == expected).all()
 
 
 def test_stacked_fixed_limit():

@@ -42,6 +42,15 @@ new features
 - Capability to set defaults (:pull:`101`).
   By `Andrew Huang <https://github.com/ahuang11>`_
 
+- Added OWID datasets for use (:pull:`107`).
+  By `Andrew Huang <https://github.com/ahuang11>`_
+
+- Upgrade `open_dataset` and add `list_datasets` (:pull:`109`).
+  By `Andrew Huang <https://github.com/ahuang11>`_
+
+- Added `last` for `reference`, and `labels` and `**other_vars`for `remark` (:pull:`110`).
+  By `Andrew Huang <https://github.com/ahuang11>`_
+
 documentation
 ~~~~~~~~~~~~~
 
