@@ -1259,7 +1259,7 @@ class Animation(param.Parameterized):
                 **plot_kwds,
             )
 
-            last = plot_kwds.pop("last")
+            last = plot_kwds.pop("last", False)
             if last and item != last_item:
                 continue
 
