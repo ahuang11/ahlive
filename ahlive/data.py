@@ -1544,14 +1544,13 @@ class Data(Easing, Animation, Configuration):
             except Exception:
                 pass
 
+        dims = DIMS["basic"] if self._dim_type == "grid" else dims
         for var in list(data_vars.keys()):
             val = data_vars.pop(var)
             if self._dim_type == "grid" and var in ["x", "y"]:
                 coords[var] = val
             else:
                 data_vars[var] = dims, self._adapt_input(val, num_items=num_items)
-
-        dims = DIMS["basic"] if self._dim_type == "grid" else dims
 
         if self.state_labels is not None:
             state_labels = self._adapt_input(self.state_labels, reshape=False)

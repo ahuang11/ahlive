@@ -746,6 +746,7 @@ class Animation(param.Parameterized):
         elif not hasattr(array, "ndim"):
             array = to_1d(array, flat=False)
 
+        array = np.array(array)
         if get is not None and chart not in ITEMS["bar"]:
             if array.ndim == 3:
                 array = array[:, :, get].squeeze()
@@ -776,7 +777,7 @@ class Animation(param.Parameterized):
             return zip([""], [data])
 
     def _get_iter_ds(self, state_ds):
-        preset = state_ds.attrs["preset_kwds"].get("preset")
+        preset = state_ds.attrs["preset_kwds"].get("preset", "")
         if len(state_ds.data_vars) == 0:
             return zip([], []), -1
         elif any(group for group in to_1d(state_ds["group"])):
@@ -787,14 +788,12 @@ class Animation(param.Parameterized):
             key = "label"
         else:
             state_ds = state_ds.drop_vars("group", errors="ignore")
-            if preset == "morph":
-                get = None
-            else:
-                get = -1
+            get = -1
             key = "item"
 
-        if preset == "morph_trail":
+        if "morph" in preset:
             get = -1
+
         iter_ds = self._groupby_key(state_ds, key)
         return iter_ds, get
 
@@ -919,6 +918,7 @@ class Animation(param.Parameterized):
                 continue
 
             chart = self._get_chart(overlay_ds)
+
             pop(overlay_ds, "chart")
             if pd.isnull(chart):
                 chart = str(chart)
