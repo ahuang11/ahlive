@@ -1667,6 +1667,9 @@ class Animation(param.Parameterized):
             state_ds_rowcols = []
             for ds in data.values():
                 ds_sel = ds.sel(state=slice(None, state))
+                for var in ds_sel.data_vars:
+                    if var.startswith("grid_") and "state" in ds[var].dims:
+                        ds_sel[var] = ds_sel[var].isel(state=-1)
                 # this makes legend labels appear in order if values exist
                 if "item" in ds_sel.dims:
                     ds_last = ds_sel.isel(state=-1)
