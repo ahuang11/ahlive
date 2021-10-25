@@ -747,7 +747,7 @@ class Animation(param.Parameterized):
             array = to_1d(array, flat=False)
 
         array = np.array(array)
-        if get is not None and chart not in ITEMS["bar"]:
+        if get is not None and chart not in ITEMS["bar"] + ["pie"]:
             if array.ndim == 3:
                 array = array[:, :, get].squeeze()
             elif array.ndim == 2 and chart not in ITEMS["continual"]:
@@ -756,6 +756,8 @@ class Animation(param.Parameterized):
                 array = array[[get]]
         elif array.ndim > 1 and len(array[-1]) == 1:  # [[0, 1, 2]]
             array = array.ravel()
+        elif array.ndim > 1 and chart == "pie":
+            array = array[:, -1]
         return array.T
 
     @staticmethod
