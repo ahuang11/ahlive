@@ -1416,7 +1416,7 @@ class Animation(param.Parameterized):
             if tiles_obj:
                 tiles_kwds.pop("style", None)
                 tiles_kwds.pop("zoom", None)
-                tiles_zoom = int(pop(state_ds, "zoom", squeeze=True))
+                tiles_zoom = int(to_scalar(pop(state_ds, "zoom", squeeze=True)))
                 ax.add_image(tiles_obj, tiles_zoom, **tiles_kwds)
 
     def _update_ticks(self, state_ds, ax, gridlines):
