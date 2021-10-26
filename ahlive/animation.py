@@ -610,6 +610,9 @@ class Animation(param.Parameterized):
         if remarks is None:
             return
 
+        remark_plot_kwds = load_defaults("remark_plot_kwds", state_ds)
+        remark_inline_kwds = load_defaults("remark_inline_kwds", state_ds)
+
         if chart == "pie":
             xs, ys = self._compute_pie_xys(plot, offset=1.15)
         else:
@@ -617,8 +620,17 @@ class Animation(param.Parameterized):
             ys = to_1d(ys)
         remarks = to_1d(remarks)
 
-        for x, y, remark in zip(xs, ys, remarks):
-            if remark == "":
+        persist_plot = remark_plot_kwds.pop("persist")
+        persist_inline = remark_inline_kwds.pop("persist")
+
+        if not persist_plot and not persist_inline:
+            xs = xs[[-1]]
+            ys = ys[[-1]]
+            remarks = remarks[[-1]]
+
+        num_remarks = len(remarks)
+        for i, (x, y, remark) in enumerate(zip(xs, ys, remarks), 1):
+            if remark == "" or (not persist_inline and i != num_remarks):
                 continue
 
             try:
@@ -627,26 +639,25 @@ class Animation(param.Parameterized):
                 if remark.isdigit():
                     remark = float(remark)
 
-            remark_inline_kwds = dict(
+            remark_inline_kwds.update(
                 text=remark,
                 xy=(x, y),
                 color=color,
                 path_effects=self._path_effects,
-            )
-            remark_inline_kwds = load_defaults(
-                "remark_inline_kwds", state_ds, **remark_inline_kwds
             )
             remark_inline_kwds = self._update_text(
                 remark_inline_kwds, "text", base=remark
             )
             ax.annotate(**remark_inline_kwds)
 
-            remark_kwds = load_defaults(
-                "remark_plot_kwds", state_ds, x=x, y=y, color=color
-            )
-
-            if chart != "pie":
-                ax.scatter(**remark_kwds)
+        if chart != "pie":
+            no_remarks_index = np.where(remarks == "")
+            xs[no_remarks_index] = None
+            ys[no_remarks_index] = None
+            if not persist_plot:
+                xs = xs[[-1]]
+                ys = ys[[-1]]
+            ax.scatter(xs, ys, color=color, **remark_plot_kwds)
 
     def _add_inline_labels(
         self,
@@ -735,7 +746,8 @@ class Animation(param.Parameterized):
         elif not hasattr(array, "ndim"):
             array = to_1d(array, flat=False)
 
-        if get is not None and chart not in ITEMS["bar"]:
+        array = np.array(array)
+        if get is not None and chart not in ITEMS["bar"] + ["pie"]:
             if array.ndim == 3:
                 array = array[:, :, get].squeeze()
             elif array.ndim == 2 and chart not in ITEMS["continual"]:
@@ -744,6 +756,8 @@ class Animation(param.Parameterized):
                 array = array[[get]]
         elif array.ndim > 1 and len(array[-1]) == 1:  # [[0, 1, 2]]
             array = array.ravel()
+        elif array.ndim > 1 and chart == "pie":
+            array = array[:, -1]
         return array.T
 
     @staticmethod
@@ -765,7 +779,7 @@ class Animation(param.Parameterized):
             return zip([""], [data])
 
     def _get_iter_ds(self, state_ds):
-        preset = state_ds.attrs["preset_kwds"].get("preset")
+        preset = state_ds.attrs["preset_kwds"].get("preset", "")
         if len(state_ds.data_vars) == 0:
             return zip([], []), -1
         elif any(group for group in to_1d(state_ds["group"])):
@@ -776,14 +790,12 @@ class Animation(param.Parameterized):
             key = "label"
         else:
             state_ds = state_ds.drop_vars("group", errors="ignore")
-            if preset == "morph":
-                get = None
-            else:
-                get = -1
+            get = -1
             key = "item"
 
-        if preset == "morph_trail":
+        if "morph" in preset:
             get = -1
+
         iter_ds = self._groupby_key(state_ds, key)
         return iter_ds, get
 
@@ -891,7 +903,7 @@ class Animation(param.Parameterized):
 
         iter_ds, get = self._get_iter_ds(base_state_ds)
         mappable = None
-        for _, overlay_ds in iter_ds:
+        for iter_, overlay_ds in iter_ds:
             try:
                 if "batch" not in overlay_ds.dims:
                     overlay_ds = overlay_ds.squeeze("item")
@@ -908,10 +920,14 @@ class Animation(param.Parameterized):
                 continue
 
             chart = self._get_chart(overlay_ds)
+
             pop(overlay_ds, "chart")
             if pd.isnull(chart):
                 chart = str(chart)
                 continue
+
+            xs_full = self._reshape_batch(overlay_ds["x"], chart, get=None)
+            ys_full = self._reshape_batch(overlay_ds["y"], chart, get=None)
 
             xs = self._reshape_batch(pop(overlay_ds, "x"), chart, get=get)
             ys = self._reshape_batch(pop(overlay_ds, "y"), chart, get=get)
@@ -946,7 +962,7 @@ class Animation(param.Parameterized):
             bar_labels = self._reshape_batch(pop(overlay_ds, "bar_label"), chart)
             bar_offsets = self._reshape_batch(pop(overlay_ds, "bar_offset"), chart)
 
-            remarks = self._reshape_batch(pop(overlay_ds, "remark"), chart)
+            remarks = self._reshape_batch(pop(overlay_ds, "remark"), chart, get=None)
 
             trail_plot_kwds = {
                 var: self._reshape_batch(pop(overlay_ds, var), chart, get=None)
@@ -1049,7 +1065,9 @@ class Animation(param.Parameterized):
                 xytext=(0, -5) if chart == "barh" else (0, -15),
             )
 
-            self._add_remarks(overlay_ds, ax, chart, xs, ys, remarks, color, plot=plot)
+            self._add_remarks(
+                overlay_ds, ax, chart, xs_full, ys_full, remarks, color, plot=plot
+            )
 
         return mappable
 
@@ -1193,7 +1211,7 @@ class Animation(param.Parameterized):
     def _process_ref_vars(self, state_ds, ax):
         ref_state_ds = self._subset_vars(state_ds, "ref")
         ref_iter_ds, get = self._get_iter_ds(ref_state_ds)
-        for _, overlay_ds in ref_iter_ds:
+        for item, (_, overlay_ds) in enumerate(ref_iter_ds, 1):
             label = pop(overlay_ds, "label", get=-1) or "_nolegend_"
             chart = pop(overlay_ds, "chart", get=-1)
 
@@ -1201,6 +1219,8 @@ class Animation(param.Parameterized):
             x1s = pop(overlay_ds, "x1", get=get)
             y0s = pop(overlay_ds, "y0", get=get)
             y1s = pop(overlay_ds, "y1", get=get)
+
+            last_item = pop(overlay_ds, "last_item", get=-1)
 
             inline_loc = pop(overlay_ds, "inline_loc", get=-1)
             inline_labels = pop(overlay_ds, "inline_label", get=-1)
@@ -1240,6 +1260,10 @@ class Animation(param.Parameterized):
                 label=label,
                 **plot_kwds,
             )
+
+            last = plot_kwds.pop("last", False)
+            if last and item != last_item:
+                continue
 
             color = self._plot_ref_chart(
                 overlay_ds, ax, chart, x0s, x1s, y0s, y1s, plot_kwds
@@ -1369,7 +1393,9 @@ class Animation(param.Parameterized):
                 if axis_lim0 is not None or axis_lim1 is not None:
                     axis_lim0 = None if pd.isnull(axis_lim0) else axis_lim0
                     axis_lim1 = None if pd.isnull(axis_lim1) else axis_lim1
-                    getattr(ax, f"set_{axis}lim")(to_pydt(axis_lim0, axis_lim1))
+                    with warnings.catch_warnings():
+                        warnings.simplefilter("ignore")
+                        getattr(ax, f"set_{axis}lim")(to_pydt(axis_lim0, axis_lim1))
         ax.margins(**margins_kwds)
 
     def _update_geo(self, state_ds, ax):
@@ -1390,7 +1416,7 @@ class Animation(param.Parameterized):
             if tiles_obj:
                 tiles_kwds.pop("style", None)
                 tiles_kwds.pop("zoom", None)
-                tiles_zoom = int(pop(state_ds, "zoom", squeeze=True))
+                tiles_zoom = int(to_scalar(pop(state_ds, "zoom", squeeze=True)))
                 ax.add_image(tiles_obj, tiles_zoom, **tiles_kwds)
 
     def _update_ticks(self, state_ds, ax, gridlines):
@@ -1640,35 +1666,16 @@ class Animation(param.Parameterized):
         for state in states:
             state_ds_rowcols = []
             for ds in data.values():
-                preset = ds.attrs["preset_kwds"].get("preset", "")
-                if "chart" in ds.data_vars:
-                    one_bar = ds["chart"].str.startswith("bar").sum() == 1
-                else:
-                    one_bar = False
-                series_preset = (not preset or preset == "stacked") and one_bar
-                is_stateless = "state" not in ds.dims
-                is_line = np.any(
-                    [ds.get("chart", "") == chart for chart in ITEMS["continual"]]
-                )
-                is_bar = np.any(
-                    (ds.get("chart", "") == chart for chart in ITEMS["bar"])
-                )
-                is_morph = "morph" in preset
-                is_trail = "trail" in preset
-                if is_stateless:
-                    ds_sel = ds
-                elif (
-                    (is_line or (is_bar and series_preset)) and not is_morph
-                ) or is_trail:
-                    ds_sel = ds.sel(state=slice(None, state))
-                    # this makes legend labels appear in order if values exist
-                    if "item" in ds_sel.dims:
-                        ds_last = ds_sel.isel(state=-1)
-                        not_nan_items = ds_last["y"].dropna("item")["item"]
-                        ds_sel = ds_sel.sel(item=not_nan_items.values)
-                        ds_sel["item"] = srange(len(ds_sel["item"]))
-                else:
-                    ds_sel = ds.sel(state=state)
+                ds_sel = ds.sel(state=slice(None, state))
+                for var in ds_sel.data_vars:
+                    if var.startswith("grid_") and "state" in ds[var].dims:
+                        ds_sel[var] = ds_sel[var].isel(state=-1)
+                # this makes legend labels appear in order if values exist
+                if "item" in ds_sel.dims:
+                    ds_last = ds_sel.isel(state=-1)
+                    not_nan_items = ds_last["y"].dropna("item")["item"]
+                    ds_sel = ds_sel.sel(item=not_nan_items.values)
+                    ds_sel["item"] = srange(len(ds_sel["item"]))
                 state_ds_rowcols.append(ds_sel)
             job = self._draw_frame(state_ds_rowcols, canvas_kwds)
             jobs.append(job)

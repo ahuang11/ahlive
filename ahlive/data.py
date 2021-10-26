@@ -83,7 +83,8 @@ class Data(Easing, Animation, Configuration):
         doc="Legend label for each item",
         precedence=PRECEDENCES["common"],
     )
-    group = param.String(
+    group = param.ClassSelector(
+        class_=(int, float, str),
         default=None,
         doc="Group label for multiple items",
         precedence=PRECEDENCES["misc"],
@@ -278,11 +279,10 @@ class Data(Easing, Animation, Configuration):
         with param.edit_constant(self):
             ds = list(self._data.values())[0]
 
-            if "state_label" in ds:
-                if "item" in ds["state_label"].dims:
-                    ds["state_label"] = fillna(ds["state_label"], dim="item").isel(
-                        item=-1
-                    )
+            for var in VARS["itemless"]:
+                if var in ds:
+                    if "item" in ds[var].dims:
+                        ds[var] = fillna(ds[var], dim="item").isel(item=-1)
 
             self._ds = ds
             self.attrs = ds.attrs
@@ -1535,22 +1535,30 @@ class Data(Easing, Animation, Configuration):
                 key = key[:-1]
             data_vars[key] = val
 
+        num_items = 1
+        for var in data_vars:
+            try:
+                if data_vars[var].ndim > 1 and var.startswith(("x", "y")):
+                    shape = data_vars[var].shape
+                    num_items = max(shape[0], num_items)
+            except Exception:
+                pass
+
         for var in list(data_vars.keys()):
             val = data_vars.pop(var)
             if self._dim_type == "grid" and var in ["x", "y"]:
                 coords[var] = val
             else:
-                data_vars[var] = dims, self._adapt_input(val)
+                data_vars[var] = dims, self._adapt_input(val, num_items=num_items)
+
+        dims = DIMS["basic"] if self._dim_type == "grid" else dims
 
         if self.state_labels is not None:
             state_labels = self._adapt_input(self.state_labels, reshape=False)
             data_vars["state_label"] = ("state", state_labels)
 
-        dims = DIMS["basic"] if self._dim_type == "grid" else dims
-        num_items = 1
         if self.inline_labels is not None:
-            inline_labels = self._adapt_input(self.inline_labels)
-            num_items = inline_labels.shape[0]
+            inline_labels = self._adapt_input(self.inline_labels, num_items=num_items)
             data_vars["inline_label"] = dims, inline_labels
 
         # pass unique for dataframe
@@ -1703,6 +1711,7 @@ class ReferenceArray(param.Parameterized):
         inline_labels=None,
         inline_locs=None,
         rowcols=None,
+        last=False,
         **kwds,
     ):
         if rowcols is None:
@@ -1740,6 +1749,18 @@ class ReferenceArray(param.Parameterized):
                                 kwds["inline_locs"] = ds["x"]
 
             self_copy *= Reference(**kwds)
+
+        data = {}
+        for rowcol, ds in self_copy.items():
+            ds.attrs["ref_plot_kwds"]["last"] = last
+            for var in ["ref_x0", "ref_x1", "ref_y0", "ref_y1"]:
+                if var in ds.data_vars:
+                    last_item = ~np.isnan(ds[var])
+                    last_item = last_item.sum("ref_item").values
+                    ds["ref_last_item"] = ("state", last_item)
+                    break
+            data[rowcol] = ds
+        self_copy.data = data
 
         return self_copy
 
@@ -1782,37 +1803,44 @@ class RemarkArray(param.Parameterized):
         super().__init__(**kwds)
         self.configurables["remark"] = CONFIGURABLES["remark"]
 
-    def _match_values(self, da, values, first, rtol, atol):
+    def _match_values(self, da, values, first, rtol, atol, condition):
         if is_datetime(da) or is_timedelta(da):
             da = da.astype(float)
             if hasattr(values, "values"):
                 values = values.values
+            elif isinstance(values, (str, list)):
+                values = pd.to_datetime(to_1d(values)).values
             values = values.astype(float)
         values = np.array(to_1d(values))  # np.array required or else crash
 
         try:
             diff = np.abs(da.expand_dims("match").transpose(..., "match") - values)
             ctol = atol + rtol * np.abs(values)  # combined tol
-            condition = (diff <= ctol).any("match")
+            new_condition = (diff <= ctol).any("match")
 
             if first:
                 # + 1 because state starts counting at 1
-                da_masked = da.where(condition)
-                condition = xr.concat(
-                    (
-                        da_masked.where(
-                            da_masked["state"]
-                            == (da_masked >= value).argmax("state") + 1
-                        )
-                        for value in values
-                    ),
-                    "match",
-                ).sum("match")
+                da_masked = da.where(new_condition)
+                new_condition = (
+                    xr.concat(
+                        (
+                            da_masked.where(
+                                da_masked["state"]
+                                == (da_masked >= value).argmax("state") + 1
+                            )
+                            for value in values
+                        ),
+                        "match",
+                    )
+                    .sum("match")
+                    .astype(bool)
+                )
         except TypeError as e:
             if self.debug:
                 warnings.warn(e)
-            condition = da.isin(values)
+            new_condition = da.isin(values)
 
+        condition = condition & new_condition
         return condition
 
     def remark(
@@ -1823,24 +1851,32 @@ class RemarkArray(param.Parameterized):
         xs=None,
         ys=None,
         cs=None,
+        labels=None,
         state_labels=None,
         inline_labels=None,
         first=False,
         rtol=1e-8,
         atol=1e-5,
         rowcols=None,
+        persist_plot=None,
+        persist_inline=None,
+        **other_vars,
     ):
-        args = (xs, ys, cs, state_labels, inline_labels, condition)
+        args = (
+            xs,
+            ys,
+            cs,
+            labels,
+            state_labels,
+            inline_labels,
+            condition,
+            *list(other_vars.values()),
+        )
         args_none = sum([1 for arg in args if arg is None])
         if args_none == len(args):
             raise ValueError(
                 "Must supply either xs, ys, cs, state_labels, "
-                "inline_labels, or condition!"
-            )
-        elif args_none != len(args) - 1:
-            raise ValueError(
-                "Must supply only one of xs, ys, cs, state_labels, "
-                "inline_labels, or condition!"
+                "inline_labels, condition, or other_vars!"
             )
 
         if durations is None and remarks is None:
@@ -1855,22 +1891,35 @@ class RemarkArray(param.Parameterized):
             if rowcol not in rowcols:
                 continue
 
-            if xs is not None:
-                condition = self_copy._match_values(ds["x"], xs, first, rtol, atol)
-            elif ys is not None:
-                condition = self_copy._match_values(ds["y"], ys, first, rtol, atol)
-            elif cs is not None:
-                condition = self_copy._match_values(ds["c"], cs, first, rtol, atol)
-            elif state_labels is not None:
-                condition = self_copy._match_values(
-                    ds["state_label"], state_labels, first, rtol, atol
-                )
-            elif inline_labels is not None:
-                condition = self_copy._match_values(
-                    ds["inline_label"], inline_labels, first, rtol, atol
-                )
+            if condition is None:
+                condition = xr.full_like(ds["y"], True, dtype=bool).values
             else:
-                condition = np.array(condition)
+                condition = self_copy._adapt_input(condition)
+
+            if xs is not None:
+                condition = self_copy._match_values(
+                    ds["x"], xs, first, rtol, atol, condition
+                )
+            if ys is not None:
+                condition = self_copy._match_values(
+                    ds["y"], ys, first, rtol, atol, condition
+                )
+            if cs is not None:
+                condition = self_copy._match_values(
+                    ds["c"], cs, first, rtol, atol, condition
+                )
+            if labels is not None:
+                condition = self_copy._match_values(
+                    ds["label"], labels, first, rtol, atol, condition
+                )
+            if state_labels is not None:
+                condition = self_copy._match_values(
+                    ds["state_label"], state_labels, first, rtol, atol, condition
+                )
+            if inline_labels is not None:
+                condition = self_copy._match_values(
+                    ds["inline_label"], inline_labels, first, rtol, atol, condition
+                )
 
             # condition = condition.broadcast_like(ds)  # TODO: investigate grid
             if remarks is not None:
@@ -1885,6 +1934,7 @@ class RemarkArray(param.Parameterized):
                         remarks = ds[remarks].astype(str)
                 ds["remark"] = xr.where(condition, remarks, ds["remark"])
 
+            condition = np.array(condition)
             if durations is not None:
                 if "duration" not in ds:
                     ds["duration"] = (
@@ -1895,9 +1945,14 @@ class RemarkArray(param.Parameterized):
                             reshape=False,
                         ),
                     )
-                ds["duration"] = xr.where(condition, durations, ds["duration"])
+                ds["duration"] = xr.where(
+                    condition.sum(axis=0), durations, ds["duration"]
+                )
                 if "item" in ds["duration"].dims:
                     ds["duration"] = ds["duration"].max("item")
+
+            ds.attrs["remark_plot_kwds"]["persist"] = persist_plot
+            ds.attrs["remark_inline_kwds"]["persist"] = persist_inline
 
             data[rowcol] = ds.transpose(..., "state")
         self_copy.data = data

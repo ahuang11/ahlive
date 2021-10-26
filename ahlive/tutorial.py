@@ -1,14 +1,14 @@
+import inspect
 import json
 import os
 import re
-import inspect
 from urllib.parse import quote
 from urllib.request import urlopen
 
 import pandas as pd
 import param
 
-from .configuration import DEFAULTS, OPTIONS
+from .configuration import DEFAULTS
 
 
 class TutorialData(param.Parameterized):
@@ -169,7 +169,7 @@ class TutorialData(param.Parameterized):
                 header=None,
                 comment="#",
                 sep="\s+",  # noqa
-                names=["year", "co2_ppm", "uncertainty"]
+                names=["year", "co2_ppm", "uncertainty"],
             )
             base_kwds.update(kwds)
             df = pd.read_csv(self._data_url, **base_kwds)
@@ -491,13 +491,7 @@ class TutorialData(param.Parameterized):
 
         cache_kwds = kwds.copy()
         cache_kwds.update(
-            ini=ini,
-            end=end,
-            stn=stn,
-            tz=tz,
-            data=data,
-            latlon=latlon,
-            elev=elev
+            ini=ini, end=end, stn=stn, tz=tz, data=data, latlon=latlon, elev=elev
         )
         df = self._read_cache(**cache_kwds)
         if df is None:
@@ -517,14 +511,16 @@ class TutorialData(param.Parameterized):
             raise ValueError("Select a valid dataset listed above")
 
         if self.label.startswith("owid_"):
-            data = getattr(self, f"_load_owid")(**kwds)
+            data = getattr(self, "_load_owid")(**kwds)
         else:
             data = getattr(self, f"_load_{self.label}")(**kwds)
 
         label = self.label.replace("_", " ").upper()
         attr = f"{label}\n\nSource: {self._source}\n{self._base_url}"
         if self.verbose:
-            attr = f"{attr}\n\nDescription: {self._description}\n\nData: {self._data_url}"
+            attr = (
+                f"{attr}\n\nDescription: {self._description}\n\nData: {self._data_url}"
+            )
 
         if self.return_meta:
             meta = {}
@@ -557,13 +553,16 @@ class TutorialData(param.Parameterized):
                 for k, v in val.items():
                     print(f"    {k}: {v}")
 
-def open_dataset(label=None, raw=False, verbose=False, return_meta=False, use_cache=True, **kwds):
+
+def open_dataset(
+    label=None, raw=False, verbose=False, return_meta=False, use_cache=True, **kwds
+):
     return TutorialData(
         label=label,
         raw=raw,
         verbose=verbose,
         return_meta=return_meta,
-        use_cache=use_cache
+        use_cache=use_cache,
     ).open_dataset(**kwds)
 
 
