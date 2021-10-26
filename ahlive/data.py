@@ -1538,7 +1538,7 @@ class Data(Easing, Animation, Configuration):
         num_items = 1
         for var in data_vars:
             try:
-                if data_vars[var].ndim > 1 and var in ["x", "y"]:
+                if data_vars[var].ndim > 1 and var.startswith(("x", "y")):
                     shape = data_vars[var].shape
                     num_items = max(shape[0], num_items)
             except Exception:
