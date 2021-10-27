@@ -1032,14 +1032,35 @@ class Data(Easing, Animation, Configuration):
             has_axis_lim0 = axis_lim0 in ds.data_vars
             has_axis_lim1 = axis_lim1 in ds.data_vars
             if not (has_axis_lim0 and has_axis_lim1):
-                if not has_axis_lim0:
-                    ds[axis_lim0] = ds[axis].min(item_dim)
-                if not has_axis_lim1:
-                    ds[axis_lim1] = ds[axis].max(item_dim)
+                try:
+                    if not has_axis_lim0:
+                        if item_dim == "item":
+                            ds[axis_lim0] = ds[axis].min(item_dim)
+                        elif item_dim == "ref_item":
+                            ds[axis_lim0] = ds[f"ref_{axis}0"].min(item_dim)
+                        elif item_dim == "grid_item":
+                            ds[axis_lim0] = ds[f"ref_{axis}0"].min(item_dim)
+                        else:
+                            ds[axis_lim0] = ds[f"grid_{axis}"].min(item_dim)
+                    if not has_axis_lim1:
+                        if item_dim == "item":
+                            ds[axis_lim1] = ds[axis].max(item_dim)
+                        elif item_dim == "ref_item":
+                            try:
+                                ds[axis_lim1] = ds[f"ref_{axis}1"].max(item_dim)
+                            except KeyError:
+                                ds[axis_lim1] = ds[f"ref_{axis}0"].max(item_dim)
+                        else:
+                            ds[axis_lim0] = ds[f"grid_{axis}"].max(item_dim)
+                except KeyError:
+                    pass
 
-            ds[axis_lim0], ds[axis_lim1] = self._compute_padding(
-                ds[axis_lim0], ds[axis_lim1], axis_margins
-            )
+            try:
+                ds[axis_lim0], ds[axis_lim1] = self._compute_padding(
+                    ds[axis_lim0], ds[axis_lim1], axis_margins
+                )
+            except KeyError:
+                pass
 
         return ds
 
@@ -2293,6 +2314,9 @@ class Dataset(DataStructure, Array2D):
     _dim_type = "grid"
 
     def __init__(self, ds, xs, ys, cs, join="overlay", **kwds):
+        if isinstance(ds, xr.DataArray):
+            ds = ds.to_dataset()
+
         super().__init__(ds, xs, ys, cs=cs, join=join, **kwds)
 
 

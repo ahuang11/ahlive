@@ -386,9 +386,6 @@ def test_fill_null():
 @pytest.mark.parametrize("limit", OPTIONS["limit"])
 @pytest.mark.parametrize("padding", [None, -0.1, 0, 0.1])
 def test_add_xy01_limits_xlim0s(direction, limit, padding):
-    if limit is None:
-        pytest.skip()
-
     # TODO: test datetimes, strings
     if limit.startswith("zero"):
         expected = 0
@@ -976,8 +973,8 @@ def test_stacked_fixed_limit():
         * ah.Array(x, y2, label="B", preset="stacked", chart="bar", ylims="fixed")
     ).finalize()
     ds = ah_obj[1, 1]
-    np.testing.assert_almost_equal(ds["ylim0"].values, 0)
-    np.testing.assert_almost_equal(ds["ylim1"].values, 2)
+    np.testing.assert_almost_equal(ds["ylim0"].values, -0.06)
+    np.testing.assert_almost_equal(ds["ylim1"].values, 2.06)
 
 
 def test_morph_stacked():
