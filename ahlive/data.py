@@ -997,13 +997,15 @@ class Data(Easing, Animation, Configuration):
                 lspan = (log_max - log_min) * (1 + padding[0] * 2)
                 uspan = (log_max - log_min) * (1 + padding[1] * 2)
                 center = (log_min + log_max) / 2.0
-                start, end = np.power(10, center - lspan / 2.), np.power(10, center + uspan / 2.)
+                start, end = np.power(10, center - lspan / 2.0), np.power(
+                    10, center + uspan / 2.0
+                )
             else:
                 if is_datetime(lower):
                     # Ensure timedelta can be safely divided
-                    span = (upper - lower).astype('>m8[ns]')
+                    span = (upper - lower).astype(">m8[ns]")
                 else:
-                    span = (upper - lower)
+                    span = upper - lower
                 lpad = span * (padding[0])
                 upad = span * (padding[1])
                 start, end = lower - lpad, upper + upad
@@ -1036,7 +1038,8 @@ class Data(Easing, Animation, Configuration):
                     ds[axis_lim1] = ds[axis].max(item_dim)
 
             ds[axis_lim0], ds[axis_lim1] = self._compute_padding(
-                ds[axis_lim0], ds[axis_lim1], axis_margins)
+                ds[axis_lim0], ds[axis_lim1], axis_margins
+            )
 
         return ds
 

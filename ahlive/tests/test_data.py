@@ -382,8 +382,6 @@ def test_fill_null():
                     assert da_nans.sum() == 0
 
 
-%%ipytest -qq -x
-
 @pytest.mark.parametrize("direction", DIRECTIONS)
 @pytest.mark.parametrize("limit", OPTIONS["limit"])
 @pytest.mark.parametrize("padding", [None, -0.1, 0, 0.1])
@@ -608,8 +606,13 @@ def test_precompute_base_size():
 
 def test_add_margins():
     ah_obj = ah.Array(
-        [-1, 1], [2, 3], xlims="explore", ylims="fixed",
-        xmargins=10, ymargins=10, frames=1
+        [-1, 1],
+        [2, 3],
+        xlims="explore",
+        ylims="fixed",
+        xmargins=10,
+        ymargins=10,
+        frames=1,
     )
     assert ah_obj.attrs["margins_kwds"]["x"] == 10
     assert ah_obj.attrs["margins_kwds"]["y"] == 10
@@ -623,8 +626,11 @@ def test_add_margins():
 
 def test_add_margins_datetime():
     ah_obj = ah.Array(
-        pd.date_range("2017-02-01", "2017-02-02"), [2, 3],
-        xlims="explore", xmargins=1, frames=1
+        pd.date_range("2017-02-01", "2017-02-02"),
+        [2, 3],
+        xlims="explore",
+        xmargins=1,
+        frames=1,
     )
     assert ah_obj.attrs["margins_kwds"]["x"] == 1
     ah_obj = ah_obj.finalize()
@@ -635,8 +641,13 @@ def test_add_margins_datetime():
 
 def test_add_margins_tuple():
     ah_obj = ah.Array(
-        [-1, 1], [2, 3], xlims="explore", ylims="fixed",
-        xmargins=(0, 10), ymargins=(10, 0), frames=1
+        [-1, 1],
+        [2, 3],
+        xlims="explore",
+        ylims="fixed",
+        xmargins=(0, 10),
+        ymargins=(10, 0),
+        frames=1,
     )
     assert ah_obj.attrs["margins_kwds"]["x"] == (0, 10)
     assert ah_obj.attrs["margins_kwds"]["y"] == (10, 0)
