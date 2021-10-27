@@ -450,6 +450,8 @@ DEFAULTS["remark_inline_kwds"].update(
     }
 )
 
+DEFAULTS["margins_kwds"] = {"x": 0.03, "y": 0.03}
+
 DEFAULTS["legend_kwds"] = DEFAULTS["label_kwds"].copy()
 DEFAULTS["legend_kwds"]["labelcolor"] = DEFAULTS["legend_kwds"].pop("color")
 DEFAULTS["legend_kwds"].update(

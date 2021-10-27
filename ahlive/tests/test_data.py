@@ -384,8 +384,8 @@ def test_fill_null():
 
 @pytest.mark.parametrize("direction", DIRECTIONS)
 @pytest.mark.parametrize("limit", OPTIONS["limit"])
-@pytest.mark.parametrize("margin", [None, -0.1, 0, 0.1])
-def test_add_xy01_limits_xlim0s(direction, limit, margin):
+@pytest.mark.parametrize("padding", [None, -0.1, 0, 0.1])
+def test_add_xy01_limits_xlim0s(direction, limit, padding):
     # TODO: test datetimes, strings
     if limit.startswith("zero"):
         expected = 0
@@ -396,11 +396,11 @@ def test_add_xy01_limits_xlim0s(direction, limit, margin):
     elif limit.startswith("explore"):
         expected = np.array([-1.0, -1, -2])
 
-    if margin is not None:
-        expected -= np.nanmedian(np.abs(expected)) * margin
-        limit = f"{limit}_{margin}"
+    if padding is not None:
+        expected -= padding
+        limit = f"{limit}_{padding}"
 
-    ah_array1 = ah.Array([0, 1, 0], [3, 4, 5], xlim0s=limit, frames=1)
+    ah_array1 = ah.Array([0, 1, 0], [3, 4, 5], xlim0s=limit, xmargins=0, frames=1)
     ah_array2 = ah.Array([-1, 1, -2], [5, 6, -5])
 
     ah_objs = [ah_array1, ah_array2]
@@ -415,8 +415,8 @@ def test_add_xy01_limits_xlim0s(direction, limit, margin):
 
 @pytest.mark.parametrize("direction", DIRECTIONS)
 @pytest.mark.parametrize("limit", OPTIONS["limit"])
-@pytest.mark.parametrize("margin", [None, -0.1, 0, 0.1])
-def test_add_xy01_limits_xlim1s(direction, limit, margin):
+@pytest.mark.parametrize("padding", [None, -0.1, 0, 0.1])
+def test_add_xy01_limits_xlim1s(direction, limit, padding):
     if limit.startswith("zero"):
         expected = 0
     elif limit.startswith("fixed"):
@@ -426,11 +426,11 @@ def test_add_xy01_limits_xlim1s(direction, limit, margin):
     elif limit.startswith("explore"):
         expected = np.array([0.0, 1, 1])
 
-    if margin is not None:
-        expected += np.nanmedian(np.abs(expected)) * margin
-        limit = f"{limit}_{margin}"
+    if padding is not None:
+        expected += padding
+        limit = f"{limit}_{padding}"
 
-    ah_array1 = ah.Array([0, 1, 0], [3, 4, 5], xlim1s=limit, frames=1)
+    ah_array1 = ah.Array([0, 1, 0], [3, 4, 5], xlim1s=limit, xmargins=0, frames=1)
     ah_array2 = ah.Array([-1, 1, -2], [5, 6, -5])
 
     ah_objs = [ah_array1, ah_array2]
@@ -445,8 +445,8 @@ def test_add_xy01_limits_xlim1s(direction, limit, margin):
 
 @pytest.mark.parametrize("direction", DIRECTIONS)
 @pytest.mark.parametrize("limit", OPTIONS["limit"])
-@pytest.mark.parametrize("margin", [None, -0.1, 0, 0.1])
-def test_add_xy01_limits_ylim0s(direction, limit, margin):
+@pytest.mark.parametrize("padding", [None, -0.1, 0, 0.1])
+def test_add_xy01_limits_ylim0s(direction, limit, padding):
     if limit.startswith("zero"):
         expected = 0
     elif limit.startswith("fixed"):
@@ -456,11 +456,11 @@ def test_add_xy01_limits_ylim0s(direction, limit, margin):
     elif limit.startswith("explore"):
         expected = np.array([3.0, 3, -5])
 
-    if margin is not None:
-        expected -= np.nanmedian(np.abs(expected)) * margin
-        limit = f"{limit}_{margin}"
+    if padding is not None:
+        expected -= padding
+        limit = f"{limit}_{padding}"
 
-    ah_array1 = ah.Array([0, 1, 0], [3, 4, 5], ylim0s=limit, frames=1)
+    ah_array1 = ah.Array([0, 1, 0], [3, 4, 5], ylim0s=limit, ymargins=0, frames=1)
     ah_array2 = ah.Array([-1, 1, -2], [5, 6, -5])
 
     ah_objs = [ah_array1, ah_array2]
@@ -475,8 +475,8 @@ def test_add_xy01_limits_ylim0s(direction, limit, margin):
 
 @pytest.mark.parametrize("direction", DIRECTIONS)
 @pytest.mark.parametrize("limit", OPTIONS["limit"])
-@pytest.mark.parametrize("margin", [None, -0.1, 0, 0.1])
-def test_add_xy01_limits_ylim1s(direction, limit, margin):
+@pytest.mark.parametrize("padding", [None, -0.1, 0, 0.1])
+def test_add_xy01_limits_ylim1s(direction, limit, padding):
     if limit.startswith("zero"):
         expected = 0
     elif limit.startswith("fixed"):
@@ -486,11 +486,11 @@ def test_add_xy01_limits_ylim1s(direction, limit, margin):
     elif limit.startswith("explore"):
         expected = np.array([5.0, 6, 6])
 
-    if margin is not None:
-        expected += np.nanmedian(np.abs(expected)) * margin
-        limit = f"{limit}_{margin}"
+    if padding is not None:
+        expected += padding
+        limit = f"{limit}_{padding}"
 
-    ah_array1 = ah.Array([0, 1, 0], [3, 4, 5], ylim1s=limit, frames=1)
+    ah_array1 = ah.Array([0, 1, 0], [3, 4, 5], ylim1s=limit, ymargins=0, frames=1)
     ah_array2 = ah.Array([-1, 1, -2], [5, 6, -5])
 
     ah_objs = [ah_array1, ah_array2]
@@ -601,18 +601,60 @@ def test_precompute_base_size():
     attrs["base_kwds"]["s"] = 7
 
 
-def test_add_margins_xlims():
-    ah_obj = ah.Array([0, 1, 2], [3, 4, 5], xlim0s=0, xlim1s=2, xmargins=1).finalize()
+def test_add_margins():
+    ah_obj = ah.Array(
+        [-1, 1],
+        [2, 3],
+        xlims="explore",
+        ylims="fixed",
+        xmargins=10,
+        ymargins=10,
+        frames=1,
+    )
+    assert ah_obj.attrs["margins_kwds"]["x"] == 10
+    assert ah_obj.attrs["margins_kwds"]["y"] == 10
+    ah_obj = ah_obj.finalize()
     ds = ah_obj[1, 1]
-    assert (ds["xlim0"] == -2).all()
-    assert (ds["xlim1"] == 4).all()
+    np.testing.assert_almost_equal(ds["xlim0"], [-1, -21])
+    np.testing.assert_almost_equal(ds["xlim1"], [-1, 21])
+    np.testing.assert_almost_equal(ds["ylim0"], [-8, -8])
+    np.testing.assert_almost_equal(ds["ylim1"], [13, 13])
 
 
-def test_add_margins_ylims():
-    ah_obj = ah.Array([0, 1, 2], [3, 4, 5], ylim0s=3, ylim1s=5, ymargins=1).finalize()
+def test_add_margins_datetime():
+    ah_obj = ah.Array(
+        pd.date_range("2017-02-01", "2017-02-02"),
+        [2, 3],
+        xlims="explore",
+        xmargins=1,
+        frames=1,
+    )
+    assert ah_obj.attrs["margins_kwds"]["x"] == 1
+    ah_obj = ah_obj.finalize()
     ds = ah_obj[1, 1]
-    assert (ds["ylim0"] == -2).all()
-    assert (ds["ylim1"] == 10).all()
+    assert (ds["xlim0"] == pd.to_datetime(["2017-02-01", "2017-01-31"])).all()
+    assert (ds["xlim1"] == pd.to_datetime(["2017-02-01", "2017-02-03"])).all()
+
+
+def test_add_margins_tuple():
+    ah_obj = ah.Array(
+        [-1, 1],
+        [2, 3],
+        xlims="explore",
+        ylims="fixed",
+        xmargins=(0, 10),
+        ymargins=(10, 0),
+        frames=1,
+    )
+    assert ah_obj.attrs["margins_kwds"]["x"] == (0, 10)
+    assert ah_obj.attrs["margins_kwds"]["y"] == (10, 0)
+    ah_obj = ah_obj.finalize()
+    ds = ah_obj[1, 1]
+
+    np.testing.assert_almost_equal(ds["xlim0"], [-1, -1])
+    np.testing.assert_almost_equal(ds["xlim1"], [-1, 21])
+    np.testing.assert_almost_equal(ds["ylim0"], [-8, -8])
+    np.testing.assert_almost_equal(ds["ylim1"], [3, 3])
 
 
 def test_add_durations_default():
@@ -931,8 +973,8 @@ def test_stacked_fixed_limit():
         * ah.Array(x, y2, label="B", preset="stacked", chart="bar", ylims="fixed")
     ).finalize()
     ds = ah_obj[1, 1]
-    np.testing.assert_almost_equal(ds["ylim0"].values, 0)
-    np.testing.assert_almost_equal(ds["ylim1"].values, 2)
+    np.testing.assert_almost_equal(ds["ylim0"].values, -0.06)
+    np.testing.assert_almost_equal(ds["ylim1"].values, 2.06)
 
 
 def test_morph_stacked():
