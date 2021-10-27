@@ -786,7 +786,7 @@ class Animation(param.Parameterized):
             if "label" in state_ds.data_vars:
                 state_ds = state_ds.drop_vars("label")
             state_ds = state_ds.rename({"group": "label"})
-            get = None
+            get = -1
             key = "label"
         else:
             state_ds = state_ds.drop_vars("group", errors="ignore")
@@ -928,6 +928,10 @@ class Animation(param.Parameterized):
 
             xs_full = self._reshape_batch(overlay_ds["x"], chart, get=None)
             ys_full = self._reshape_batch(overlay_ds["y"], chart, get=None)
+
+            preset = overlay_ds.attrs["preset_kwds"].get("preset")
+            if chart.startswith("bar") and preset is not None:
+                overlay_ds = overlay_ds.isel(state=-1)
 
             xs = self._reshape_batch(pop(overlay_ds, "x"), chart, get=get)
             ys = self._reshape_batch(pop(overlay_ds, "y"), chart, get=get)
@@ -1396,7 +1400,6 @@ class Animation(param.Parameterized):
                     with warnings.catch_warnings():
                         warnings.simplefilter("ignore")
                         getattr(ax, f"set_{axis}lim")(to_pydt(axis_lim0, axis_lim1))
-        ax.margins(**margins_kwds)
 
     def _update_geo(self, state_ds, ax):
         plot_kwds = load_defaults("plot_kwds", state_ds)

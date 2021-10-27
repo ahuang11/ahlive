@@ -42,6 +42,7 @@ from .join import (
 from .util import (
     fillna,
     is_datetime,
+    is_numeric,
     is_scalar,
     is_str,
     is_timedelta,
@@ -152,13 +153,13 @@ class Data(Easing, Animation, Configuration):
         doc="Limits for the top bounds of the y-axis",
         precedence=PRECEDENCES["limit"],
     )
-    xmargins = param.Number(
-        default=0.0,
+    xmargins = param.ClassSelector(
+        class_=(tuple, int, float),
         doc="Margins on the x-axis; ranges from 0-1",
         precedence=PRECEDENCES["limit"],
     )
-    ymargins = param.Number(
-        default=0.0,
+    ymargins = param.ClassSelector(
+        class_=(tuple, int, float),
         doc="Margins on the y-axis; ranges from 0-1",
         precedence=PRECEDENCES["limit"],
     )
@@ -640,17 +641,6 @@ class Data(Easing, Animation, Configuration):
                     pass
         return ds
 
-    def _compute_limit_offset(self, limit, margin):
-        if is_str(limit):
-            return None
-
-        if is_datetime(limit):
-            base_diff = self._get_median_diff(limit).astype(float)
-            offset = pd.Timedelta(np.nanmin(base_diff) * margin)
-        else:
-            offset = np.nanmedian(np.abs(limit)) * margin
-        return offset
-
     @staticmethod
     def _get_median_diff(array):
         array = np.atleast_1d(array)
@@ -738,21 +728,22 @@ class Data(Easing, Animation, Configuration):
                     auto_zero = True
                 elif is_bar_x:
                     continue
-                elif item_dim == "grid_item":
+                elif item_dim == "grid_item" or is_fixed:
                     limit = "fixed"
-                elif is_fixed:
-                    limit = "fixed_0.05"
                 elif num == 1:
-                    limit = "explore_0.005"
+                    limit = "explore"
                 else:
                     limit = "explore"
 
             if isinstance(limit, str):
                 if "_" in limit:
-                    limit, margin = limit.split("_")
-                    margin = float(margin)
+                    limit, padding = limit.split("_")
+                    try:
+                        padding = float(padding)
+                    except ValueError:
+                        padding = pd.to_timedelta(padding)
                 else:
-                    margin = 0
+                    padding = 0
                 if limit not in OPTIONS["limit"]:
                     raise ValueError(
                         f"Got {limit} for {key}; must be either "
@@ -777,7 +768,7 @@ class Data(Easing, Animation, Configuration):
                     min_val = da.min().values
                     if auto_zero and min_val < 0:
                         limit = min_val
-                        margin = 0.05
+                        padding = 0.05
                     else:
                         limit = 0
                 elif limit == "fixed":
@@ -800,14 +791,12 @@ class Data(Easing, Animation, Configuration):
                     stat = "min" if is_lower_limit else "max"
                     limit = getattr(da, stat)(item_dim).values
 
-                if limit is not None and margin != 0:
-                    offset = self._compute_limit_offset(limit, margin)
-                    if offset is not None:
-                        if num == 0:
-                            # if I try limit -= offset, UFuncTypeError
-                            limit = limit - offset
-                        else:
-                            limit = limit + offset
+                if limit is not None and padding != 0:
+                    if num == 0:
+                        # if I try limit -= offset, UFuncTypeError
+                        limit = limit - padding
+                    else:
+                        limit = limit + padding
 
                 if chart == "barh":
                     axis = "x" if axis == "y" else "y"
@@ -988,32 +977,66 @@ class Data(Easing, Animation, Configuration):
         ds.attrs["base_kwds"] = base_kwds
         return ds
 
+    @staticmethod
+    def _compute_padding(lower, upper, padding=None, log=False):
+        """
+        Pads the range by a fraction of the interval
+
+        Adapted from holoviews
+        https://holoviews.org/_modules/holoviews/core/util.html
+        """
+        if padding is not None and not isinstance(padding, tuple):
+            padding = (padding, padding)
+
+        are_numeric = is_numeric(lower) and is_numeric(upper)
+        are_datetime = is_datetime(lower) and is_datetime(upper)
+        if (are_numeric or are_datetime) and padding is not None:
+            if not is_datetime(lower) and log and lower > 0 and upper > 0:
+                log_min = np.log(lower) / np.log(10)
+                log_max = np.log(upper) / np.log(10)
+                lspan = (log_max - log_min) * (1 + padding[0] * 2)
+                uspan = (log_max - log_min) * (1 + padding[1] * 2)
+                center = (log_min + log_max) / 2.0
+                start, end = np.power(10, center - lspan / 2.), np.power(10, center + uspan / 2.)
+            else:
+                if is_datetime(lower):
+                    # Ensure timedelta can be safely divided
+                    span = (upper - lower).astype('>m8[ns]')
+                else:
+                    span = (upper - lower)
+                lpad = span * (padding[0])
+                upad = span * (padding[1])
+                start, end = lower - lpad, upper + upad
+        else:
+            start, end = lower, upper
+
+        return start, end
+
     def _add_margins(self, ds, chart):
         if chart == "pie":
             return ds
 
         margins_kwds = load_defaults("margins_kwds", ds)
-        margins = {}
-        for axis in ["x", "y"]:
-            keys = [key for key in [f"{axis}lim0", f"{axis}lim1"] if key in ds]
-            if keys:
-                if not is_str(ds[keys[0]]):
-                    limit = ds[keys].to_array().max("variable")
-                    margin = margins_kwds.get(axis, 0)
-                    margins[axis] = self._compute_limit_offset(limit, margin)
 
-        for key in ["xlim0", "xlim1", "ylim0", "ylim1"]:
-            if key in ds.data_vars:  # TODO: test str / dt
-                axis = key[0]
-                num = int(key[-1])  # 0
-                is_lower_limit = num == 0
-                margin = margins.get(axis)
-                if margin is None:
-                    continue
-                if is_lower_limit:
-                    ds[key] = ds[key] - margin
-                else:
-                    ds[key] = ds[key] + margin
+        item_dim = _get_item_dim(ds)
+        for axis in ["x", "y"]:
+
+            axis_margins = margins_kwds.pop(axis, None)
+            if axis_margins is None:
+                continue
+
+            axis_lim0 = f"{axis}lim0"
+            axis_lim1 = f"{axis}lim1"
+            has_axis_lim0 = axis_lim0 in ds.data_vars
+            has_axis_lim1 = axis_lim1 in ds.data_vars
+            if not (has_axis_lim0 and has_axis_lim1):
+                if not has_axis_lim0:
+                    ds[axis_lim0] = ds[axis].min(item_dim)
+                if not has_axis_lim1:
+                    ds[axis_lim1] = ds[axis].max(item_dim)
+
+            ds[axis_lim0], ds[axis_lim1] = self._compute_padding(
+                ds[axis_lim0], ds[axis_lim1], axis_margins)
 
         return ds
 
