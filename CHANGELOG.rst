@@ -96,6 +96,9 @@ enhancements
 - Stylize plots for less chart junk (:pull:`102`).
   By `Andrew Huang <https://github.com/ahuang11>`_
 
+- Improve setting margins and limits (:pull:110`).
+  By `Andrew Huang <https://github.com/ahuang11>`_
+
 bug fixes
 ~~~~~~~~~
 
