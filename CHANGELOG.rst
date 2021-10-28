@@ -75,6 +75,9 @@ documentation
 - Fix documentation and rename `set_defaults` to `config_defaults` (:pull:`101`).
   By `Andrew Huang <https://github.com/ahuang11>`_
 
+- Add missing docs and polish defaults (:pull:`113`).
+  By `Andrew Huang <https://github.com/ahuang11>`_
+
 enhancements
 ~~~~~~~~~~~~
 

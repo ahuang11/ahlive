@@ -214,6 +214,7 @@ class Animation(param.Parameterized):
             return kwds
 
         format_ = kwds.pop("format", "auto").lstrip(":")
+        comma = kwds.pop("comma", True)
         if base is not None and format_ == "auto":
             try:
                 format_ = self._get_base_format(base)
@@ -233,6 +234,8 @@ class Animation(param.Parameterized):
         if format_ != "auto":
             if apply_format:
                 try:
+                    if comma and "s" not in format_:
+                        format_ = f",{format_}"
                     label = f"{label:{format_}}"
                     if label == "-0":
                         label = 0
@@ -1543,6 +1546,7 @@ class Animation(param.Parameterized):
             state_ds.attrs["legend_kwds"]["loc"] = show
         legend_kwds = load_defaults("legend_kwds", state_ds, show=show, **legend_kwds)
         legend_kwds.pop("sortby", None)
+        legend_kwds.pop("comma", None)
 
         if not legend_labels or not legend_kwds.get("show"):
             return
@@ -1891,6 +1895,8 @@ class Animation(param.Parameterized):
                     "item",
                 )
             elif "duration" in ds.data_vars:
+                if has_fps:
+                    warnings.warn("durations is not supported with fps set")
                 pop(ds, "duration")
 
             buf_list = self_copy._create_frames(data, canvas_kwds)
