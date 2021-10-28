@@ -345,7 +345,7 @@ DEFAULTS["label_kwds"] = {
     "fontsize": SIZES["medium"],
     "replacements": {"_": " "},
     "color": "#262626",
-    "comma": True
+    "comma": True,
 }
 
 DEFAULTS["preset_kwds"] = {}
