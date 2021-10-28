@@ -661,7 +661,7 @@ def test_add_durations_default():
     ah_obj = ah.Array([0, 1], [2, 3], frames=3).finalize()
     ds = ah_obj[1, 1]
     assert ds["duration"].attrs["aggregate"] == "max"
-    assert ds["duration"].attrs["transition_frames"] == 1 / 60
+    assert ds["duration"].attrs["transition_frames"] == 0.05
     assert (ds["duration"].values == [0.5, 0, 1.05]).all()
 
 

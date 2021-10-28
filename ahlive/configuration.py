@@ -11,7 +11,6 @@ from cycler import cycler
 colors = [
     "#bd1f01",
     "#3f90da",
-    "#94a4a2",
     "#832db6",
     "#a96b59",
     "#e76300",
@@ -19,6 +18,7 @@ colors = [
     "#b9ac70",
     "#92dadd",
     "#717581",
+    "#94a4a2",
 ]
 plt.rc("axes", prop_cycle=cycler("color", colors))
 
@@ -337,7 +337,7 @@ DEFAULTS = {}
 
 DEFAULTS["durations_kwds"] = {
     "aggregate": "max",
-    "transition_frames": 1 / 60,
+    "transition_frames": 1 / 20,
     "final_frame": 0.55,
 }
 
@@ -345,6 +345,7 @@ DEFAULTS["label_kwds"] = {
     "fontsize": SIZES["medium"],
     "replacements": {"_": " "},
     "color": "#262626",
+    "comma": True,
 }
 
 DEFAULTS["preset_kwds"] = {}
@@ -372,14 +373,14 @@ DEFAULTS["plot_kwds"]["barh"] = {"alpha": 0.9}
 
 DEFAULTS["ref_plot_kwds"] = {}
 DEFAULTS["ref_plot_kwds"]["rectangle"] = {
-    "facecolor": "darkgray",
+    "facecolor": "#696969",
     "alpha": 0.45,
 }
-DEFAULTS["ref_plot_kwds"]["scatter"] = {"color": "darkgray", "marker": "x"}
-DEFAULTS["ref_plot_kwds"]["axvline"] = {"color": "darkgray", "linestyle": "--"}
-DEFAULTS["ref_plot_kwds"]["axhline"] = {"color": "darkgray", "linestyle": "--"}
-DEFAULTS["ref_plot_kwds"]["axvspan"] = {"color": "darkgray", "alpha": 0.45}
-DEFAULTS["ref_plot_kwds"]["axhspan"] = {"color": "darkgray", "alpha": 0.45}
+DEFAULTS["ref_plot_kwds"]["scatter"] = {"color": "#696969", "marker": "x"}
+DEFAULTS["ref_plot_kwds"]["axvline"] = {"color": "#696969", "linestyle": "--"}
+DEFAULTS["ref_plot_kwds"]["axhline"] = {"color": "#696969", "linestyle": "--"}
+DEFAULTS["ref_plot_kwds"]["axvspan"] = {"color": "#696969", "alpha": 0.45}
+DEFAULTS["ref_plot_kwds"]["axhspan"] = {"color": "#696969", "alpha": 0.45}
 
 DEFAULTS["remark_plot_kwds"] = {"marker": "x", "persist": False}
 
@@ -443,7 +444,7 @@ DEFAULTS["remark_inline_kwds"] = DEFAULTS["label_kwds"].copy()
 DEFAULTS["remark_inline_kwds"].update(
     {
         "textcoords": "offset points",
-        "xytext": (1, -1),
+        "xytext": (5, -5),
         "ha": "left",
         "va": "top",
         "persist": False,

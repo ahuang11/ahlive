@@ -956,7 +956,6 @@ class Data(Easing, Animation, Configuration):
                         elif not is_str(key_values):
                             base_diff = self._get_median_diff(key_values)
                             if is_datetime(base):
-                                print(base_diff, key_label)
                                 base = np.nanmin(base_diff) / 5
                             else:
                                 base = np.nanquantile(base_diff, 0.25)
@@ -1074,7 +1073,7 @@ class Data(Easing, Animation, Configuration):
         transition_frames = durations_kwds.pop("transition_frames")
         aggregate = durations_kwds.pop("aggregate")
 
-        durations = durations_kwds.get("durations", 0.5 if num_states < 8 else 1 / 60)
+        durations = durations_kwds.get("durations", 0.5 if num_states < 8 else 1 / 20)
         if isinstance(durations, (int, float)):
             durations = np.repeat(durations, num_states)
 
@@ -1090,6 +1089,7 @@ class Data(Easing, Animation, Configuration):
                 ds["duration"] = ("state", durations)
         else:
             ds["duration"] = ("state", durations)
+
         ds["duration"].attrs["transition_frames"] = transition_frames
         ds["duration"].attrs["aggregate"] = aggregate
         return ds
@@ -2218,6 +2218,9 @@ class DataStructure(Array):
         arrays = []
         for group, group_dataset in self._groupby_key(dataset, group_key):
             for label, label_dataset in self._groupby_key(group_dataset, label_key):
+                if len(label_dataset) == 0:
+                    continue
+
                 kwds_updated = self._update_kwds(
                     label_dataset,
                     keys,

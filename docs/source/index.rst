@@ -26,6 +26,7 @@
    :caption: CUSTOMIZATIONS
 
    customizations/animating.ipynb
+   customizations/bounding.ipynb
    customizations/interpolating.ipynb
    customizations/configuring.ipynb
    customizations/presetting.ipynb
