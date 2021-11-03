@@ -516,10 +516,10 @@ class TutorialData(param.Parameterized):
             data = getattr(self, f"_load_{self.label}")(**kwds)
 
         label = self.label.replace("_", " ").upper()
-        attr = f"{label}\n\nSource: {self._source}\n{self._base_url}"
+        attr = f"{label}\n\nSource: {self._source}\n{self._base_url}\n"
         if self.verbose:
             attr = (
-                f"{attr}\n\nDescription: {self._description}\n\nData: {self._data_url}"
+                f"{attr}\nDescription: {self._description}\n\nData: {self._data_url}\n"
             )
 
         if self.return_meta:

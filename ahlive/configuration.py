@@ -235,8 +235,6 @@ VARS = {
         "ease",
         "ref_chart",
         "grid_chart",
-        "bar_label",
-        "tick_label",
     ],
     "itemless": ["state_label", "ref_last_item"],
 }
@@ -337,7 +335,7 @@ DEFAULTS = {}
 
 DEFAULTS["durations_kwds"] = {
     "aggregate": "max",
-    "transition_frames": 1 / 20,
+    "transition_frames": 1 / 45,
     "final_frame": 0.55,
 }
 
@@ -345,7 +343,7 @@ DEFAULTS["label_kwds"] = {
     "fontsize": SIZES["medium"],
     "replacements": {"_": " "},
     "color": "#262626",
-    "comma": True,
+    "comma": False,
 }
 
 DEFAULTS["preset_kwds"] = {}

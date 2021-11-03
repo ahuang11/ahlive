@@ -1017,6 +1017,7 @@ class Data(Easing, Animation, Configuration):
         if chart == "pie":
             return ds
 
+        margins = ds.attrs["margins_kwds"]
         margins_kwds = load_defaults("margins_kwds", ds)
 
         item_dim = _get_item_dim(ds)
@@ -1025,32 +1026,46 @@ class Data(Easing, Animation, Configuration):
             axis_margins = margins_kwds.pop(axis, None)
             if axis_margins is None:
                 continue
+            elif axis_margins == DEFAULTS["margins_kwds"]["y"] and chart.startswith("bar"):
+                axis_margins = 0
 
             axis_lim0 = f"{axis}lim0"
             axis_lim1 = f"{axis}lim1"
             has_axis_lim0 = axis_lim0 in ds.data_vars
             has_axis_lim1 = axis_lim1 in ds.data_vars
             if not (has_axis_lim0 and has_axis_lim1):
+                if chart == "barh":
+                    axis = "y" if axis == "x" else "x"
+
+                dims = [item_dim, "batch"] if "batch" in ds[axis].dims else [item_dim]
                 try:
                     if not has_axis_lim0:
                         if item_dim == "item":
-                            ds[axis_lim0] = ds[axis].min(item_dim)
+                            ds[axis_lim0] = ds[axis].min(dims)
                         elif item_dim == "ref_item":
-                            ds[axis_lim0] = ds[f"ref_{axis}0"].min(item_dim)
+                            ds[axis_lim0] = ds[f"ref_{axis}0"].min(dims)
                         elif item_dim == "grid_item":
-                            ds[axis_lim0] = ds[f"ref_{axis}0"].min(item_dim)
+                            ds[axis_lim0] = ds[f"ref_{axis}0"].min(dims)
                         else:
-                            ds[axis_lim0] = ds[f"grid_{axis}"].min(item_dim)
+                            ds[axis_lim0] = ds[f"grid_{axis}"].min(dims)
                     if not has_axis_lim1:
                         if item_dim == "item":
-                            ds[axis_lim1] = ds[axis].max(item_dim)
+                            ds[axis_lim1] = ds[axis].max(dims)
                         elif item_dim == "ref_item":
                             try:
-                                ds[axis_lim1] = ds[f"ref_{axis}1"].max(item_dim)
+                                ds[axis_lim1] = ds[f"ref_{axis}1"].max(dims)
                             except KeyError:
-                                ds[axis_lim1] = ds[f"ref_{axis}0"].max(item_dim)
+                                ds[axis_lim1] = ds[f"ref_{axis}0"].max(dims)
                         else:
-                            ds[axis_lim0] = ds[f"grid_{axis}"].max(item_dim)
+                            ds[axis_lim0] = ds[f"grid_{axis}"].max(dims)
+
+                    if axis == "x":
+                        if chart == "bar":
+                            ds["xlim0"] = ds["xlim0"] - 0.5
+                            ds["xlim1"] = ds["xlim1"] + 0.5
+                        elif chart == "barh":
+                            ds["ylim0"] = ds["ylim0"] - 0.5
+                            ds["ylim1"] = ds["ylim1"] + 0.5
                 except KeyError:
                     pass
 
@@ -1073,7 +1088,8 @@ class Data(Easing, Animation, Configuration):
         transition_frames = durations_kwds.pop("transition_frames")
         aggregate = durations_kwds.pop("aggregate")
 
-        durations = durations_kwds.get("durations", 0.5 if num_states < 8 else 1 / 20)
+        durations = durations_kwds.get(
+            "durations", 0.5 if num_states < 8 else transition_frames)
         if isinstance(durations, (int, float)):
             durations = np.repeat(durations, num_states)
 
@@ -1460,8 +1476,8 @@ class Data(Easing, Animation, Configuration):
             ds = self_copy._fill_null(ds)
             ds = self_copy._add_xy01_limits(ds, chart)
             ds = self_copy._add_color_kwds(ds, chart)
-            ds = self_copy._add_margins(ds, chart)
             ds = self_copy._config_chart(ds, chart)
+            ds = self_copy._add_margins(ds, chart)   # must be after config chart
             ds = self_copy._add_durations(ds)
             ds = self_copy._precompute_base(ds, chart)  # must be after config chart
             ds = self_copy._add_geo_tiles(ds)  # before interp
@@ -1886,6 +1902,9 @@ class RemarkArray(param.Parameterized):
             if self.debug:
                 warnings.warn(e)
             new_condition = da.isin(values)
+
+        if hasattr(new_condition, "values"):
+            new_condition = new_condition.values
 
         condition = condition & new_condition
         return condition

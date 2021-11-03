@@ -154,7 +154,7 @@ class Easing(param.Parameterized):
             if num_states < 10:
                 num_steps = int(np.ceil(60 / num_states))
             else:
-                num_steps = int(np.ceil(100 / num_states))
+                num_steps = int(np.ceil(120 / num_states))
         else:
             num_steps = self.frames
 
