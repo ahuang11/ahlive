@@ -1017,7 +1017,6 @@ class Data(Easing, Animation, Configuration):
         if chart == "pie":
             return ds
 
-        margins = ds.attrs["margins_kwds"]
         margins_kwds = load_defaults("margins_kwds", ds)
 
         item_dim = _get_item_dim(ds)
@@ -1026,7 +1025,9 @@ class Data(Easing, Animation, Configuration):
             axis_margins = margins_kwds.pop(axis, None)
             if axis_margins is None:
                 continue
-            elif axis_margins == DEFAULTS["margins_kwds"]["y"] and chart.startswith("bar"):
+            elif axis_margins == DEFAULTS["margins_kwds"]["y"] and chart.startswith(
+                "bar"
+            ):
                 axis_margins = 0
 
             axis_lim0 = f"{axis}lim0"
@@ -1089,7 +1090,8 @@ class Data(Easing, Animation, Configuration):
         aggregate = durations_kwds.pop("aggregate")
 
         durations = durations_kwds.get(
-            "durations", 0.5 if num_states < 8 else transition_frames)
+            "durations", 0.5 if num_states < 8 else transition_frames
+        )
         if isinstance(durations, (int, float)):
             durations = np.repeat(durations, num_states)
 
@@ -1477,7 +1479,7 @@ class Data(Easing, Animation, Configuration):
             ds = self_copy._add_xy01_limits(ds, chart)
             ds = self_copy._add_color_kwds(ds, chart)
             ds = self_copy._config_chart(ds, chart)
-            ds = self_copy._add_margins(ds, chart)   # must be after config chart
+            ds = self_copy._add_margins(ds, chart)  # must be after config chart
             ds = self_copy._add_durations(ds)
             ds = self_copy._precompute_base(ds, chart)  # must be after config chart
             ds = self_copy._add_geo_tiles(ds)  # before interp

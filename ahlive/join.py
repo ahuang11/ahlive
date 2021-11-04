@@ -125,12 +125,12 @@ def _stack_data(data_list, join, rowcol):
 
         ds = data[rowcol]
         item_dim = _get_item_dim(ds)
-        num_item = len(ds[item_dim])
+        num_items = len(ds[item_dim])
         if item_dim not in ds.coords:
             ds[item_dim] = srange(ds[item_dim])
 
         max_item = np.max(ds[item_dim].values)
-        if num_item == 1:
+        if num_items == 1:
             item = [max_item + offset]
         else:
             item = srange(max_item) + offset * i
@@ -152,7 +152,7 @@ def _stack_data(data_list, join, rowcol):
             ds = ds.assign_coords(**{item_dim: item})
 
         ds_list.append(ds)
-        offset = max(i + 1, max_item)
+        offset += num_items
 
     if join == "cascade":
         joined_ds = _combine_ds_list(ds_list, method="combine_by_coords")

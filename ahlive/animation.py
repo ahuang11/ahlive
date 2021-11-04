@@ -1426,7 +1426,6 @@ class Animation(param.Parameterized):
     def _update_ticks(self, state_ds, ax, gridlines):
         chart = self._get_chart(state_ds)
         preset = state_ds.attrs["preset_kwds"].get("preset")
-        preset_kwds = load_defaults("preset_kwds", state_ds, base_chart=preset)
         unique = False if preset == "race" else True
         flat = False if preset == "race" else True
 
@@ -1440,7 +1439,9 @@ class Animation(param.Parameterized):
         )
         xticks = xticks_kwds.pop("ticks", None)
         xformat = xticks_kwds.pop("format", "g")
-        xticks_labels = np.array(to_1d(xticks_kwds.pop("labels"), unique=unique, flat=flat))
+        xticks_labels = np.array(
+            to_1d(xticks_kwds.pop("labels"), unique=unique, flat=flat)
+        )
         x_is_datetime = xticks_kwds.pop("is_datetime", False)
         x_is_str = xticks_kwds.pop("is_str", False)
 
