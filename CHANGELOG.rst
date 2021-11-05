@@ -102,7 +102,7 @@ enhancements
 - Improve setting margins and limits (:pull:110`).
   By `Andrew Huang <https://github.com/ahuang11>`_
 
-- Add `pattern` and `sample` as keywords to `list_datasets` (:pull:`115`).
+- Add `pattern` and `sample` as keywords to `list_datasets` and fix docs (:pull:`115`).
   By `Andrew Huang <https://github.com/ahuang11>`_
 
 bug fixes
