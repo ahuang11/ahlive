@@ -1,6 +1,8 @@
+import fnmatch
 import inspect
 import json
 import os
+import random
 import re
 from urllib.parse import quote
 from urllib.request import urlopen
@@ -534,7 +536,7 @@ class TutorialData(param.Parameterized):
             print(attr)
             return data
 
-    def list_datasets(self):
+    def list_datasets(self, pattern=None, sample=None):
         signatures = {}
         for option in self._dataset_options:
             if "owid" in option:
@@ -546,7 +548,21 @@ class TutorialData(param.Parameterized):
                 for k, v in signature.parameters.items()
                 if v.default is not inspect.Parameter.empty
             }
-        for key, val in signatures.items():
+
+        keys = signatures.keys()
+        if pattern is not None:
+            if "*" not in pattern:
+                pattern = f"*{pattern}*"
+            keys = [key for key in keys if fnmatch.fnmatch(key, pattern)]
+
+        if sample is not None:
+            num_keys = len(keys)
+            if num_keys < sample:
+                sample = num_keys
+            keys = random.sample(keys, sample)
+
+        for key in keys:
+            val = signatures[key]
             print(f"- {key}")
             if val:
                 print("    adjustable keywords")
@@ -566,5 +582,5 @@ def open_dataset(
     ).open_dataset(**kwds)
 
 
-def list_datasets():
-    return TutorialData().list_datasets()
+def list_datasets(pattern=None, sample=None):
+    return TutorialData().list_datasets(pattern=pattern, sample=sample)
