@@ -275,7 +275,7 @@ ITEMS = {
 }
 
 PRESETS = {
-    "trail": ["scatter"],
+    "trail": ["scatter", "annotation"],
     "morph": ["scatter"] + ITEMS["continual"] + ITEMS["bar"],
     "morph_trail": ["scatter"] + ITEMS["continual"],
     "morph_stacked": ITEMS["bar"],

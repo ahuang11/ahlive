@@ -1038,7 +1038,11 @@ class Data(Easing, Animation, Configuration):
                 if chart == "barh":
                     axis = "y" if axis == "x" else "x"
 
-                dims = [item_dim, "batch"] if "batch" in ds[axis].dims else [item_dim]
+                try:
+                    dims = [item_dim, "batch"] if "batch" in ds[axis].dims else [item_dim]
+                except KeyError:
+                    dims = item_dim
+
                 try:
                     if not has_axis_lim0:
                         if item_dim == "item":

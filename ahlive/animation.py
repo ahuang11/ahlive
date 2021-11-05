@@ -371,6 +371,9 @@ class Animation(param.Parameterized):
             for key in ["s", "c", "cmap", "vmin", "vmax"]:
                 plot_kwds.pop(key, None)
 
+        if chart != "annotation":
+            plot_kwds.pop("text", None)
+
         if not chart.startswith("bar"):  # TODO: separate plot kwds by chart / overlay
             for key in ["tick_label", "width", "align"]:
                 plot_kwds.pop(key, None)
