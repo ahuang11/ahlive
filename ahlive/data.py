@@ -1039,7 +1039,9 @@ class Data(Easing, Animation, Configuration):
                     axis = "y" if axis == "x" else "x"
 
                 try:
-                    dims = [item_dim, "batch"] if "batch" in ds[axis].dims else [item_dim]
+                    dims = (
+                        [item_dim, "batch"] if "batch" in ds[axis].dims else [item_dim]
+                    )
                 except KeyError:
                     dims = item_dim
 
