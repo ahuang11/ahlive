@@ -259,10 +259,7 @@ def test_config_bar_chart(preset, x_type):
     for var in ["tick_label", "bar_label"]:
         if preset is None or preset == "stacked" and var == "bar_label":
             continue
-        if preset == "race":
-            expected = [1, 2]
-        else:
-            expected = [1, 1, 1, 2, 2, 2]
+        expected = [1, 1, 1, 2, 2, 2]
         actual = ds[var].values.ravel()
         assert (actual == expected).all()
 
@@ -661,7 +658,7 @@ def test_add_durations_default():
     ah_obj = ah.Array([0, 1], [2, 3], frames=3).finalize()
     ds = ah_obj[1, 1]
     assert ds["duration"].attrs["aggregate"] == "max"
-    assert ds["duration"].attrs["transition_frames"] == 0.05
+    assert ds["duration"].attrs["transition_frames"] == 0.022222222222222223
     assert (ds["duration"].values == [0.5, 0, 1.05]).all()
 
 
@@ -672,7 +669,6 @@ def test_add_durations_input():
         .finalize()
     )
     ds = ah_obj[1, 1]
-    print(ds)
     assert ds["duration"].attrs["aggregate"] == "min"
     assert ds["duration"].attrs["transition_frames"] == 2
     assert (ds["duration"].values == [0, 0, 3]).all()
@@ -973,8 +969,8 @@ def test_stacked_fixed_limit():
         * ah.Array(x, y2, label="B", preset="stacked", chart="bar", ylims="fixed")
     ).finalize()
     ds = ah_obj[1, 1]
-    np.testing.assert_almost_equal(ds["ylim0"].values, -0.06)
-    np.testing.assert_almost_equal(ds["ylim1"].values, 2.06)
+    np.testing.assert_almost_equal(ds["ylim0"].values, 0)
+    np.testing.assert_almost_equal(ds["ylim1"].values, 2)
 
 
 def test_morph_stacked():

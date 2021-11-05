@@ -368,8 +368,11 @@ class Animation(param.Parameterized):
                 plot_kwds.pop(key, None)
 
         if chart != "scatter":
-            for key in ["c", "cmap", "vmin", "vmax"]:
+            for key in ["s", "c", "cmap", "vmin", "vmax"]:
                 plot_kwds.pop(key, None)
+
+        if chart != "annotation":
+            plot_kwds.pop("text", None)
 
         if not chart.startswith("bar"):  # TODO: separate plot kwds by chart / overlay
             for key in ["tick_label", "width", "align"]:
@@ -474,8 +477,6 @@ class Animation(param.Parameterized):
             y_trails = y_trails[-expire * self.num_steps - 1 :]
             line_preset_kwds["label"] = "_nolegend_"
             line_preset_kwds = self._pop_invalid_kwds(chart, line_preset_kwds)
-            if "color" in line_preset_kwds:
-                line_preset_kwds["color"] = to_scalar(line_preset_kwds["color"])
             ax.plot(x_trails, y_trails, **line_preset_kwds)
 
     def _plot_deltas(
@@ -1427,6 +1428,10 @@ class Animation(param.Parameterized):
 
     def _update_ticks(self, state_ds, ax, gridlines):
         chart = self._get_chart(state_ds)
+        preset = state_ds.attrs["preset_kwds"].get("preset")
+        unique = False if preset == "race" else True
+        flat = False if preset == "race" else True
+
         tick_labels = pop(state_ds, "tick_label")
 
         apply_format = chart.startswith("bar")
@@ -1437,7 +1442,9 @@ class Animation(param.Parameterized):
         )
         xticks = xticks_kwds.pop("ticks", None)
         xformat = xticks_kwds.pop("format", "g")
-        xticks_labels = to_1d(xticks_kwds.pop("labels"), unique=True, flat=False)
+        xticks_labels = np.array(
+            to_1d(xticks_kwds.pop("labels"), unique=unique, flat=flat)
+        )
         x_is_datetime = xticks_kwds.pop("is_datetime", False)
         x_is_str = xticks_kwds.pop("is_str", False)
 
@@ -1476,18 +1483,13 @@ class Animation(param.Parameterized):
             if yticks is not None:
                 gridlines.ylocator = FixedLocator(yticks)
         elif chart.startswith("bar"):
-            preset = state_ds.attrs["preset_kwds"].get("preset")
-            preset_kwds = load_defaults("preset_kwds", state_ds, base_chart=preset)
-            xs = to_1d(pop(state_ds, "x"), unique=True, flat=False)
-            limit = preset_kwds.get("limit", None)
-            if limit is not None:
-                limit1 = max(xs) + 0.5
-                limit0 = limit1 - limit if limit is not None else -1
-            else:
-                limit1 = -1
-                limit0 = -1
+            xs = np.array(to_1d(pop(state_ds, "x"), unique=unique, flat=flat))
 
-            if xticks_labels is not None:
+            if preset == "race":
+                xs = xs[:, -1]
+                xticks = xs
+                xticks_labels = xticks_labels[:, -1]
+            elif xticks_labels is not None:
                 num_labels = len(xticks_labels)
                 step = int(np.floor(len(xs) / num_labels))
                 start = int(np.floor(step / 2))
@@ -1499,13 +1501,9 @@ class Animation(param.Parameterized):
             if chart == "bar":
                 ax.set_xticks(xticks)
                 ax.set_xticklabels(xticks_labels)
-                if limit0 >= 0:
-                    ax.set_xlim(limit0, limit1)
             elif chart == "barh":
                 ax.set_yticks(xticks)
                 ax.set_yticklabels(xticks_labels)
-                if limit0 >= 0:
-                    ax.set_ylim(limit0, limit1)
         else:
             if not x_is_datetime and not x_is_str:
                 xformatter = FormatStrFormatter(f"%{xformat}")

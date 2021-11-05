@@ -5,6 +5,7 @@
    :caption: INTRODUCTIONS
 
    introductions/quick_start.ipynb
+   introductions/cheat_sheet.ipynb
    introductions/about.ipynb
 
 .. toctree::
