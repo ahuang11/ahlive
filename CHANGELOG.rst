@@ -76,8 +76,8 @@ documentation
   By `Andrew Huang <https://github.com/ahuang11>`_
 
 - Add missing docs and polish defaults (:pull:`113`).
-  By `Andrew Huang <https://github.com/ahuang11>`_
-
+  By `Andrew Huang <https://github.com/ahuang11>`
+  
 enhancements
 ~~~~~~~~~~~~
 
@@ -100,6 +100,9 @@ enhancements
   By `Andrew Huang <https://github.com/ahuang11>`_
 
 - Improve setting margins and limits (:pull:110`).
+  By `Andrew Huang <https://github.com/ahuang11>`_
+
+- Add `pattern` and `sample` as keywords to `list_datasets` (:pull:`115`).
   By `Andrew Huang <https://github.com/ahuang11>`_
 
 bug fixes
