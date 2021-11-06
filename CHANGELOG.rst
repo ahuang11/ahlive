@@ -143,6 +143,9 @@ bug fixes
 - Add missing charting notebook to docs and fix various bugs in presetting. (:pull:`98`)
   By `Andrew Huang <https://github.com/ahuang11>`_
 
+- Fix poor logic in tqdm missing warning (:pull:`121`:)
+  By `Andrew Huang <https://github.com/ahuang11>`_
+
 internal changes
 ~~~~~~~~~~~~~~~~
 
