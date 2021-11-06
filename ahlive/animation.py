@@ -3,17 +3,17 @@ import os
 import pathlib
 import uuid
 import warnings
+from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor
 from collections.abc import Iterable
 from io import BytesIO
 
-import dask.delayed
-import dask.diagnostics
 import imageio
 import matplotlib  # noqa
 import numpy as np
 import pandas as pd
 import param
 import xarray as xr
+from tqdm.auto import tqdm
 from matplotlib import pyplot as plt
 from matplotlib.colors import Normalize, to_hex
 from matplotlib.dates import AutoDateLocator, ConciseDateFormatter
@@ -78,21 +78,21 @@ class Animation(param.Parameterized):
         precedence=PRECEDENCES["sub_label"],
     )
 
-    # compute kwds
+    # pool kwds
     workers = param.Integer(
         default=None,
         bounds=(1, None),
         doc="Number of workers used to render separate static states",
-        precedence=PRECEDENCES["compute"],
+        precedence=PRECEDENCES["pool"],
     )
     scheduler = param.ObjectSelector(
         default=None,
         objects=OPTIONS["scheduler"],
         doc=f"Type of workers; {OPTIONS['scheduler']}",
-        precedence=PRECEDENCES["compute"],
+        precedence=PRECEDENCES["pool"],
     )
     progress = param.Boolean(
-        default=None, doc="Show progress bar", precedence=PRECEDENCES["compute"]
+        default=None, doc="Show progress bar", precedence=PRECEDENCES["pool"]
     )
 
     # animate kwds
@@ -143,7 +143,7 @@ class Animation(param.Parameterized):
 
     debug = param.Boolean(
         default=False,
-        doc="Show additional debugging info and set scheduler to single-threaded",
+        doc="Show additional debugging info",
         precedence=PRECEDENCES["misc"],
     )
 
@@ -1644,7 +1644,6 @@ class Animation(param.Parameterized):
         finally:
             plt.close()
 
-    @dask.delayed()
     def _draw_frame(self, state_ds_rowcols, canvas_kwds):
         figure = self._prep_figure(canvas_kwds)
         self._update_spacing(state_ds_rowcols, canvas_kwds)
@@ -1667,57 +1666,42 @@ class Animation(param.Parameterized):
             states = srange(num_states)
         states = np.array(states).astype(int)
 
-        jobs = []
-        for state in states:
-            state_ds_rowcols = []
-            for ds in data.values():
-                ds_sel = ds.sel(state=slice(None, state))
-                for var in ds_sel.data_vars:
-                    if var.startswith("grid_") and "state" in ds[var].dims:
-                        ds_sel[var] = ds_sel[var].isel(state=-1)
-                # this makes legend labels appear in order if values exist
-                if "item" in ds_sel.dims:
-                    ds_last = ds_sel.isel(state=-1)
-                    not_nan_items = ds_last["y"].dropna("item")["item"]
-                    ds_sel = ds_sel.sel(item=not_nan_items.values)
-                    ds_sel["item"] = srange(len(ds_sel["item"]))
-                state_ds_rowcols.append(ds_sel)
-            job = self._draw_frame(state_ds_rowcols, canvas_kwds)
-            jobs.append(job)
-
-        scheduler = "single-threaded" if self.debug else None
-        compute_kwds = load_defaults(
-            "compute_kwds",
-            canvas_kwds["compute_kwds"],
-            scheduler=scheduler,
+        pool_kwds = load_defaults(
+            "pool_kwds",
+            canvas_kwds["pool_kwds"]
         )
-        num_workers = compute_kwds["num_workers"]
-        if num_states < num_workers:
-            warnings.warn(
-                f"There is less states to process than the number of workers!"
-                f"Setting workers={num_states} from {num_workers}."
-            )
-            num_workers = num_states
+        scheduler = pool_kwds.pop("scheduler")
+        disable = not pool_kwds.pop("progress")
 
-        if num_workers == 1:
-            if compute_kwds["scheduler"] != "single-threaded":
-                warnings.warn(
-                    "Only 1 worker found; setting scheduler='single-threaded'"
-                )
-            compute_kwds["scheduler"] = "single-threaded"
-        elif num_workers > 1 and compute_kwds["scheduler"] != "processes":
-            if compute_kwds["scheduler"] != "processes":
-                warnings.warn("Found multiple workers; setting scheduler='processes'")
-            compute_kwds["scheduler"] = "processes"
+        jobs = []
+        progress_bar = tqdm(total=num_states, leave=False, unit="frames", disable=disable)
+        scheduler_pool = ThreadPoolExecutor if "thread" in scheduler else ProcessPoolExecutor
+        with scheduler_pool(**pool_kwds) as executor:
+            for state in states:
+                state_ds_rowcols = []
+                for ds in data.values():
+                    ds_sel = ds.sel(state=slice(None, state))
+                    for var in ds_sel.data_vars:
+                        if var.startswith("grid_") and "state" in ds[var].dims:
+                            ds_sel[var] = ds_sel[var].isel(state=-1)
+                    # this makes legend labels appear in order if values exist
+                    if "item" in ds_sel.dims:
+                        ds_last = ds_sel.isel(state=-1)
+                        not_nan_items = ds_last["y"].dropna("item")["item"]
+                        ds_sel = ds_sel.sel(item=not_nan_items.values)
+                        ds_sel["item"] = srange(len(ds_sel["item"]))
+                    state_ds_rowcols.append(ds_sel)
+                job = executor.submit(self._draw_frame, state_ds_rowcols, canvas_kwds)
+                jobs.append(job)
 
-        progress = compute_kwds["progress"]
-        if progress:
-            with dask.diagnostics.ProgressBar(minimum=1):
-                buf_list = dask.compute(jobs, **compute_kwds)[0]
-        else:
-            buf_list = dask.compute(jobs, **compute_kwds)[0]
+            buf_list = []
+            for job in jobs:
+                buf = job.result()
+                if buf is not None:
+                    buf_list.append(buf)
+                progress_bar.update(1)
+        progress_bar.close()
 
-        buf_list = [buf for buf in buf_list if buf is not None]
         return buf_list
 
     def _write_rendered(self, buf_list, durations, canvas_kwds):
