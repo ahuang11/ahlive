@@ -1,4 +1,4 @@
-name: ahlive_ci
+name: ahlive-ci
 
 channels:
  - conda-forge
