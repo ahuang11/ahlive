@@ -442,8 +442,6 @@ class Data(Easing, Animation, Configuration):
                 ds["x"] = ds["x"] + offsets.reshape(shape)
                 if width_key not in ds.attrs["plot_kwds"]:
                     ds.attrs["plot_kwds"][width_key] = width
-                if "align" not in ds.attrs["plot_kwds"] and num_items % 2 == 0:
-                    ds.attrs["plot_kwds"]["align"] = "edge"
 
         if not preset or preset == "stacked":
             if not one_bar:
@@ -698,6 +696,12 @@ class Data(Easing, Animation, Configuration):
         if ds.attrs["limits_kwds"].get("worldwide"):
             return ds  # ax.set_global() will be called in animation.py
 
+        if chart == "barh":
+            swap_letter = (
+                lambda key: f"y{key[1:]}" if key.startswith("x") else f"x{key[1:]}"
+            )
+            limits = {swap_letter(key): limit for key, limit in limits.items()}
+
         item_dim = _get_item_dim(ds)
         axes_kwds = load_defaults("axes_kwds", ds)
         for key, limit in limits.items():
@@ -727,7 +731,7 @@ class Data(Easing, Animation, Configuration):
                     limit = "zero"
                     auto_zero = True
                 elif is_bar_x:
-                    continue
+                    limit = "fixed"
                 elif item_dim == "grid_item" or is_fixed:
                     limit = "fixed"
                 elif num == 1:
@@ -778,8 +782,6 @@ class Data(Easing, Animation, Configuration):
                 elif limit == "explore":
                     stat = "min" if is_lower_limit else "max"
                     # explore bounds, pd.Series(da.min('item')).cummin()
-                    if is_str(da):
-                        continue
                     limit = getattr(
                         pd.Series(
                             getattr(ds[var].ffill(item_dim), stat)(item_dim).values
@@ -798,14 +800,11 @@ class Data(Easing, Animation, Configuration):
                     else:
                         limit = limit + padding
 
+            if limit is not None:
                 if chart == "barh":
                     axis = "x" if axis == "y" else "y"
                     key = axis + key[1:]
-                    # do not overwrite user input
-                    if limits[f"{key}s"] is not None:
-                        continue
 
-            if limit is not None:
                 if is_scalar(limit) == 1:
                     limit = np.repeat(limit, len(ds["state"]))
                 ds[key] = ("state", limit)
@@ -1019,63 +1018,18 @@ class Data(Easing, Animation, Configuration):
 
         margins_kwds = load_defaults("margins_kwds", ds)
 
-        item_dim = _get_item_dim(ds)
         for axis in ["x", "y"]:
-
+            is_bar = chart.startswith("bar")
             axis_margins = margins_kwds.pop(axis, None)
             if axis_margins is None:
                 continue
-            elif axis_margins == DEFAULTS["margins_kwds"]["y"] and chart.startswith(
-                "bar"
+            elif (
+                axis == "y" and axis_margins == DEFAULTS["margins_kwds"]["y"] and is_bar
             ):
                 axis_margins = 0
 
             axis_lim0 = f"{axis}lim0"
             axis_lim1 = f"{axis}lim1"
-            has_axis_lim0 = axis_lim0 in ds.data_vars
-            has_axis_lim1 = axis_lim1 in ds.data_vars
-            if not (has_axis_lim0 and has_axis_lim1):
-                if chart == "barh":
-                    axis = "y" if axis == "x" else "x"
-
-                try:
-                    dims = (
-                        [item_dim, "batch"] if "batch" in ds[axis].dims else [item_dim]
-                    )
-                except KeyError:
-                    dims = item_dim
-
-                try:
-                    if not has_axis_lim0:
-                        if item_dim == "item":
-                            ds[axis_lim0] = ds[axis].min(dims)
-                        elif item_dim == "ref_item":
-                            ds[axis_lim0] = ds[f"ref_{axis}0"].min(dims)
-                        elif item_dim == "grid_item":
-                            ds[axis_lim0] = ds[f"ref_{axis}0"].min(dims)
-                        else:
-                            ds[axis_lim0] = ds[f"grid_{axis}"].min(dims)
-                    if not has_axis_lim1:
-                        if item_dim == "item":
-                            ds[axis_lim1] = ds[axis].max(dims)
-                        elif item_dim == "ref_item":
-                            try:
-                                ds[axis_lim1] = ds[f"ref_{axis}1"].max(dims)
-                            except KeyError:
-                                ds[axis_lim1] = ds[f"ref_{axis}0"].max(dims)
-                        else:
-                            ds[axis_lim0] = ds[f"grid_{axis}"].max(dims)
-
-                    if axis == "x":
-                        if chart == "bar":
-                            ds["xlim0"] = ds["xlim0"] - 0.5
-                            ds["xlim1"] = ds["xlim1"] + 0.5
-                        elif chart == "barh":
-                            ds["ylim0"] = ds["ylim0"] - 0.5
-                            ds["ylim1"] = ds["ylim1"] + 0.5
-                except KeyError:
-                    pass
-
             try:
                 ds[axis_lim0], ds[axis_lim1] = self._compute_padding(
                     ds[axis_lim0], ds[axis_lim1], axis_margins

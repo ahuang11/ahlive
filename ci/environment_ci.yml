@@ -1,4 +1,4 @@
-name: ahlive-ci
+name: ahlive_ci
 
 channels:
  - conda-forge
@@ -7,6 +7,7 @@ dependencies:
   - cartopy
   - gifsicle
   - pandoc
+  - jq
   - pip
   - pip:
     - sphinx

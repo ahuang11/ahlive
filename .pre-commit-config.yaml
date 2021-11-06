@@ -1,4 +1,12 @@
 repos:
+-   repo: local
+    hooks:
+    - id: strip_kernel
+      name: strip_kernel
+      entry: bash 'docs/precommit_strip_kernel.sh'
+      language: system
+      types: [python]
+      pass_filenames: false
 -   repo: https://github.com/pycqa/isort
     rev: 5.10.0
     hooks:

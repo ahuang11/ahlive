@@ -506,7 +506,7 @@ DEFAULTS["savefig_kwds"] = {
 }
 
 DEFAULTS["pool_kwds"] = {
-    "max_workers": 1,
+    "max_workers": 2,
     "scheduler": "processes",
     "progress": True,
 }

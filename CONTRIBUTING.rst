@@ -22,7 +22,7 @@ Contributing Procedure
     ```
     cd ahlive
     pip install -e .
-    conda install --file ci/environment_ci.yml
+    conda env update ci/environment_ci.yml
     ```
 7. Make changes to the code for fixing the issue.
 8. Commit your changes and push.
