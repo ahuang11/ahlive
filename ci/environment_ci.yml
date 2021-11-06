@@ -16,5 +16,6 @@ dependencies:
     - panel
     - pooch
     - pygifsicle
+    - pre-commit
     - pytest
     - -e ..
