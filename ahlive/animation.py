@@ -1677,9 +1677,13 @@ class Animation(param.Parameterized):
         jobs = []
 
         if tqdm is not None:
-            progress_bar = tqdm(
-                total=num_states, leave=False, unit="frames", disable=disable
-            )
+            try:
+                progress_bar = tqdm(
+                    total=num_states, leave=False, unit="frames", disable=disable
+                )
+            except ImportError as e:
+                progress_bar = None
+                warnings.warn(f"Failed to display progress due to: {e}")
         elif tqdm is None and not disable:
             warnings.warn(
                 "pip install tqdm to display progress! "
