@@ -45,5 +45,6 @@
    :maxdepth: 1
    :caption: REFERENCES
 
-   changelog
+   contributing
    release
+   changelog
