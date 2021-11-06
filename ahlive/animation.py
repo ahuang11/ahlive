@@ -3,8 +3,8 @@ import os
 import pathlib
 import uuid
 import warnings
-from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor
 from collections.abc import Iterable
+from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor
 from io import BytesIO
 
 import imageio
@@ -13,7 +13,6 @@ import numpy as np
 import pandas as pd
 import param
 import xarray as xr
-from tqdm.auto import tqdm
 from matplotlib import pyplot as plt
 from matplotlib.colors import Normalize, to_hex
 from matplotlib.dates import AutoDateLocator, ConciseDateFormatter
@@ -21,6 +20,7 @@ from matplotlib.patches import Rectangle
 from matplotlib.patheffects import withStroke
 from matplotlib.ticker import FixedLocator, FormatStrFormatter
 from mpl_toolkits.axes_grid1 import make_axes_locatable
+from tqdm.auto import tqdm
 
 from .configuration import (
     CHARTS,
@@ -1666,16 +1666,17 @@ class Animation(param.Parameterized):
             states = srange(num_states)
         states = np.array(states).astype(int)
 
-        pool_kwds = load_defaults(
-            "pool_kwds",
-            canvas_kwds["pool_kwds"]
-        )
+        pool_kwds = load_defaults("pool_kwds", canvas_kwds["pool_kwds"])
         scheduler = pool_kwds.pop("scheduler")
         disable = not pool_kwds.pop("progress")
 
         jobs = []
-        progress_bar = tqdm(total=num_states, leave=False, unit="frames", disable=disable)
-        scheduler_pool = ThreadPoolExecutor if "thread" in scheduler else ProcessPoolExecutor
+        progress_bar = tqdm(
+            total=num_states, leave=False, unit="frames", disable=disable
+        )
+        scheduler_pool = (
+            ThreadPoolExecutor if "thread" in scheduler else ProcessPoolExecutor
+        )
         with scheduler_pool(**pool_kwds) as executor:
             for state in states:
                 state_ds_rowcols = []
