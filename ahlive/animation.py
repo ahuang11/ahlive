@@ -1677,14 +1677,15 @@ class Animation(param.Parameterized):
         jobs = []
 
         if tqdm is not None:
-            if not disable:
-                warnings.warn(
-                    "pip install tqdm to display progress! "
-                    "To disable this warning, set progress=False"
-                )
             progress_bar = tqdm(
                 total=num_states, leave=False, unit="frames", disable=disable
             )
+        elif tqdm is None and not disable:
+            warnings.warn(
+                "pip install tqdm to display progress! "
+                "To disable this warning, set progress=False"
+            )
+            progress_bar = None
         else:
             progress_bar = None
 
