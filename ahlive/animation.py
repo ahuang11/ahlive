@@ -20,7 +20,10 @@ from matplotlib.patches import Rectangle
 from matplotlib.patheffects import withStroke
 from matplotlib.ticker import FixedLocator, FormatStrFormatter
 from mpl_toolkits.axes_grid1 import make_axes_locatable
-from tqdm.auto import tqdm
+try:
+    from tqdm.auto import tqdm
+except ImportError:
+    pass
 
 from .configuration import (
     CHARTS,
@@ -1671,9 +1674,19 @@ class Animation(param.Parameterized):
         disable = not pool_kwds.pop("progress")
 
         jobs = []
-        progress_bar = tqdm(
-            total=num_states, leave=False, unit="frames", disable=disable
-        )
+
+        if tqdm is not None:
+            if not disable:
+                warnings.warn(
+                    "pip install tqdm to display progress! "
+                    "To disable this warning, set progress=False"
+                )
+            progress_bar = tqdm(
+                total=num_states, leave=False, unit="frames", disable=disable
+            )
+        else:
+            progress_bar = None
+
         scheduler_pool = (
             ThreadPoolExecutor if "thread" in scheduler else ProcessPoolExecutor
         )
@@ -1700,8 +1713,12 @@ class Animation(param.Parameterized):
                 buf = job.result()
                 if buf is not None:
                     buf_list.append(buf)
-                progress_bar.update(1)
-        progress_bar.close()
+
+                if progress_bar is not None:
+                    progress_bar.update(1)
+
+        if progress_bar is not None:
+            progress_bar.close()
 
         return buf_list
 

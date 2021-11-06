@@ -13,7 +13,6 @@ dependencies:
     - nbsphinx
     - sphinx-book-theme
     - ipykernel
-    - jupyter
     - panel
     - pygifsicle
     - pooch
