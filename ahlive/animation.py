@@ -20,6 +20,7 @@ from matplotlib.patches import Rectangle
 from matplotlib.patheffects import withStroke
 from matplotlib.ticker import FixedLocator, FormatStrFormatter
 from mpl_toolkits.axes_grid1 import make_axes_locatable
+
 try:
     from tqdm.auto import tqdm
 except ImportError:
