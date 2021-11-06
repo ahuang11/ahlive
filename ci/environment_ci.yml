@@ -7,12 +7,15 @@ dependencies:
   - cartopy
   - gifsicle
   - pandoc
+  - jq
   - pip
   - pip:
     - sphinx
     - nbsphinx
     - sphinx-book-theme
     - ipykernel
+    - ipywidgets
+    - widgetsnbextension
     - panel
     - pooch
     - pygifsicle

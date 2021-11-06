@@ -40,6 +40,7 @@ from .configuration import (
 from .util import (
     is_datetime,
     is_scalar,
+    is_str,
     is_timedelta,
     length,
     pop,
@@ -1402,6 +1403,9 @@ class Animation(param.Parameterized):
             for axis in ["x", "y"]:
                 axis_lim0 = to_scalar(limits.get(f"{axis}lim0"))
                 axis_lim1 = to_scalar(limits.get(f"{axis}lim1"))
+                if is_str(axis_lim0) or is_str(axis_lim1):
+                    continue
+
                 if axis_lim0 is not None or axis_lim1 is not None:
                     axis_lim0 = None if pd.isnull(axis_lim0) else axis_lim0
                     axis_lim1 = None if pd.isnull(axis_lim1) else axis_lim1
@@ -1677,9 +1681,13 @@ class Animation(param.Parameterized):
         jobs = []
 
         if tqdm is not None:
-            progress_bar = tqdm(
-                total=num_states, leave=False, unit="frames", disable=disable
-            )
+            try:
+                progress_bar = tqdm(
+                    total=num_states, leave=False, unit="frames", disable=disable
+                )
+            except ImportError as e:
+                progress_bar = None
+                warnings.warn(f"Failed to display progress due to: {e}")
         elif tqdm is None and not disable:
             warnings.warn(
                 "pip install tqdm to display progress! "
