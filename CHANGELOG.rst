@@ -161,6 +161,9 @@ internal changes
 - Refactor class inheritance (:pull:`71`).
   By `Andrew Huang <https://github.com/ahuang11>`_
 
+- Replace dask with concurrent.futures and have tqdm required (:pull:`120`).
+  By `Andrew Huang <https://github.com/ahuang11>`_
+
 v0.0.3 (15 February 2021)
 -------------------------
 

@@ -38,7 +38,7 @@ PRECEDENCES = [
     "sub_label",
     "ticks",
     "interp",
-    "compute",
+    "pool",
     "misc",
     "attr",
 ]
@@ -67,7 +67,7 @@ CONFIGURABLES = {  # used for like .config('figure', **kwds)
     "canvas": [
         "figure",
         "suptitle",
-        "compute",
+        "pool",
         "animate",
         "durations",
         "savefig",
@@ -163,8 +163,8 @@ CONFIGURABLES_KWDS.update(
         },
         "colorbar": {"colorbar": "show"},
         "cticks": {"cticks": "ticks", "ctick_labels": "tick_labels"},
-        "compute": {
-            "workers": "num_workers",
+        "pool": {
+            "workers": "max_workers",
             "scheduler": "scheduler",
             "progress": "progress",
         },
@@ -309,7 +309,7 @@ OPTIONS = {
     "grid": ["x", "y", "both", True, False],
     "join": ["overlay", "layout", "cascade", "stagger", "slide"],
     "limit": ["zero", "fixed", "follow", "explore"],
-    "scheduler": ["single-threaded", "processes"],
+    "scheduler": ["threads", "processes"],
     "state_xy": [
         "title",
         "subtitle",
@@ -505,9 +505,9 @@ DEFAULTS["savefig_kwds"] = {
     "transparent": False,
 }
 
-DEFAULTS["compute_kwds"] = {
-    "num_workers": 1,
-    "scheduler": "single-threaded",
+DEFAULTS["pool_kwds"] = {
+    "max_workers": 1,
+    "scheduler": "processes",
     "progress": True,
 }
 
