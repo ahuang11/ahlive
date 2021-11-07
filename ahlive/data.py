@@ -186,6 +186,11 @@ class Data(Easing, Animation, Configuration):
         doc=f"Chart style; {OPTIONS['style']}",
         precedence=PRECEDENCES["style"],
     )
+    adjust_text = param.Boolean(
+        doc="Whether to use adjustText to adjust "
+        "inline labels' location minimize overlap",
+        precedence=PRECEDENCES["style"],
+    )
 
     hooks = param.HookList(
         doc="List of customization functions to apply; "

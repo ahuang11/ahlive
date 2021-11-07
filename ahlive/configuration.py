@@ -86,6 +86,7 @@ CONFIGURABLES = {  # used for like .config('figure', **kwds)
         "yticks",
         "limits",
         "margins",
+        "adjust_text",
         "hooks",
     ],
     "label": [
@@ -97,7 +98,7 @@ CONFIGURABLES = {  # used for like .config('figure', **kwds)
         "subtitle",
         "caption",
         "note",
-        "preset_inline",
+        "preset_inline"
     ],
     "geo": [
         "crs",

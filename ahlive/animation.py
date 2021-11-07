@@ -615,7 +615,7 @@ class Animation(param.Parameterized):
         xs = np.cos(np.deg2rad(ang)) * offset
         return xs, ys
 
-    def _add_remarks(self, state_ds, ax, chart, xs, ys, remarks, color, plot=None):
+    def _add_remarks(self, state_ds, ax, chart, xs, ys, remarks, color, mpl_texts, plot=None):
         if remarks is None:
             return
 
@@ -657,7 +657,9 @@ class Animation(param.Parameterized):
             remark_inline_kwds = self._update_text(
                 remark_inline_kwds, "text", base=remark
             )
-            ax.annotate(**remark_inline_kwds)
+            mpl_texts.append(
+                ax.annotate(**remark_inline_kwds)
+            )
 
         if chart != "pie":
             no_remarks_index = np.where(remarks == "")
@@ -677,6 +679,7 @@ class Animation(param.Parameterized):
         ys,
         inline_labels,
         color,
+        mpl_texts,
         base_key="inline",
         inline_key="inline_kwds",
         xytext=(0, 5),
@@ -746,7 +749,9 @@ class Animation(param.Parameterized):
                 continue
             inline_kwds["text"] = inline_label
             inline_kwds = self._update_text(inline_kwds, "text", base=inline_base)
-            ax.annotate(xy=(x, y), **inline_kwds)
+            mpl_texts.append(
+                ax.annotate(xy=(x, y), **inline_kwds)
+            )
 
     @staticmethod
     def _reshape_batch(array, chart, get=-1):
@@ -907,7 +912,7 @@ class Animation(param.Parameterized):
             )
         return state_ds
 
-    def _process_base_vars(self, state_ds, ax):
+    def _process_base_vars(self, state_ds, ax, mpl_texts):
         base_state_ds = self._subset_vars(state_ds)
 
         iter_ds, get = self._get_iter_ds(base_state_ds)
@@ -1036,6 +1041,7 @@ class Animation(param.Parameterized):
                 ys + bar_offsets,
                 inline_labels,
                 color,
+                mpl_texts,
                 xytext=(5, 5) if not chart.startswith("bar") else (0, 5),
                 plot=plot,
             )
@@ -1073,18 +1079,19 @@ class Animation(param.Parameterized):
                 ys + bar_offsets,
                 bar_labels,
                 "black",
+                mpl_texts,
                 base_key="preset",
                 inline_key="preset_inline_kwds",
                 xytext=(0, -5) if chart == "barh" else (0, -15),
             )
 
             self._add_remarks(
-                overlay_ds, ax, chart, xs_full, ys_full, remarks, color, plot=plot
+                overlay_ds, ax, chart, xs_full, ys_full, remarks, color, mpl_texts, plot=plot
             )
 
         return mappable
 
-    def _process_grid_vars(self, state_ds, ax):
+    def _process_grid_vars(self, state_ds, ax, mpl_texts):
         grid_state_ds = self._subset_vars(state_ds, "grid")
         grid_iter_ds, _ = self._get_iter_ds(grid_state_ds)
         mappable = None
@@ -1170,6 +1177,7 @@ class Animation(param.Parameterized):
                 inline_ys,
                 inline_labels,
                 "black",
+                mpl_texts,
                 base_key="grid_inline",
                 inline_key="grid_inline_kwds",
             )
@@ -1221,7 +1229,7 @@ class Animation(param.Parameterized):
         color = self._get_color(overlay_ds, plot)
         return color
 
-    def _process_ref_vars(self, state_ds, ax):
+    def _process_ref_vars(self, state_ds, ax, mpl_texts):
         ref_state_ds = self._subset_vars(state_ds, "ref")
         ref_iter_ds, get = self._get_iter_ds(ref_state_ds)
         for item, (_, overlay_ds) in enumerate(ref_iter_ds, 1):
@@ -1290,12 +1298,26 @@ class Animation(param.Parameterized):
                 inline_ys,
                 inline_labels,
                 color,
+                mpl_texts,
                 base_key="ref_inline",
                 inline_key="ref_inline_kwds",
                 xytext=xytext,
                 ha="right",
                 va="bottom",
             )
+
+    def _adjust_text(self, state_ds, ax, mpl_texts):
+        adjust_text_kwds = load_defaults("adjust_text_kwds", state_ds, ax=ax, texts=mpl_texts)
+        adjust_text = adjust_text_kwds.pop("adjust_text")
+        if adjust_text:
+            try:
+                import adjustText
+            except ImportError:
+                raise ImportError(
+                    "pip install adjustText to to minimize text overlap! "
+                    "To disable this warning, set adjust_text=False"
+                )
+            adjustText.adjust_text(**adjust_text_kwds)
 
     def _prep_figure(self, canvas_kwds):
         figure_kwds = load_defaults("figure_kwds", canvas_kwds["figure_kwds"])
@@ -1580,9 +1602,11 @@ class Animation(param.Parameterized):
         self._update_limits(state_ds, ax)
         self._update_geo(state_ds, ax)
 
-        base_mappable = self._process_base_vars(state_ds, ax)
-        grid_mappable = self._process_grid_vars(state_ds, ax)
-        self._process_ref_vars(state_ds, ax)
+        mpl_texts = []
+        base_mappable = self._process_base_vars(state_ds, ax, mpl_texts)
+        grid_mappable = self._process_grid_vars(state_ds, ax, mpl_texts)
+        self._process_ref_vars(state_ds, ax, mpl_texts)
+        self._adjust_text(state_ds, ax, mpl_texts)
 
         gridlines = self._update_grid(state_ds, ax)
         self._update_ticks(state_ds, ax, gridlines)
