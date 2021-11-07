@@ -615,7 +615,9 @@ class Animation(param.Parameterized):
         xs = np.cos(np.deg2rad(ang)) * offset
         return xs, ys
 
-    def _add_remarks(self, state_ds, ax, chart, xs, ys, remarks, color, mpl_texts, plot=None):
+    def _add_remarks(
+        self, state_ds, ax, chart, xs, ys, remarks, color, mpl_texts, plot=None
+    ):
         if remarks is None:
             return
 
@@ -657,9 +659,7 @@ class Animation(param.Parameterized):
             remark_inline_kwds = self._update_text(
                 remark_inline_kwds, "text", base=remark
             )
-            mpl_texts.append(
-                ax.annotate(**remark_inline_kwds)
-            )
+            mpl_texts.append(ax.annotate(**remark_inline_kwds))
 
         if chart != "pie":
             no_remarks_index = np.where(remarks == "")
@@ -749,9 +749,7 @@ class Animation(param.Parameterized):
                 continue
             inline_kwds["text"] = inline_label
             inline_kwds = self._update_text(inline_kwds, "text", base=inline_base)
-            mpl_texts.append(
-                ax.annotate(xy=(x, y), **inline_kwds)
-            )
+            mpl_texts.append(ax.annotate(xy=(x, y), **inline_kwds))
 
     @staticmethod
     def _reshape_batch(array, chart, get=-1):
@@ -1086,7 +1084,15 @@ class Animation(param.Parameterized):
             )
 
             self._add_remarks(
-                overlay_ds, ax, chart, xs_full, ys_full, remarks, color, mpl_texts, plot=plot
+                overlay_ds,
+                ax,
+                chart,
+                xs_full,
+                ys_full,
+                remarks,
+                color,
+                mpl_texts,
+                plot=plot,
             )
 
         return mappable
@@ -1307,7 +1313,9 @@ class Animation(param.Parameterized):
             )
 
     def _adjust_text(self, state_ds, ax, mpl_texts):
-        adjust_text_kwds = load_defaults("adjust_text_kwds", state_ds, ax=ax, texts=mpl_texts)
+        adjust_text_kwds = load_defaults(
+            "adjust_text_kwds", state_ds, ax=ax, texts=mpl_texts
+        )
         adjust_text = adjust_text_kwds.pop("adjust_text")
         if adjust_text:
             try:

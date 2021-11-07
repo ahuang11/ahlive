@@ -98,7 +98,7 @@ CONFIGURABLES = {  # used for like .config('figure', **kwds)
         "subtitle",
         "caption",
         "note",
-        "preset_inline"
+        "preset_inline",
     ],
     "geo": [
         "crs",
