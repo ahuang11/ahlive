@@ -616,7 +616,7 @@ class Animation(param.Parameterized):
         return xs, ys
 
     def _add_remarks(
-        self, state_ds, ax, chart, xs, ys, remarks, color, mpl_texts, plot=None
+        self, state_ds, ax, chart, xs, ys, remarks, color, mpl_texts=None, plot=None
     ):
         if remarks is None:
             return
@@ -659,7 +659,9 @@ class Animation(param.Parameterized):
             remark_inline_kwds = self._update_text(
                 remark_inline_kwds, "text", base=remark
             )
-            mpl_texts.append(ax.annotate(**remark_inline_kwds))
+            annotation = ax.annotate(**remark_inline_kwds)
+            if mpl_texts is not None:
+                mpl_texts.append(annotation)
 
         if chart != "pie":
             no_remarks_index = np.where(remarks == "")
@@ -679,7 +681,7 @@ class Animation(param.Parameterized):
         ys,
         inline_labels,
         color,
-        mpl_texts,
+        mpl_texts=None,
         base_key="inline",
         inline_key="inline_kwds",
         xytext=(0, 5),
@@ -749,7 +751,10 @@ class Animation(param.Parameterized):
                 continue
             inline_kwds["text"] = inline_label
             inline_kwds = self._update_text(inline_kwds, "text", base=inline_base)
-            mpl_texts.append(ax.annotate(xy=(x, y), **inline_kwds))
+            annotation = ax.annotate(xy=(x, y), **inline_kwds)
+
+            if mpl_texts is not None:
+                mpl_texts.append(annotation)
 
     @staticmethod
     def _reshape_batch(array, chart, get=-1):
