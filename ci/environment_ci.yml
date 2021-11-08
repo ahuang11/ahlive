@@ -12,6 +12,7 @@ dependencies:
   - pip:
     - sphinx
     - nbsphinx
+    - adjustText
     - sphinx-book-theme
     - ipykernel
     - ipywidgets
