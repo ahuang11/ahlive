@@ -152,8 +152,12 @@ def transpose(da, dims=None):
 
 def _fillna(da, how, dim="state"):
     kwds = {}
+    transposed = False
     if isinstance(da, xr.DataArray) and dim in da.dims:
         kwds["dim"] = dim
+    elif isinstance(da, pd.DataFrame) and dim == "state":
+        da = da.transpose()
+        transposed = True
 
     if how == "both":
         da = da.bfill(**kwds).ffill(**kwds)
@@ -161,6 +165,9 @@ def _fillna(da, how, dim="state"):
         da = da.ffill(**kwds)
     elif how == "bfill":
         da = da.bfill(**kwds)
+
+    if transposed:
+        da = da.transpose()
     return da
 
 
@@ -174,14 +181,8 @@ def fillna(da, how="ffill", dim="state", item_dim="item"):
         if item_dim not in da.dims:
             da = _fillna(da.to_series(), how, dim=dim).to_xarray()
         else:
-            da = xr.concat(
-                (
-                    _fillna(
-                        da.sel(item=item).to_series().rename_axis("state"), how, dim=dim
-                    ).to_xarray()
-                    for item in da[item_dim]
-                ),
-                item_dim,
+            da = xr.DataArray(
+                _fillna(pd.DataFrame(da.values), how, dim=dim).values, dims=da.dims
             )
     return da
 

@@ -360,7 +360,13 @@ DEFAULTS["preset_kwds"]["morph_trail"] = {
     "stride": 1,
     "zorder": 0,
 }
-DEFAULTS["preset_kwds"]["race"] = {"bar_label": True, "limit": 5, "ascending": False}
+DEFAULTS["preset_kwds"]["race"] = {
+    "bar_label": True,
+    "limit": 5,
+    "ascending": False,
+    "clip_on": True,
+    "annotation_clip": True,
+}
 DEFAULTS["preset_kwds"]["delta"] = {"bar_label": True, "capsize": 6}
 DEFAULTS["preset_kwds"]["scan"] = {"color": "black", "stride": 1}
 
@@ -451,6 +457,8 @@ DEFAULTS["remark_inline_kwds"].update(
 )
 
 DEFAULTS["margins_kwds"] = {"x": 0.03, "y": 0.03}
+
+DEFAULTS["adjust_text_kwds"] = {"precision": 1}
 
 DEFAULTS["legend_kwds"] = DEFAULTS["label_kwds"].copy()
 DEFAULTS["legend_kwds"]["labelcolor"] = DEFAULTS["legend_kwds"].pop("color")

@@ -203,6 +203,12 @@ class Animation(param.Parameterized):
     def _update_text(self, kwds, label_key, base=None, apply_format=True):
         label = kwds.get(label_key, None)
 
+        try:
+            if len(label) == 0:
+                return {}
+        except TypeError:
+            pass
+
         if isinstance(label, Iterable) and not isinstance(label, str):
             labels = []
             for i, sub_label in enumerate(kwds[label_key]):
@@ -561,7 +567,6 @@ class Animation(param.Parameterized):
                 base_key="grid_scan_x_diff_inline",
                 inline_key="preset_inline_kwds",
                 xytext=(-18, 0),
-                clip=True,
             )
             self._add_inline_labels(
                 overlay_ds,
@@ -575,7 +580,6 @@ class Animation(param.Parameterized):
                 base_key="grid_scan_x_diff_inline",
                 inline_key="preset_inline_kwds",
                 xytext=(18, 0),
-                clip=True,
             )
         else:
             self._add_inline_labels(
@@ -590,7 +594,6 @@ class Animation(param.Parameterized):
                 base_key="grid_scan_y_diff_inline",
                 inline_key="preset_inline_kwds",
                 xytext=(0, 18),
-                clip=True,
             )
             self._add_inline_labels(
                 overlay_ds,
@@ -604,7 +607,6 @@ class Animation(param.Parameterized):
                 base_key="grid_scan_y_diff_inline",
                 inline_key="preset_inline_kwds",
                 xytext=(0, -18),
-                clip=True,
             )
 
     @staticmethod
@@ -687,7 +689,6 @@ class Animation(param.Parameterized):
         xytext=(0, 5),
         ha=None,
         va=None,
-        clip=False,
         plot=None,
     ):
         if inline_labels is None:
@@ -722,8 +723,6 @@ class Animation(param.Parameterized):
             xytext=xytext,
             path_effects=self._path_effects,
         )
-        if clip:
-            inline_kwds["annotation_clip"] = True
         inline_kwds = load_defaults(inline_key, overlay_ds, **inline_kwds)
 
         # https://stackoverflow.com/questions/25416600/
@@ -749,9 +748,12 @@ class Animation(param.Parameterized):
 
             if str(inline_label) == "" or pd.isnull(x) or pd.isnull(y):
                 continue
+
             inline_kwds["text"] = inline_label
             inline_kwds = self._update_text(inline_kwds, "text", base=inline_base)
             annotation = ax.annotate(xy=(x, y), **inline_kwds)
+            if "clip_on" in inline_kwds.keys():
+                annotation.set_clip_box(ax.bbox)
 
             if mpl_texts is not None:
                 mpl_texts.append(annotation)
@@ -946,9 +948,11 @@ class Animation(param.Parameterized):
             xs_full = self._reshape_batch(overlay_ds["x"], chart, get=None)
             ys_full = self._reshape_batch(overlay_ds["y"], chart, get=None)
 
-            preset = overlay_ds.attrs["preset_kwds"].get("preset")
+            preset = overlay_ds.attrs["preset_kwds"].get("preset", "")
             if chart.startswith("bar") and preset is not None:
                 overlay_ds = overlay_ds.isel(state=-1)
+                if preset not in ["race", "delta"]:
+                    pop(overlay_ds, "tick_label")
 
             xs = self._reshape_batch(pop(overlay_ds, "x"), chart, get=get)
             ys = self._reshape_batch(pop(overlay_ds, "y"), chart, get=get)
@@ -988,14 +992,16 @@ class Animation(param.Parameterized):
             trail_plot_kwds = {
                 var: self._reshape_batch(pop(overlay_ds, var), chart, get=None)
                 for var in list(overlay_ds.data_vars)
+                if "lim" not in var
             }
             trail_plot_kwds = self._strip_dict(
                 load_defaults(
                     "plot_kwds", overlay_ds, base_chart=chart, **trail_plot_kwds
                 )
             )
-            if "alpha" in trail_plot_kwds:
-                trail_plot_kwds["alpha"] = to_scalar(trail_plot_kwds["alpha"])
+            for key in ["alpha", "color"]:
+                if key in trail_plot_kwds:
+                    trail_plot_kwds[key] = to_scalar(trail_plot_kwds[key])
 
             plot_kwds = self._strip_dict(
                 {
@@ -1480,13 +1486,14 @@ class Animation(param.Parameterized):
         apply_format = chart.startswith("bar")
         xticks_base = state_ds.attrs["base_kwds"].get("xticks")
         xticks_kwds = load_defaults("xticks_kwds", state_ds, labels=tick_labels)
+        mapping = xticks_kwds.pop("mapping", None)
         xticks_kwds = self._update_text(
             xticks_kwds, "labels", base=xticks_base, apply_format=apply_format
         )
         xticks = xticks_kwds.pop("ticks", None)
         xformat = xticks_kwds.pop("format", "g")
         xticks_labels = np.array(
-            to_1d(xticks_kwds.pop("labels"), unique=unique, flat=flat)
+            to_1d(xticks_kwds.pop("labels", []), unique=unique, flat=flat)
         )
         x_is_datetime = xticks_kwds.pop("is_datetime", False)
         x_is_str = xticks_kwds.pop("is_str", False)
@@ -1497,7 +1504,7 @@ class Animation(param.Parameterized):
             yticks_kwds, "labels", base=yticks_base, apply_format=apply_format
         )
         yticks = yticks_kwds.pop("ticks", None)
-        to_1d(yticks_kwds.pop("labels"), unique=True, flat=False)
+        to_1d(yticks_kwds.pop("labels", []), unique=True, flat=False)
         yformat = yticks_kwds.pop("format", "g")
         y_is_datetime = yticks_kwds.pop("is_datetime", False)
         y_is_str = yticks_kwds.pop("is_str", False)
@@ -1525,13 +1532,14 @@ class Animation(param.Parameterized):
                 gridlines.xlocator = FixedLocator(xticks)
             if yticks is not None:
                 gridlines.ylocator = FixedLocator(yticks)
-        elif chart.startswith("bar"):
-            xs = np.array(to_1d(pop(state_ds, "x"), unique=unique, flat=flat))
+        elif chart.startswith("bar") and preset in ["race", "delta"]:
+            xs = np.array(to_1d(state_ds["x"], unique=unique, flat=flat))
 
             if preset == "race":
                 xs = xs[:, -1]
                 xticks = xs
-                xticks_labels = xticks_labels[:, -1]
+                if len(xticks_labels) > 0:
+                    xticks_labels = xticks_labels[:, -1]
             elif xticks_labels is not None:
                 num_labels = len(xticks_labels)
                 step = int(np.floor(len(xs) / num_labels))
@@ -1539,7 +1547,8 @@ class Animation(param.Parameterized):
                 if step == 0:
                     step = 1
                 xticks = xs[start::step][:num_labels]
-                xticks_labels = xticks_labels[: len(xticks)]
+                if len(xticks_labels) > 0:
+                    xticks_labels = xticks_labels[: len(xticks)]
 
             if chart == "bar":
                 ax.set_xticks(xticks)
@@ -1547,7 +1556,20 @@ class Animation(param.Parameterized):
             elif chart == "barh":
                 ax.set_yticks(xticks)
                 ax.set_yticklabels(xticks_labels)
-        else:
+        elif mapping is not None:  # remap integers with labels
+            if chart == "bar":
+                ticks = ax.get_xticks()
+                locator = FixedLocator(ticks)
+                ax.xaxis.set_major_locator(locator)
+                labels = [mapping.get(tick, "") for tick in ticks]
+                ax.set_xticklabels(labels)
+            elif chart == "barh":
+                ticks = ax.get_yticks()
+                locator = FixedLocator(ticks)
+                ax.yaxis.set_major_locator(locator)
+                labels = [mapping.get(tick, "") for tick in ticks]
+                ax.set_yticklabels(labels)
+        elif not chart.startswith("bar"):
             if not x_is_datetime and not x_is_str:
                 xformatter = FormatStrFormatter(f"%{xformat}")
                 ax.xaxis.set_major_formatter(xformatter)
@@ -1612,17 +1634,17 @@ class Animation(param.Parameterized):
     def _draw_subplot(self, state_ds, ax, canvas_kwds):
         self._update_labels(state_ds, ax)
         self._add_state_labels(state_ds, ax, canvas_kwds)
-        self._update_limits(state_ds, ax)
         self._update_geo(state_ds, ax)
+        gridlines = self._update_grid(state_ds, ax)
 
         mpl_texts = []
         base_mappable = self._process_base_vars(state_ds, ax, mpl_texts)
         grid_mappable = self._process_grid_vars(state_ds, ax, mpl_texts)
         self._process_ref_vars(state_ds, ax, mpl_texts)
-        self._adjust_text(state_ds, ax, mpl_texts)
 
-        gridlines = self._update_grid(state_ds, ax)
         self._update_ticks(state_ds, ax, gridlines)
+        self._update_limits(state_ds, ax)
+        self._adjust_text(state_ds, ax, mpl_texts)
         self._update_legend(state_ds, ax)
 
         if grid_mappable is not None:
@@ -1646,7 +1668,7 @@ class Animation(param.Parameterized):
             figure.text(**watermark_kwds)
 
     def _update_spacing(self, state_ds_rowcols, canvas_kwds):
-        top = bottom = wspace = None
+        top = bottom = left = wspace = None
         for state_ds in state_ds_rowcols:
             suptitle = state_ds.attrs.get("suptitle_kwds", {}).get("t")
             if suptitle is not None:
@@ -1660,6 +1682,13 @@ class Animation(param.Parameterized):
             if clabel is not None:
                 wspace = 0.25
 
+            chart = self._get_chart(state_ds)
+            xticks_labels = state_ds.attrs.get("xticks_kwds", {}).get("labels", [""])
+            if chart == "barh" and len(xticks_labels) > 0:
+                longest_label = np.unique(state_ds["y"]).dtype.itemsize
+                left = 0.05 * longest_label
+            break
+
         spacing_kwds = canvas_kwds["spacing_kwds"]
         if "spacing" in spacing_kwds:
             spacing_kwds.update(**spacing_kwds.pop("spacing"))
@@ -1668,6 +1697,7 @@ class Animation(param.Parameterized):
             spacing_kwds,
             top=top,
             bottom=bottom,
+            left=left,
             wspace=wspace,
         )
         plt.subplots_adjust(**spacing_kwds)
@@ -1718,10 +1748,18 @@ class Animation(param.Parameterized):
         jobs = []
 
         if tqdm is not None:
+            tqdm_kwds = dict(
+                total=num_states,
+                leave=False,
+                unit=" frames",
+                colour="#262626",
+                disable=disable,
+            )
             try:
-                progress_bar = tqdm(
-                    total=num_states, leave=False, unit="frames", disable=disable
-                )
+                progress_bar = tqdm(**tqdm_kwds)
+            except KeyError:
+                tqdm_kwds.pop("colour")
+                progress_bar = tqdm(**tqdm_kwds)
             except ImportError as e:
                 progress_bar = None
                 warnings.warn(f"Failed to display progress due to: {e}")

@@ -1,8 +1,9 @@
 import numpy as np
+import pandas as pd
 import xarray as xr
 
 from .configuration import OPTIONS, VARS
-from .util import fillna, is_str, srange, to_scalar
+from .util import fillna, is_str, srange
 
 
 def _get_rowcols(objs):
@@ -66,17 +67,20 @@ def _drop_state(joined_ds):
     for var in VARS["stateless"]:
         if var in joined_ds:
             if "state" in joined_ds[var].dims:
-                joined_ds[var] = joined_ds[var].isel(state=0)
+                value = joined_ds[var].isel(state=-1)
+                if pd.isnull(value).all():
+                    value = joined_ds[var].isel(state=0)
+                joined_ds[var] = value
     return joined_ds
 
 
 def _combine_ds_list(ds_list, method="concat", concat_dim="state", **kwds):
     joined_attrs = {}
-    for ds in ds_list:
+    for i, ds in enumerate(ds_list):
         item_dim = _get_item_dim(ds)
         if item_dim is None:
             item_dim = "item"
-            ds["item"] = 0
+            ds["item"] = len(ds_list) + i
 
         for key, val in ds.attrs.items():
             if key not in joined_attrs:
@@ -99,15 +103,13 @@ def _combine_ds_list(ds_list, method="concat", concat_dim="state", **kwds):
     ds = ds.transpose(item_dim, "state", ...)
 
     for var in ds.data_vars:
-        if is_str(ds[var]):
-            if "label" in var:
+        if len(ds.dims) > 2:
+            break
+        elif is_str(ds[var]):
+            if "label" in var or "x" in var:
                 continue
-            else:
-                val = to_scalar(ds[var])
-            try:
-                ds[var] = ds[var].astype(str).str.replace("nan", val)
-            except TypeError:
-                pass
+            ds[var] = fillna(ds[var], dim="item", how="both")
+
     return ds
 
 
