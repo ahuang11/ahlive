@@ -799,7 +799,8 @@ class Animation(param.Parameterized):
 
     def _get_iter_ds(self, state_ds):
         preset = state_ds.attrs["preset_kwds"].get("preset", "")
-        if len(state_ds.data_vars) == 0:
+        no_item_group = "item" not in state_ds.dims and "group" not in state_ds.dims
+        if len(state_ds.data_vars) == 0 or no_item_group:
             return zip([], []), -1
         elif any(group for group in to_1d(state_ds["group"])):
             if "label" in state_ds.data_vars:

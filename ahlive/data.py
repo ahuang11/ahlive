@@ -496,12 +496,13 @@ class Data(Easing, Animation, Configuration):
             if ascending:
                 ds["y"] *= -1
 
+            x_max = ds["x"].max()
             if chart == "bar":
-                ds["xlim0"] = ds["x"].max() - limit - 0.5
-                ds["xlim1"] = ds["x"].max() + 0.5
+                ds["xlim0"] = x_max - limit - 0.5
+                ds["xlim1"] = x_max + 0.5
             else:
-                ds["ylim0"] = ds["x"].max() - limit - 0.5
-                ds["ylim1"] = ds["x"].max() + 0.5
+                ds["ylim0"] = x_max - limit - 0.5
+                ds["ylim1"] = x_max + 0.5
 
         elif "morph" not in preset:
             if not is_str(ds["x"]):
