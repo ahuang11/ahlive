@@ -427,6 +427,9 @@ class Data(Easing, Animation, Configuration):
             if is_str(ds["x"]):
                 mapping = {x: i for i, x in enumerate(np.unique(ds["x"].values))}
                 ds["x"] = xr.apply_ufunc(remap, ds["x"], kwargs=dict(mapping=mapping))
+                ds.attrs["xticks_kwds"]["mapping"] = {
+                    float(val): key for key, val in mapping.items()
+                }
 
             if "stacked" in preset:
                 cumulation = self._get_cumulation(ds["y"].values, min=0)
@@ -438,6 +441,7 @@ class Data(Easing, Animation, Configuration):
                 if lim_key not in ds.data_vars:
                     ds[lim_key] = ds["y"].sum("item")
             elif preset not in ["race", "delta"]:
+                # for side by side bars
                 width = 1 / num_items / 1.5
                 offsets = (width * (1 - num_items) / num_items) + np.arange(
                     num_items
@@ -463,26 +467,42 @@ class Data(Easing, Animation, Configuration):
 
         if preset == "race":
             preset_kwds = load_defaults("preset_kwds", ds, base_chart=preset)
+            num_labels = len(np.unique(ds["label"]))
             limit = preset_kwds.get("limit", None)
-            # want to count NaNs so highest number is consistent
+            if limit > num_labels:
+                limit = num_labels - 1
+
             if ascending:
                 ds["y"] *= -1
-            ds["y"] = ds["y"].fillna(-np.inf)
-            ranks = ds["y"].rank("item")
-            ds["x"] = ranks
-            for x in pd.unique(ds["x"].values.ravel()):
-                if not x.is_integer():
-                    ds["x"] = ds["x"].where(ds["x"] != x, ds["x"] + 0.5)
+
+            # rank; first increments value
+            ds["x"] = xr.DataArray(
+                pd.DataFrame(ds["y"].values)
+                .rank(method="first", axis=0, ascending=True, na_option="top")
+                .values,
+                dims=ds["x"].dims,
+            )
+
+            # optimize runtime by only keeping the labels that show up
             limit_labels = pd.unique(
                 ds["label"]
                 .where(ds["x"] >= (ds["x"].max() - limit), drop=True)
                 .values.ravel()
             )
             ds = ds.where(ds["label"].isin(limit_labels), drop=True)
+
             # fill back in NaNs
             ds["y"] = ds["y"].where(np.isfinite(ds["y"]))
             if ascending:
                 ds["y"] *= -1
+
+            x_max = ds["x"].max()
+            if chart == "bar":
+                ds["xlim0"] = x_max - limit - 0.5
+                ds["xlim1"] = x_max + 0.5
+            else:
+                ds["ylim0"] = x_max - limit - 0.5
+                ds["ylim1"] = x_max + 0.5
 
         elif "morph" not in preset:
             if not is_str(ds["x"]):
@@ -501,6 +521,7 @@ class Data(Easing, Animation, Configuration):
                 ds["delta_label"] = ds["delta_label"].isel(item=slice(1, None))
                 ds["delta"] = ds["delta_label"] / 2
 
+        ds = _drop_state(ds)
         return ds
 
     @staticmethod
@@ -555,6 +576,8 @@ class Data(Easing, Animation, Configuration):
             for key in ["xerr", "yerr"]:
                 if key in ds.data_vars:
                     ds[key].attrs["is_errorbar_morph"] = True
+
+        ds = _drop_state(ds)
         return ds
 
     def _config_pie_chart(self, ds):
@@ -806,6 +829,14 @@ class Data(Easing, Animation, Configuration):
                         limit = limit + padding
 
             if limit is not None:
+
+                # pad bar charts
+                if chart.startswith("bar") and axis == "x" and not is_str(limit):
+                    if is_lower_limit:
+                        limit -= 0.5
+                    else:
+                        limit += 0.5
+
                 if chart == "barh":
                     axis = "x" if axis == "y" else "y"
                     key = axis + key[1:]
@@ -859,7 +890,7 @@ class Data(Easing, Animation, Configuration):
     def _add_color_kwds(ds, chart):
         if chart is not None:
             if chart.startswith("bar"):
-                if set(np.unique(ds["label"])) == set(np.unique(ds["x"])):
+                if set(np.unique(ds["label"].astype(str))) == set(np.unique(ds["x"])):
                     ds.attrs["legend_kwds"]["show"] = False
 
         if "c" in ds and np.issubdtype(ds["c"], np.number):
@@ -1024,14 +1055,14 @@ class Data(Easing, Animation, Configuration):
         margins_kwds = load_defaults("margins_kwds", ds)
 
         for axis in ["x", "y"]:
-            is_bar = chart.startswith("bar")
             axis_margins = margins_kwds.pop(axis, None)
+            if chart == "barh":
+                axis = "y" if axis == "x" else "y"
             if axis_margins is None:
                 continue
-            elif (
-                axis == "y" and axis_margins == DEFAULTS["margins_kwds"]["y"] and is_bar
-            ):
-                axis_margins = 0
+            elif axis == "y" and chart.startswith("bar"):
+                if axis_margins == DEFAULTS["margins_kwds"]["y"]:
+                    axis_margins = 0
 
             axis_lim0 = f"{axis}lim0"
             axis_lim1 = f"{axis}lim1"
@@ -1078,80 +1109,7 @@ class Data(Easing, Animation, Configuration):
         return ds
 
     def _interp_dataset(self, ds):
-        subgroup_ds_list = []
-        interpolate_kwds = ds.attrs["interpolate_kwds"]
-
-        for kind in ["", "ref_", "grid_"]:
-            item_dim = f"{kind}item"
-            interp_var = f"{kind}interp"
-            ease_var = f"{kind}ease"
-            if interp_var not in ds:
-                continue
-
-            ds[interp_var] = fillna(ds[interp_var], how="both")
-            ds[ease_var] = fillna(ds[ease_var], dim=item_dim, how="both")
-
-            if kind == "":
-                invalid_prefix = ("ref_", "grid_")
-            else:
-                invalid_prefix = tuple()
-
-            vars_seen = set([])
-            for _, interp_ds in ds.groupby(interp_var):
-                interpolate_kwds["interp"] = pop(interp_ds, interp_var, get=-1)
-                for _, ease_ds in interp_ds.unstack().groupby(ease_var):
-                    if not ease_ds:
-                        continue
-                    if f"stacked_{kind}item_state" in ease_ds.dims:
-                        ease_ds = _drop_state(ease_ds.unstack())
-                        if "duration" in ease_ds:
-                            ease_ds["duration"] = ease_ds["duration"].isel(
-                                **{item_dim: 0}
-                            )
-                    interpolate_kwds["ease"] = pop(ease_ds, ease_var, get=-1)
-                    var_list = []
-                    for var in ease_ds.data_vars:
-                        has_item = item_dim in ease_ds[var].dims
-                        is_stateless = ease_ds[var].dims == ("state",)
-                        is_scalar = ease_ds[var].dims == ()
-                        is_invalid = var.startswith(invalid_prefix)
-                        var_seen = var in vars_seen
-                        if has_item and not is_invalid or var == "duration":
-                            ease_ds[var].attrs.update(interpolate_kwds)
-                            var_list.append(var)
-                            vars_seen.add(var)
-                        elif (
-                            (is_stateless or is_scalar)
-                            and not var_seen
-                            and not is_invalid
-                        ):
-                            ease_ds[var].attrs.update(interpolate_kwds)
-                            var_list.append(var)
-                            vars_seen.add(var)
-                    ease_ds = ease_ds[var_list]
-                    try:
-                        ease_ds = ease_ds.map(self.interpolate, keep_attrs=True)
-                    except IndexError as e:
-                        if self.debug:
-                            raise IndexError(e)
-                    subgroup_ds_list.append(ease_ds)
-
-        try:
-            ds = _combine_ds_list(
-                subgroup_ds_list, method="combine_by_coords", combine_attrs="override"
-            )
-        except Exception:
-            ds = _combine_ds_list(
-                subgroup_ds_list,
-                method="combine_by_coords",
-                combine_attrs="override",
-                compat="override",
-                coords="minimal",
-            )
-
-        ds = ds.drop_vars(
-            var for var in ds.data_vars if "interp" in var or "ease" in var
-        )
+        ds = ds.map(self.interpolate, keep_attrs=True)
 
         if "s" in ds:
             ds["s"] = fillna(ds["s"].where(ds["s"] >= 0), how="both")
@@ -1535,12 +1493,6 @@ class Data(Easing, Animation, Configuration):
         label = self.label or ""
         group = self.group or ""
 
-        if self.interp is None:
-            interp = "cubic" if num_states < 8 else "linear"
-        else:
-            interp = self.interp
-        ease = self.ease or "in_out"
-
         if self.chart is None:
             if num_states < 8 or "s" in input_vars:
                 chart = "scatter"
@@ -1603,14 +1555,6 @@ class Data(Easing, Animation, Configuration):
         data_vars["group"] = (
             dims,
             self._adapt_input(group, num_items=num_items),
-        )
-        data_vars["interp"] = (
-            dims,
-            self._adapt_input(interp, num_items=num_items),
-        )
-        data_vars["ease"] = (
-            dims,
-            self._adapt_input(ease, num_items=num_items),
         )
 
         coords.update({dims[0]: srange(num_items), "state": srange(num_states)})

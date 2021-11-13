@@ -60,16 +60,7 @@ class Easing(param.Parameterized):
         if is_xarray:
             if "state" not in da.dims:
                 return da_origin
-            (
-                da,
-                name,
-                dims,
-                coords,
-                interp,
-                ease,
-                is_bar,
-                is_errorbar_morph,
-            ) = self._prep_xarray(da)
+            da, name, dims, coords, is_bar, is_errorbar_morph = self._prep_xarray(da)
 
         array = self._prep_array(da)
 
@@ -113,9 +104,6 @@ class Easing(param.Parameterized):
 
     def _prep_xarray(self, da):
         name = da.name
-        interp = da.attrs.get("interp")
-        ease = da.attrs.get("ease")
-
         for item_dim in da.dims:
             if "item" in item_dim:
                 if "batch" in da.dims:
@@ -134,7 +122,7 @@ class Easing(param.Parameterized):
         coords = da.drop_vars("state", errors="ignore").coords
         is_bar = da.attrs.get("is_bar")
         is_errorbar_morph = da.attrs.get("is_errorbar_morph")
-        return da, name, dims, coords, interp, ease, is_bar, is_errorbar_morph
+        return da, name, dims, coords, is_bar, is_errorbar_morph
 
     def _prep_array(self, da):
         array = np.array(da)
