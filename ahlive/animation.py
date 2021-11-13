@@ -1,4 +1,5 @@
 import base64
+import inspect
 import os
 import pathlib
 import uuid
@@ -14,6 +15,7 @@ import pandas as pd
 import param
 import xarray as xr
 from matplotlib import pyplot as plt
+from matplotlib.artist import ArtistInspector
 from matplotlib.colors import Normalize, to_hex
 from matplotlib.dates import AutoDateLocator, ConciseDateFormatter
 from matplotlib.patches import Rectangle
@@ -49,6 +51,7 @@ from .util import (
     to_num,
     to_pydt,
     to_scalar,
+    traverse,
 )
 
 
@@ -152,11 +155,13 @@ class Animation(param.Parameterized):
         precedence=PRECEDENCES["misc"],
     )
 
+    _chart_keys = {}
     _temp_file = f"{uuid.uuid4()}_{TEMP_FILE}"
     _path_effects = [withStroke(linewidth=1, alpha=0.5, foreground="whitesmoke")]
 
     def __init__(self, **kwds):
         super().__init__(**kwds)
+        self._init_chart_keys()
 
     @staticmethod
     def _get_base_format(num):
@@ -236,11 +241,13 @@ class Animation(param.Parameterized):
             if format_ == "auto":
                 format_ = "%Y-%m-%d %H:%M"
             label = to_pydt(label)
-        elif isinstance(label, str):
-            try:
-                label = float(label)
-            except ValueError:
-                pass
+        else:
+            format_ = format_.lstrip("%")
+            if isinstance(label, str):
+                try:
+                    label = float(label)
+                except ValueError:
+                    pass
 
         if format_ != "auto":
             if apply_format:
@@ -373,22 +380,36 @@ class Animation(param.Parameterized):
 
         return color
 
+    @staticmethod
+    def _map_chart(chart):
+        if chart == "line":
+            chart = "plot"
+        elif chart == "area":
+            chart = "fill_between"
+        elif chart == "annotation":
+            chart = "annotate"
+        return chart
+
+    def _init_chart_keys(self):
+        if len(self._chart_keys) == 0:
+            for chart in CHARTS["basic"]:
+                chart = self._map_chart(chart)
+                if chart != "annotate":
+                    args = ([0, 1], [0, 1])
+                else:
+                    args = ("0", ([0, 1], [0, 1]))
+                chart_method = getattr(plt, chart)
+                setters = ArtistInspector(traverse(chart_method(*args))).get_setters()
+                sig = inspect.signature(chart_method)
+                self._chart_keys[chart] = setters + list(sig.parameters.keys())
+                plt.close()
+
     def _pop_invalid_kwds(self, chart, plot_kwds):
-        if chart == "pie":
-            for key in ["zorder", "label"]:
-                plot_kwds.pop(key, None)
-
-        if chart != "scatter":
-            for key in ["s", "c", "cmap", "vmin", "vmax"]:
-                plot_kwds.pop(key, None)
-
-        if chart != "annotation":
-            plot_kwds.pop("text", None)
-
-        if not chart.startswith("bar"):  # TODO: separate plot kwds by chart / overlay
-            for key in ["tick_label", "width", "align"]:
-                plot_kwds.pop(key, None)
-
+        chart = self._map_chart(chart)
+        valid_keys = self._chart_keys[chart]
+        for key in list(plot_kwds.keys()):  # create copy
+            if key not in valid_keys:
+                plot_kwds.pop(key)
         return plot_kwds
 
     def _plot_chart(self, overlay_ds, ax, chart, xs, ys, plot_kwds):

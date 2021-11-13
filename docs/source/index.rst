@@ -6,6 +6,7 @@
 
    introductions/quick_start.ipynb
    introductions/cheat_sheet.ipynb
+   introductions/why_animate.ipynb
    introductions/about.ipynb
 
 .. toctree::

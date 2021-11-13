@@ -10,7 +10,7 @@ from urllib.request import urlopen
 import pandas as pd
 import param
 
-from .configuration import DEFAULTS
+from .configuration import DEFAULTS, OPTIONS
 
 
 class TutorialData(param.Parameterized):
@@ -448,22 +448,26 @@ class TutorialData(param.Parameterized):
         elev="no",
         **kwds,
     ):
-        stn = stn.upper()
+        if isinstance(stn, str):
+            stn = [stn]
+        stn = "&station=".join(stn)
 
-        if isinstance(data, list):
-            data = ",".join(data)
+        if isinstance(data, str):
+            data = [data]
 
-        tzs = {
-            "utc": "Etc/UTC",
-            "akst": "America/Anchorage",
-            "wst": "America/Los_Angeles",
-            "mst": "America/Denver",
-            "cst": "America/Chicago",
-            "est": "America/New_York",
-        }
-        tz = tzs.get(tz, tz)
-        if tz not in tzs.values():
-            raise ValueError(f"tz must be one of the following: {tzs}")
+        valid_tzs = OPTIONS["iem_tz"]
+        tz = valid_tzs.get(tz, tz)
+        if tz not in valid_tzs.values():
+            raise ValueError(f"tz must be one of the following: {valid_tzs}; got {tz}")
+
+        valid_data = OPTIONS["iem_data"]
+        cols = []
+        for col in data:
+            col = col.strip()
+            if col not in valid_data:
+                raise ValueError(f"data must be a subset of: {valid_data}; got {col}")
+            cols.append(col)
+        data = "&data=".join(cols)
 
         ini_dt = pd.to_datetime(ini)
         end_dt = pd.to_datetime(end)
