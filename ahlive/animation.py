@@ -241,11 +241,13 @@ class Animation(param.Parameterized):
             if format_ == "auto":
                 format_ = "%Y-%m-%d %H:%M"
             label = to_pydt(label)
-        elif isinstance(label, str):
-            try:
-                label = float(label)
-            except ValueError:
-                pass
+        else:
+            format_ = format_.lstrip("%")
+            if isinstance(label, str):
+                try:
+                    label = float(label)
+                except ValueError:
+                    pass
 
         if format_ != "auto":
             if apply_format:
@@ -405,7 +407,7 @@ class Animation(param.Parameterized):
     def _pop_invalid_kwds(self, chart, plot_kwds):
         chart = self._map_chart(chart)
         valid_keys = self._chart_keys[chart]
-        for key in plot_kwds:
+        for key in list(plot_kwds.keys()):  # create copy
             if key not in valid_keys:
                 plot_kwds.pop(key)
         return plot_kwds

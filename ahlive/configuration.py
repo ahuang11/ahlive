@@ -319,6 +319,48 @@ OPTIONS = {
         "subtitle_start",
         "suptitle_start",
     ],
+    "iem_tz": {
+        "utc": "Etc/UTC",
+        "akst": "America/Anchorage",
+        "wst": "America/Los_Angeles",
+        "mst": "America/Denver",
+        "cst": "America/Chicago",
+        "est": "America/New_York",
+    },
+    "iem_data": [
+        "tmpf",
+        "tmpc",
+        "dwpf",
+        "dwpc",
+        "relh",
+        "feel",
+        "drct",
+        "sknt",
+        "sped",
+        "alti",
+        "mslp",
+        "p01m",
+        "p01i",
+        "vsby",
+        "gust",
+        "gust_mph",
+        "skyc1",
+        "skyc2",
+        "skyc3",
+        "skyl1",
+        "skyl2",
+        "skyl3",
+        "wxcodes",
+        "ice_accretion_1hr",
+        "ice_accretion_3hr",
+        "ice_accretion_6hr",
+        "peak_wind_gust",
+        "peak_wind_gust_mph",
+        "peak_wind_drct",
+        "peak_wind_time",
+        "snowdepth",
+        "metar",
+    ],
 }
 
 SIZES = {
@@ -387,7 +429,7 @@ DEFAULTS["ref_plot_kwds"]["axhline"] = {"color": "#696969", "linestyle": "--"}
 DEFAULTS["ref_plot_kwds"]["axvspan"] = {"color": "#696969", "alpha": 0.45}
 DEFAULTS["ref_plot_kwds"]["axhspan"] = {"color": "#696969", "alpha": 0.45}
 
-DEFAULTS["remark_plot_kwds"] = {"marker": "x", "persist": False}
+DEFAULTS["remark_plot_kwds"] = {"marker": "x", "persist": True}
 
 DEFAULTS["xlabel_kwds"] = DEFAULTS["label_kwds"].copy()
 DEFAULTS["xlabel_kwds"].update({"fontsize": SIZES["medium"]})

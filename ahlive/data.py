@@ -812,7 +812,9 @@ class Data(Easing, Animation, Configuration):
                     # explore bounds, pd.Series(da.min('item')).cummin()
                     limit = getattr(
                         pd.Series(
-                            getattr(ds[var].ffill(item_dim), stat)(item_dim).values
+                            getattr(fillna(ds[var], dim=item_dim), stat)(
+                                item_dim
+                            ).values
                         ),
                         f"cum{stat}",
                     )().values
@@ -1170,7 +1172,9 @@ class Data(Easing, Animation, Configuration):
         if len(geo_features) > 0:
             projection = projection or ("GOOGLE_MERCATOR" if tiles else "PlateCarree")
 
-        if crs or projection:
+        if "grid_x" not in ds.coords and "grid_y" not in ds.coords:
+            return ds
+        elif crs or projection:
             if chart == "pie":
                 raise ValueError(
                     "Geographic transforms are not supported for pie charts"
@@ -1386,7 +1390,10 @@ class Data(Easing, Animation, Configuration):
                 break
         else:
             return ""
-        chart = to_scalar(ds[chart_key], get=-1)
+        try:
+            chart = to_scalar(ds[chart_key], get=-1)
+        except IndexError:
+            chart = "line"
         return chart
 
     def finalize(self):
@@ -2141,6 +2148,7 @@ class DataStructure(Array):
         if hasattr(dataset, "reset_coords"):
             keys = dataset
         else:
+            dataset = dataset.dropna(subset=[ys])
             dataset = dataset.reset_index()
             keys = dataset.columns
         group_key, label_key = self._validate_keys(xs, ys, kwds, keys)

@@ -79,7 +79,10 @@ documentation
   By `Andrew Huang <https://github.com/ahuang11>`_
 
 - Add missing docs and polish defaults (:pull:`113`).
-  By `Andrew Huang <https://github.com/ahuang11>`
+  By `Andrew Huang <https://github.com/ahuang11>`_
+
+- Add `why_animate` docs (:pull:`130`).
+  By `Andrew Huang <https://github.com/ahuang11>`_
 
 enhancements
 ~~~~~~~~~~~~
