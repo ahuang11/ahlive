@@ -51,6 +51,9 @@ new features
 - Added `last` for `reference`, and `labels` and `**other_vars`for `remark` (:pull:`112`).
   By `Andrew Huang <https://github.com/ahuang11>`_
 
+- Support `adjust_text` keyword that attempts to prevent text overlaps (:pull:`126`).
+  By `Andrew Huang <https://github.com/ahuang11>`_
+
 documentation
 ~~~~~~~~~~~~~
 
@@ -77,7 +80,7 @@ documentation
 
 - Add missing docs and polish defaults (:pull:`113`).
   By `Andrew Huang <https://github.com/ahuang11>`
-  
+
 enhancements
 ~~~~~~~~~~~~
 
@@ -146,6 +149,9 @@ bug fixes
 - Fix poor logic in tqdm missing warning (:pull:`123`:)
   By `Andrew Huang <https://github.com/ahuang11>`_
 
+- Revise method for popping invalid keys for a given chart method (:pull:`129`).
+  By `Andrew Huang <https://github.com/ahuang11>`_
+
 internal changes
 ~~~~~~~~~~~~~~~~
 
@@ -165,6 +171,9 @@ internal changes
   By `Andrew Huang <https://github.com/ahuang11>`_
 
 - Replace dask with concurrent.futures and have tqdm required (:pull:`120`).
+  By `Andrew Huang <https://github.com/ahuang11>`_
+
+- Improved maintainability of code and remove ability to set multiple `ease` and `interp` for a single subplot (:pull:`128`).
   By `Andrew Huang <https://github.com/ahuang11>`_
 
 v0.0.3 (15 February 2021)

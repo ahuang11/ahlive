@@ -1,3 +1,4 @@
+from collections import Iterable
 from datetime import datetime, timedelta
 
 import numpy as np
@@ -189,3 +190,9 @@ def fillna(da, how="ffill", dim="state", item_dim="item"):
 
 def remap(da, mapping):
     return np.array([mapping[k] for k in da.ravel()]).reshape(da.shape)
+
+
+def traverse(obj):
+    if isinstance(obj, Iterable):
+        return traverse(obj[0])
+    return obj
