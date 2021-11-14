@@ -18,3 +18,4 @@ dependencies:
     - panel
     - pygifsicle
     - pooch
+    - adjustText
