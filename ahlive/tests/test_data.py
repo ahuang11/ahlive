@@ -842,11 +842,7 @@ def test_reference_method_inline_labels(x0s, y0s, inline_locs):
     reference_kwds = dict(
         x0s=x0s, y0s=y0s, inline_locs=inline_locs, inline_labels="test"
     )
-    if (
-        (x0s is None or y0s is None)
-        and inline_locs is None
-        or (x0s is None and y0s is None)
-    ):
+    if x0s is None and y0s is None:
         with pytest.raises(ValueError):
             ah_obj.reference(**reference_kwds)
     else:

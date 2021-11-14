@@ -52,10 +52,13 @@ class Easing(param.Parameterized):
     def interpolate(self, da, name=""):
         interp = self.interp
         if interp is None:
-            if len(da) > 4:
+            try:
+                if len(da) > 4:
+                    interp = "linear"
+                else:
+                    interp = "cubic"
+            except TypeError:
                 interp = "linear"
-            else:
-                interp = "cubic"
         ease = self.ease
 
         da_origin = da.copy()

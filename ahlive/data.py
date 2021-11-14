@@ -1171,7 +1171,7 @@ class Data(Easing, Animation, Configuration):
         if len(geo_features) > 0:
             projection = projection or ("GOOGLE_MERCATOR" if tiles else "PlateCarree")
 
-        if "grid_x" not in ds.coords and "grid_y" not in ds.coords:
+        if "grid_item" not in ds.dims and "item" not in ds.dims:
             return ds
         elif crs or projection:
             if chart == "pie":
@@ -1913,7 +1913,7 @@ class RemarkArray(param.Parameterized):
                         np.full((len(ds["item"].values), len(ds["state"])), ""),
                     )
 
-                remarks = get(ds, remarks)
+                remarks = xr.DataArray(get(ds, remarks)).astype(str)
                 ds["remark"] = xr.where(condition, remarks, ds["remark"])
 
             condition = np.array(condition)
@@ -2146,8 +2146,6 @@ class DataStructure(Array):
         if hasattr(dataset, "reset_coords"):
             keys = dataset
         else:
-            if ys is not None:
-                dataset = dataset.dropna(subset=[ys])
             dataset = dataset.reset_index()
             keys = dataset.columns
         group_key, label_key = self._validate_keys(xs, ys, kwds, keys)
