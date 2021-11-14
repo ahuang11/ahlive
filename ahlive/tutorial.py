@@ -471,7 +471,7 @@ class TutorialData(param.Parameterized):
         cols = []
         for col in data:
             col = col.strip()
-            if col not in valid_data:
+            if col not in valid_data and col != "all":
                 raise ValueError(f"data must be a subset of: {valid_data}; got {col}")
             cols.append(col)
         data = "&data=".join(cols)
