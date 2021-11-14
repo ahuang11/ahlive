@@ -406,7 +406,6 @@ DEFAULTS["preset_kwds"]["race"] = {
     "bar_label": True,
     "limit": 5,
     "ascending": False,
-    "clip_on": True,
     "annotation_clip": True,
 }
 DEFAULTS["preset_kwds"]["delta"] = {"bar_label": True, "capsize": 6}
@@ -448,9 +447,10 @@ DEFAULTS["subtitle_kwds"].update({"fontsize": SIZES["small"], "loc": "right"})
 
 DEFAULTS["note_kwds"] = {
     "x": 0.05,
-    "y": 0.05,
+    "y": 0.08,
     "ha": "left",
     "va": "top",
+    "width": 75,
     "fontsize": SIZES["xx-small"],
 }
 
@@ -460,6 +460,7 @@ DEFAULTS["caption_kwds"] = {
     "alpha": 0.7,
     "ha": "left",
     "va": "bottom",
+    "width": 90,
     "fontsize": SIZES["x-small"],
 }
 
@@ -486,14 +487,16 @@ DEFAULTS["text_inline_kwds"] = DEFAULTS["inline_kwds"].copy()
 DEFAULTS["ref_inline_kwds"] = DEFAULTS["inline_kwds"].copy()
 DEFAULTS["grid_inline_kwds"] = DEFAULTS["inline_kwds"].copy()
 DEFAULTS["preset_inline_kwds"] = DEFAULTS["inline_kwds"].copy()
+DEFAULTS["preset_inline_kwds"]["clip_on"] = True
 
 DEFAULTS["remark_inline_kwds"] = DEFAULTS["label_kwds"].copy()
 DEFAULTS["remark_inline_kwds"].update(
     {
         "textcoords": "offset points",
-        "xytext": (5, -5),
-        "ha": "left",
+        "xytext": (-8, -5),
+        "ha": "right",
         "va": "top",
+        "width": 38,
         "persist": False,
     }
 )

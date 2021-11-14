@@ -49,8 +49,13 @@ class TutorialData(param.Parameterized):
     @staticmethod
     def _specify_cache(cache_path, **kwds):
         if kwds:
-            cache_ext = "_".join(
-                f"{key}={val}".replace(os.sep, "") for key, val in kwds.items()
+            cache_ext = (
+                "_".join(
+                    f"{key}={val}".replace(os.sep, "") for key, val in kwds.items()
+                )
+                .replace(" ", "_")
+                .replace(",", "_")
+                .replace("'", "")
             )
             cache_path = f"{os.path.splitext(cache_path)[0]}_{cache_ext}.pkl"
         return cache_path
@@ -128,7 +133,7 @@ class TutorialData(param.Parameterized):
             meta = json.loads(response.read().decode())
         self.label = meta["title"]
         self._source = (
-            " & ".join(source["dataPublishedBy"] for source in meta["sources"])
+            " & ".join(source.get("dataPublishedBy", "") for source in meta["sources"])
             + " curated by Our World in Data (OWID)"
         )
         self._base_url = (
@@ -139,6 +144,8 @@ class TutorialData(param.Parameterized):
 
         df = self._read_cache(**kwds)
         if df is None:
+            if "names" in kwds.keys() and "header" not in kwds.keys():
+                kwds["header"] = 0
             df = pd.read_csv(self._data_url, **kwds)
             self._cache_dataset(df, **kwds)
 

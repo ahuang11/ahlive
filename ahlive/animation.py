@@ -2,6 +2,7 @@ import base64
 import inspect
 import os
 import pathlib
+import textwrap
 import uuid
 import warnings
 from collections.abc import Iterable
@@ -280,6 +281,10 @@ class Animation(param.Parameterized):
         casing = kwds.pop("casing", False)
         if casing:
             label = getattr(label, casing)()
+
+        width = kwds.pop("width", None)
+        if width is not None:
+            label = textwrap.fill(label, width, break_long_words=False)
         kwds[label_key] = label if label != "None" else None
         return kwds
 
@@ -294,6 +299,7 @@ class Animation(param.Parameterized):
 
         if state_ds.attrs.get("note_kwds"):
             note_kwds = load_defaults("note_kwds", state_ds, transform=ax.transAxes)
+            note_kwds = self._update_text(note_kwds, "s")
             ax.text(**note_kwds)
 
         caption = state_ds.attrs.get("caption_kwds", {}).get("s")
@@ -302,6 +308,7 @@ class Animation(param.Parameterized):
             caption_kwds = load_defaults(
                 "caption_kwds", state_ds, transform=ax.transAxes, y=y
             )
+            caption_kwds = self._update_text(caption_kwds, "s")
             ax.text(**caption_kwds)
 
     def _add_state_labels(self, state_ds, ax, canvas_kwds):
@@ -400,8 +407,12 @@ class Animation(param.Parameterized):
                     args = ("0", ([0, 1], [0, 1]))
                 chart_method = getattr(plt, chart)
                 setters = ArtistInspector(traverse(chart_method(*args))).get_setters()
-                sig = inspect.signature(chart_method)
-                self._chart_keys[chart] = setters + list(sig.parameters.keys())
+                sig = list(inspect.signature(chart_method).parameters.keys())
+                if chart != "pie":
+                    chart_keys = setters + sig
+                else:
+                    chart_keys = sig
+                self._chart_keys[chart] = chart_keys
                 plt.close()
 
     def _pop_invalid_kwds(self, chart, plot_kwds):
@@ -410,6 +421,7 @@ class Animation(param.Parameterized):
         for key in list(plot_kwds.keys()):  # create copy
             if key not in valid_keys:
                 plot_kwds.pop(key)
+
         return plot_kwds
 
     def _plot_chart(self, overlay_ds, ax, chart, xs, ys, plot_kwds):
@@ -648,7 +660,8 @@ class Animation(param.Parameterized):
         remark_inline_kwds = load_defaults("remark_inline_kwds", state_ds)
 
         if chart == "pie":
-            xs, ys = self._compute_pie_xys(plot, offset=1.15)
+            offset = remark_inline_kwds.pop("offset", None)
+            xs, ys = self._compute_pie_xys(plot, offset=offset)
         else:
             xs = to_1d(xs)
             ys = to_1d(ys)
@@ -754,7 +767,8 @@ class Animation(param.Parameterized):
 
         inline_labels = to_1d(inline_labels)
         if chart == "pie":
-            xs, ys = self._compute_pie_xys(plot, offset=0.8)
+            offset = inline_kwds.pop("offset", None)
+            xs, ys = self._compute_pie_xys(plot, offset=offset)
         else:
             xs = to_1d(xs)
             ys = to_1d(ys)
@@ -1762,6 +1776,7 @@ class Animation(param.Parameterized):
         else:
             states = srange(num_states)
         states = np.array(states).astype(int)
+        num_states = len(states)  # update num states if animate
 
         pool_kwds = load_defaults("pool_kwds", canvas_kwds["pool_kwds"])
         scheduler = pool_kwds.pop("scheduler")

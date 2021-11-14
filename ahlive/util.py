@@ -196,3 +196,10 @@ def traverse(obj):
     if isinstance(obj, Iterable):
         return traverse(obj[0])
     return obj
+
+
+def get(ds, value):
+    if isinstance(value, str):
+        if value in ds:
+            value = ds[value]
+    return value

@@ -50,7 +50,12 @@ class Easing(param.Parameterized):
         super().__init__(**kwds)
 
     def interpolate(self, da, name=""):
-        interp = self.interp or "cubic"
+        interp = self.interp
+        if interp is None:
+            if len(da) > 4:
+                interp = "linear"
+            else:
+                interp = "cubic"
         ease = self.ease
 
         da_origin = da.copy()
