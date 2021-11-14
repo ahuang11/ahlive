@@ -31,7 +31,7 @@ def to_1d(value, unique=False, flat=True, get=None):
         except ValueError:  # TODO: figure out ordered
             array = np.unique(array)
     if flat:
-        array = array.flat
+        array = array.ravel()
     return array
 
 

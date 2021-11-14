@@ -706,7 +706,7 @@ class Animation(param.Parameterized):
             if not persist_plot:
                 xs = xs[[-1]]
                 ys = ys[[-1]]
-            ax.scatter(xs, ys, color=color, **remark_plot_kwds)
+            ax.scatter(np.array(xs), np.array(ys), color=color, **remark_plot_kwds)
 
     def _add_inline_labels(
         self,
