@@ -198,7 +198,7 @@ def traverse(obj):
     return obj
 
 
-def get(ds, value, to_str):
+def get(ds, value, to_str=False):
     if isinstance(value, str):
         if value in ds:
             value = ds[value]
