@@ -1913,7 +1913,7 @@ class RemarkArray(param.Parameterized):
                         np.full((len(ds["item"].values), len(ds["state"])), ""),
                     )
 
-                remarks = xr.DataArray(get(ds, remarks)).astype(str)
+                remarks = get(ds, remarks, to_str=True)
                 ds["remark"] = xr.where(condition, remarks, ds["remark"])
 
             condition = np.array(condition)
