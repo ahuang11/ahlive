@@ -660,7 +660,7 @@ class Animation(param.Parameterized):
         remark_inline_kwds = load_defaults("remark_inline_kwds", state_ds)
 
         if chart == "pie":
-            offset = remark_inline_kwds.pop("offset", None)
+            offset = remark_inline_kwds.pop("offset", 1.15)
             xs, ys = self._compute_pie_xys(plot, offset=offset)
         else:
             xs = to_1d(xs)
@@ -767,7 +767,7 @@ class Animation(param.Parameterized):
 
         inline_labels = to_1d(inline_labels)
         if chart == "pie":
-            offset = inline_kwds.pop("offset", None)
+            offset = inline_kwds.pop("offset", 0.8)
             xs, ys = self._compute_pie_xys(plot, offset=offset)
         else:
             xs = to_1d(xs)
