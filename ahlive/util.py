@@ -31,7 +31,7 @@ def to_1d(value, unique=False, flat=True, get=None):
         except ValueError:  # TODO: figure out ordered
             array = np.unique(array)
     if flat:
-        array = array.flat
+        array = array.ravel()
     return array
 
 
@@ -196,3 +196,12 @@ def traverse(obj):
     if isinstance(obj, Iterable):
         return traverse(obj[0])
     return obj
+
+
+def get(ds, value, to_str=False):
+    if isinstance(value, str):
+        if value in ds:
+            value = ds[value]
+            if to_str:
+                value = value.astype(str)
+    return value

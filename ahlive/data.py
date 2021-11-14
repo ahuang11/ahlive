@@ -41,6 +41,7 @@ from .join import (
 )
 from .util import (
     fillna,
+    get,
     is_datetime,
     is_numeric,
     is_scalar,
@@ -489,7 +490,7 @@ class Data(Easing, Animation, Configuration):
                 .where(ds["x"] >= (ds["x"].max() - limit), drop=True)
                 .values.ravel()
             )
-            ds = ds.where(ds["label"].isin(limit_labels), drop=True)
+            ds = ds.sel(item=ds["label"].isin(limit_labels)["item"])
 
             # fill back in NaNs
             ds["y"] = ds["y"].where(np.isfinite(ds["y"]))
@@ -1058,8 +1059,6 @@ class Data(Easing, Animation, Configuration):
 
         for axis in ["x", "y"]:
             axis_margins = margins_kwds.pop(axis, None)
-            if chart == "barh":
-                axis = "y" if axis == "x" else "y"
             if axis_margins is None:
                 continue
             elif axis == "y" and chart.startswith("bar"):
@@ -1172,7 +1171,7 @@ class Data(Easing, Animation, Configuration):
         if len(geo_features) > 0:
             projection = projection or ("GOOGLE_MERCATOR" if tiles else "PlateCarree")
 
-        if "grid_x" not in ds.coords and "grid_y" not in ds.coords:
+        if "grid_item" not in ds.dims and "item" not in ds.dims:
             return ds
         elif crs or projection:
             if chart == "pie":
@@ -1716,18 +1715,17 @@ class ReferenceArray(param.Parameterized):
             )
 
             for key in list(kwds):
-                val = kwds[key]
-                if isinstance(val, str):
-                    if val in ds:
-                        kwds[key] = ds[val]
+                kwds[key] = get(ds, kwds[key])
 
-                        if inline_locs is None:
-                            has_x0s = kwds["x0s"] is not None
-                            has_y0s = kwds["y0s"] is not None
-                            if has_x0s and not has_y0s:
-                                kwds["inline_locs"] = ds["y"]
-                            elif has_y0s and not has_x0s:
-                                kwds["inline_locs"] = ds["x"]
+            if inline_locs is None:
+                has_x0s = kwds["x0s"] is not None
+                has_y0s = kwds["y0s"] is not None
+                if has_x0s and not has_y0s:
+                    inline_locs = to_scalar(ds["y"].values)
+                elif has_y0s and not has_x0s:
+                    inline_locs = to_scalar(ds["x"].values)
+                if not isinstance(inline_locs, str):
+                    kwds["inline_locs"] = inline_locs
 
             self_copy *= Reference(**kwds)
 
@@ -1865,6 +1863,8 @@ class RemarkArray(param.Parameterized):
 
         if durations is None and remarks is None:
             raise ValueError("Must supply at least remarks or durations!")
+        elif durations is None:
+            durations = 2
 
         if rowcols is None:
             rowcols = self.data.keys()
@@ -1913,9 +1913,7 @@ class RemarkArray(param.Parameterized):
                         np.full((len(ds["item"].values), len(ds["state"])), ""),
                     )
 
-                if isinstance(remarks, str):
-                    if remarks in ds.data_vars:
-                        remarks = ds[remarks].astype(str)
+                remarks = get(ds, remarks, to_str=True)
                 ds["remark"] = xr.where(condition, remarks, ds["remark"])
 
             condition = np.array(condition)
@@ -2148,7 +2146,6 @@ class DataStructure(Array):
         if hasattr(dataset, "reset_coords"):
             keys = dataset
         else:
-            dataset = dataset.dropna(subset=[ys])
             dataset = dataset.reset_index()
             keys = dataset.columns
         group_key, label_key = self._validate_keys(xs, ys, kwds, keys)
@@ -2179,8 +2176,8 @@ class DataStructure(Array):
                     )
 
                 super().__init__(
-                    xs=label_dataset[xs],
-                    ys=label_dataset[ys],
+                    xs=label_dataset.get(xs),
+                    ys=label_dataset.get(ys),
                     group=group,
                     label=label,
                     **kwds_updated,
@@ -2215,10 +2212,10 @@ class DataStructure(Array):
 
         # swap xlabel and ylabel
         if kwds_updated.get("chart") == "barh":
-            kwds_updated["xlabel"], kwds_updated["ylabel"] = (
-                kwds_updated.get("ylabel", ""),
-                kwds_updated.get("xlabel", ""),
-            )
+            xlabel = kwds_updated.get("xlabel", "")
+            ylabel = kwds_updated.get("ylabel", "")
+            kwds_updated["xlabel"] = ylabel
+            kwds_updated["ylabel"] = xlabel
 
         for key, val in kwds.items():
             if isinstance(val, dict):
@@ -2237,7 +2234,7 @@ class DataFrame(DataStructure):
 
     _dim_type = "basic"
 
-    def __init__(self, df, xs, ys, join="overlay", **kwds):
+    def __init__(self, df, xs, ys=None, join="overlay", **kwds):
         super().__init__(df, xs, ys, join=join, **kwds)
 
 
