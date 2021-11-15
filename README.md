@@ -11,11 +11,11 @@ ahlive is an open-source Python package that makes animating data simple, clean,
 
 Here are some features that make ahlive stand out!
 
-    - inline labels that follow the data
-    - dynamic axes limits that expand as necessary
-    - remarks that pause the animation when a threshold is met
-    - moving average reference line
-    - straightforward usage; just set keywords!
+- inline labels that follow the data
+- dynamic axes limits that expand as necessary
+- remarks that pause the animation when a threshold is met
+- moving average reference line
+- straightforward usage; just set keywords!
 
 ![CO2 Concentrations](https://raw.githubusercontent.com/ahuang11/ahlive/main/docs/source/_static/co2_concentrations.gif)
 
