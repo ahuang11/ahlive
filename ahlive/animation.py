@@ -355,8 +355,8 @@ class Animation(param.Parameterized):
             ax.annotate(**state_kwds)
 
     def _extract_color(self, plot):
-        if isinstance(plot, list):
-            plot = plot[0]
+        if isinstance(plot, (list, tuple)):
+            return self._extract_color(plot[0])
 
         if hasattr(plot, "get_color"):
             color = plot.get_color()
@@ -387,20 +387,10 @@ class Animation(param.Parameterized):
 
         return color
 
-    @staticmethod
-    def _map_chart(chart):
-        if chart == "line":
-            chart = "plot"
-        elif chart == "area":
-            chart = "fill_between"
-        elif chart == "annotation":
-            chart = "annotate"
-        return chart
-
     def _init_chart_keys(self):
         if len(self._chart_keys) == 0:
             for chart in CHARTS["basic"]:
-                chart = self._map_chart(chart)
+                chart = CHARTS["mpl"].get(chart, chart)
                 if chart != "annotate":
                     args = ([0, 1], [0, 1])
                 else:
@@ -416,7 +406,7 @@ class Animation(param.Parameterized):
                 plt.close()
 
     def _pop_invalid_kwds(self, chart, plot_kwds):
-        chart = self._map_chart(chart)
+        chart = CHARTS["mpl"].get(chart, chart)
         valid_keys = self._chart_keys[chart]
         for key in list(plot_kwds.keys()):  # create copy
             if key not in valid_keys:
@@ -432,13 +422,14 @@ class Animation(param.Parameterized):
                 "submit a GitHub issue for support if needed!"
             )
 
+        chart = CHARTS["mpl"].get(chart, chart)
         plot_kwds = self._pop_invalid_kwds(chart, plot_kwds)
         if chart == "line":
             plot = ax.plot(xs, ys, **plot_kwds)
         elif chart == "pie":
-            plot, _ = ax.pie(ys, **plot_kwds)
-        elif chart == "area":
-            plot = ax.fill_between(xs, ys, **plot_kwds)
+            pie_kwds = plot_kwds.copy()
+            pie_kwds["textprops"].pop("offset", None)
+            plot = ax.pie(ys, **pie_kwds)
         elif chart.startswith("bar"):
             plot = getattr(ax, chart)(to_1d(xs), to_1d(ys), **plot_kwds)
         elif chart == "annotation":
@@ -513,7 +504,7 @@ class Animation(param.Parameterized):
                 for key, val in preset_kwds.items()
             }
             preset_kwds["label"] = "_nolegend_"
-
+            preset_kwds = self._pop_invalid_kwds(chart, preset_kwds)
             ax.scatter(x_discrete_trails, y_discrete_trails, **preset_kwds)
 
         if chart in ["line", "both"]:
@@ -644,6 +635,7 @@ class Animation(param.Parameterized):
 
     @staticmethod
     def _compute_pie_xys(plot, offset=1):
+        plot = plot[0]
         thetas = np.array([(p.theta1, p.theta2) for p in plot])
         ang = (thetas[:, 1] - thetas[:, 0]) / 2.0 + thetas[:, 0]
         ys = np.sin(np.deg2rad(ang)) * offset
@@ -772,7 +764,7 @@ class Animation(param.Parameterized):
         else:
             xs = to_1d(xs)
             ys = to_1d(ys)
-            if chart in ITEMS["continual"] + ITEMS["bar"]:
+            if chart in ITEMS["continual_charts"] + ITEMS["bar_charts"]:
                 xs = xs[[-1]]
                 ys = ys[[-1]]
                 inline_labels = inline_labels[[-1]]
@@ -801,12 +793,12 @@ class Animation(param.Parameterized):
             array = to_1d(array, flat=False)
 
         array = np.array(array)
-        if get is not None and chart not in ITEMS["bar"] + ["pie"]:
+        if get is not None and chart not in ITEMS["bar_charts"] + ["pie"]:
             if array.ndim == 3:
                 array = array[:, :, get].squeeze()
-            elif array.ndim == 2 and chart not in ITEMS["continual"]:
+            elif array.ndim == 2 and chart not in ITEMS["continual_charts"]:
                 array = array[:, get]
-            elif chart not in ITEMS["continual"]:
+            elif chart not in ITEMS["continual_charts"]:
                 array = array[[get]]
         elif array.ndim > 1 and len(array[-1]) == 1:  # [[0, 1, 2]]
             array = array.ravel()
@@ -1150,11 +1142,14 @@ class Animation(param.Parameterized):
         mappable = None
         for _, overlay_ds in grid_iter_ds:
             chart = pop(overlay_ds, "chart", get=0)
+            chart = CHARTS["mpl"].get(chart, chart)
 
             xs = pop(overlay_ds, "x")
             ys = pop(overlay_ds, "y")
             cs = pop(overlay_ds, "c")
-            if cs.ndim > 2:
+            us = pop(overlay_ds, "u")
+            vs = pop(overlay_ds, "v")
+            if cs is not None and cs.ndim > 2:
                 cs = cs[-1]
 
             scan_xs = pop(overlay_ds, "scan_x")
@@ -1193,21 +1188,24 @@ class Animation(param.Parameterized):
                 **plot_kwds,
             )
 
-            if chart in ["quiver", "streamplot"]:
+            if chart in ["quiver", "streamplot", "barbs"]:
+                vmin = plot_kwds.pop("vmin", None)
+                vmax = plot_kwds.pop("vmax", None)
                 xs, ys = np.meshgrid(xs, ys)
-                us = plot_kwds.pop("u")
-                vs = plot_kwds.pop("v")
-                if chart == "quiver":
-                    clim = plot_kwds.pop("vmin"), plot_kwds.pop("vmax")
-                    mappable = ax.quiver(xs, ys, us, vs, cs, clim=clim, **plot_kwds)
+                if chart in ["quiver", "barbs"]:
+                    if vmin is not None or vmax is not None:
+                        plot_args = (us, vs, cs)
+                        plot_kwds["clim"] = (vmin, vmax)
+                    else:
+                        plot_args = us, vs
+                    mappable = getattr(ax, chart)(xs, ys, *plot_args, **plot_kwds)
                 elif chart == "streamplot":
-                    norm = Normalize(
-                        vmin=plot_kwds.pop("vmin"), vmax=plot_kwds.pop("vmax")
-                    )
-                    streamplot = ax.streamplot(
-                        xs, ys, us, vs, color=cs, norm=norm, **plot_kwds
-                    )
+                    if vmin is not None or vmax is not None:
+                        norm = Normalize(vmin=vmin, vmax=vmax)
+                        plot_kwds.update({"color": cs, "norm": norm})
+                    streamplot = ax.streamplot(xs, ys, us, vs, **plot_kwds)
                     mappable = streamplot.lines
+
             else:
                 mappable = getattr(ax, chart)(xs, ys, cs, **plot_kwds)
 
@@ -1363,7 +1361,7 @@ class Animation(param.Parameterized):
         adjust_text_kwds = load_defaults(
             "adjust_text_kwds", state_ds, ax=ax, texts=mpl_texts
         )
-        adjust_text = adjust_text_kwds.pop("adjust_text")
+        adjust_text = adjust_text_kwds.pop("adjust_text", None)
         if adjust_text:
             try:
                 import adjustText

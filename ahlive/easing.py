@@ -50,15 +50,7 @@ class Easing(param.Parameterized):
         super().__init__(**kwds)
 
     def interpolate(self, da, name=""):
-        interp = self.interp
-        if interp is None:
-            try:
-                if len(da) > 4:
-                    interp = "linear"
-                else:
-                    interp = "cubic"
-            except TypeError:
-                interp = "linear"
+        interp = self.interp or "linear"
         ease = self.ease
 
         da_origin = da.copy()
@@ -166,7 +158,7 @@ class Easing(param.Parameterized):
         else:
             result_back = result[:, ::-1]
         if name == "duration" and self.revert == "rollback":
-            result_back = np.repeat(1 / 60, result_back.shape[-1])[np.newaxis, :]
+            result_back = np.repeat(1 / 45, result_back.shape[-1])[np.newaxis, :]
         result = np.hstack([result, result_back])
         return result
 
