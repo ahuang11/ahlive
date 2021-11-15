@@ -16,7 +16,7 @@ Here are some features that make ahlive stand out!
     - moving average reference line
     - straightforward usage; just set keywords!
 
-<img src="https://github.com/ahuang11/ahlive/blob/github_docs/docs/source/_static/co2_concentrations.gif"/>
+![Animation](https://github.com/ahuang11/historname/blob/master/years_historname.gif)
 
 The code to generate the example can be found `here <https://ahlive.readthedocs.io/en/main/introductions/quick_start.html>`_.
 
