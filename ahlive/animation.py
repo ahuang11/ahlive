@@ -432,7 +432,7 @@ class Animation(param.Parameterized):
             plot = ax.pie(ys, **pie_kwds)
         elif chart.startswith("bar"):
             plot = getattr(ax, chart)(to_1d(xs), to_1d(ys), **plot_kwds)
-        elif chart == "annotation":
+        elif chart == "annotate":
             plot_kwds = load_defaults("text_inline_kwds", plot_kwds)
             plot_kwds = self._update_text(plot_kwds, "text")
             if "xytext" not in plot_kwds.keys():

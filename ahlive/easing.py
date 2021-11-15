@@ -7,7 +7,7 @@ import xarray as xr
 from matplotlib.colors import LinearSegmentedColormap, rgb2hex
 
 from .configuration import DEFAULTS, EASES, INTERPS, PRECEDENCES, REVERTS
-from .util import is_str
+from .util import is_str, length
 
 
 class Easing(param.Parameterized):
@@ -50,7 +50,12 @@ class Easing(param.Parameterized):
         super().__init__(**kwds)
 
     def interpolate(self, da, name=""):
-        interp = self.interp or "linear"
+        interp = self.interp
+        if interp is None:
+            if length(da) > 4:
+                interp = "linear"
+            else:
+                interp = "cubic"
         ease = self.ease
 
         da_origin = da.copy()
