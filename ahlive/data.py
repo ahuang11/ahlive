@@ -1537,6 +1537,10 @@ class Data(Easing, Animation, Configuration):
             except Exception:
                 pass
 
+        if self._dim_type == "grid":
+            num_ys = len(input_vars["ys"])
+            num_xs = len(input_vars["xs"])
+
         plot_key = f"{self._dim_type}_plot_kwds".replace("basic_", "")
         for var in list(data_vars.keys()):
             val = data_vars.pop(var)
@@ -1544,6 +1548,9 @@ class Data(Easing, Animation, Configuration):
                 attrs[plot_key][var] = val
             elif self._dim_type == "grid" and var in ["x", "y"]:
                 coords[var] = val
+            elif self._dim_type == "grid" and is_scalar(val):
+                shape = (num_items, self.num_states, num_ys, num_xs)
+                data_vars[var] = dims, np.full(shape, val)
             else:
                 data_vars[var] = dims, self._adapt_input(val, num_items=num_items)
 

@@ -504,14 +504,14 @@ class Animation(param.Parameterized):
                 for key, val in preset_kwds.items()
             }
             preset_kwds["label"] = "_nolegend_"
-            preset_kwds = self._pop_invalid_kwds(chart, preset_kwds)
+            preset_kwds = self._pop_invalid_kwds("scatter", preset_kwds)
             ax.scatter(x_discrete_trails, y_discrete_trails, **preset_kwds)
 
         if chart in ["line", "both"]:
             x_trails = x_trails[-expire * self.num_steps - 1 :]
             y_trails = y_trails[-expire * self.num_steps - 1 :]
             line_preset_kwds["label"] = "_nolegend_"
-            line_preset_kwds = self._pop_invalid_kwds(chart, line_preset_kwds)
+            line_preset_kwds = self._pop_invalid_kwds("line", line_preset_kwds)
             ax.plot(x_trails, y_trails, **line_preset_kwds)
 
     def _plot_deltas(
@@ -1033,7 +1033,9 @@ class Animation(param.Parameterized):
 
             plot_kwds = self._strip_dict(
                 {
-                    key: to_scalar(val) if key not in ITEMS["not_scalar"] else val
+                    key: to_scalar(val, standard=True)
+                    if key not in ITEMS["not_scalar"]
+                    else val
                     for key, val in trail_plot_kwds.items()
                 }
             )
@@ -1053,9 +1055,6 @@ class Animation(param.Parameterized):
                 plot_kwds["labels"] = inline_kwds.pop("labels")
                 plot_kwds["textprops"] = inline_kwds
                 plot_kwds["labeldistance"] = plot_kwds.get("labeldistance", None)
-
-            if "label" in plot_kwds:
-                plot_kwds["label"] = to_scalar(plot_kwds["label"])
 
             if "zorder" not in plot_kwds:
                 plot_kwds["zorder"] = 2
@@ -1168,12 +1167,13 @@ class Animation(param.Parameterized):
 
             plot_kwds = self._strip_dict(
                 {
-                    var: pop(overlay_ds, var, get=0)
+                    var: pop(overlay_ds, var, get=0, standard=True)
                     if var not in ITEMS["not_scalar"]
                     else overlay_ds[var].values
                     for var in list(overlay_ds.data_vars)
                 }
             )
+
             if chart in ["contourf", "contour"]:
                 if "levels" not in plot_kwds:
                     plot_kwds["levels"] = overlay_ds.attrs["cticks_kwds"].get("ticks")
@@ -1193,7 +1193,7 @@ class Animation(param.Parameterized):
                 vmax = plot_kwds.pop("vmax", None)
                 xs, ys = np.meshgrid(xs, ys)
                 if chart in ["quiver", "barbs"]:
-                    if vmin is not None or vmax is not None:
+                    if cs is not None and not np.isnan(cs).all():
                         plot_args = (us, vs, cs)
                         plot_kwds["clim"] = (vmin, vmax)
                     else:
@@ -1205,7 +1205,6 @@ class Animation(param.Parameterized):
                         plot_kwds.update({"color": cs, "norm": norm})
                     streamplot = ax.streamplot(xs, ys, us, vs, **plot_kwds)
                     mappable = streamplot.lines
-
             else:
                 mappable = getattr(ax, chart)(xs, ys, cs, **plot_kwds)
 
@@ -1323,7 +1322,10 @@ class Animation(param.Parameterized):
                 xytext = (0, 5)
 
             plot_kwds = self._strip_dict(
-                {var: pop(overlay_ds, var, get=0) for var in list(overlay_ds.data_vars)}
+                {
+                    var: pop(overlay_ds, var, get=0, standard=True)
+                    for var in list(overlay_ds.data_vars)
+                }
             )
             plot_kwds = load_defaults(
                 "ref_plot_kwds",
