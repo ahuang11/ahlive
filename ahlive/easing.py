@@ -102,6 +102,13 @@ class Easing(param.Parameterized):
         if self.revert in ["traceback", "rollback"]:
             result = self._apply_revert(result, name)
 
+        # twitter ignores the last frame, so this is a hack
+        # to make it drop a useless frame rather than the actual
+        # final frame with a duration
+        result = np.hstack([result, result[:, -1:]])
+        if name == "duration":
+            result[:, -1] = 0
+
         if is_xarray:
             result = self._rebuild_da(result, da, dims, coords)
 

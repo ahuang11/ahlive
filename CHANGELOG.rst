@@ -54,6 +54,9 @@ new features
 - Support `adjust_text` keyword that attempts to prevent text overlaps (:pull:`126`).
   By `Andrew Huang <https://github.com/ahuang11>`_
 
+- Add `windbarb` chart and cleanup internals (:pull:`131`).
+  By `Andrew Huang <https://github.com/ahuang11>`_
+
 documentation
 ~~~~~~~~~~~~~
 
@@ -109,6 +112,9 @@ enhancements
   By `Andrew Huang <https://github.com/ahuang11>`_
 
 - Add `pattern` and `sample` as keywords to `list_datasets` and fix docs (:pull:`115`).
+  By `Andrew Huang <https://github.com/ahuang11>`_
+
+- Add dummy frame so Twitter doesn't automatically restart GIF at the end (:pull:`132`).
   By `Andrew Huang <https://github.com/ahuang11>`_
 
 bug fixes
