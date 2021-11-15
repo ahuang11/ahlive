@@ -17,6 +17,7 @@ Here are some features that make ahlive stand out!
     - straightforward usage; just set keywords!
 
 ![CO2 Concentrations](https://github.com/ahuang11/ahlive/blob/github_docs/docs/source/_static/co2_concentrations.gif?raw=true)
+
 The code to generate the example can be found `here <https://ahlive.readthedocs.io/en/main/introductions/quick_start.html>`_.
 
 Need support? Join the community and ask a question in the `discussions <https://github.com/ahuang11/ahlive/discussions>`_ page.
