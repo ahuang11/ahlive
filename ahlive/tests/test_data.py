@@ -659,7 +659,7 @@ def test_add_durations_default():
     ds = ah_obj[1, 1]
     assert ds["duration"].attrs["aggregate"] == "max"
     assert ds["duration"].attrs["transition_frames"] == 0.022222222222222223
-    assert (ds["duration"].values == [0.5, 0, 1.05]).all()
+    assert (ds["duration"].values == [0.5, 0, 1.05, 0]).all()
 
 
 def test_add_durations_input():
@@ -671,21 +671,21 @@ def test_add_durations_input():
     ds = ah_obj[1, 1]
     assert ds["duration"].attrs["aggregate"] == "min"
     assert ds["duration"].attrs["transition_frames"] == 2
-    assert (ds["duration"].values == [0, 0, 3]).all()
+    assert (ds["duration"].values == [0, 0, 3, 0]).all()
 
 
 def test_interp_dataset():
     ah_obj = ah.Array([0, 1, 2], [3, 4, 5], frames=3).finalize()
     ds = ah_obj[1, 1]
-    assert (ds["x"] == [0, 0.5, 1.0, 1.0, 1.5, 2.0]).all()
-    assert (ds["y"] == [3, 3.5, 4, 4, 4.5, 5]).all()
+    assert (ds["x"] == [0, 0.5, 1.0, 1.0, 1.5, 2.0, 2]).all()
+    assert (ds["y"] == [3, 3.5, 4, 4, 4.5, 5, 5]).all()
 
 
 def test_interp_dataset_ref():
     ah_obj = ah.Reference([0, 1, 2], [3, 4, 5], frames=3).finalize()
     ds = ah_obj[1, 1]
-    assert (ds["ref_x0"] == [0, 0.5, 1.0, 1.0, 1.5, 2.0]).all()
-    assert (ds["ref_x1"] == [3, 3.5, 4, 4, 4.5, 5]).all()
+    assert (ds["ref_x0"] == [0, 0.5, 1.0, 1.0, 1.5, 2.0, 2.0]).all()
+    assert (ds["ref_x1"] == [3, 3.5, 4, 4, 4.5, 5, 5]).all()
 
 
 def test_interp_dataset_grid():
