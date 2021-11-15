@@ -16,10 +16,10 @@ Here are some features that make ahlive stand out!
     - moving average reference line
     - straightforward usage; just set keywords!
 
-[](<https://raw.githubusercontent.com/ahuang11/ahlive/main/docs/source/_static/co2_concentrations.gif>)
+[CO2 Concentrations](https://raw.githubusercontent.com/ahuang11/ahlive/main/docs/source/_static/co2_concentrations.gif)
 
-The code to generate the example can be found `here <https://ahlive.readthedocs.io/en/main/introductions/quick_start.html>`_.
+The code to generate the example can be found [here](https://ahlive.readthedocs.io/en/main/introductions/quick_start.html).
 
-Need support? Join the community and ask a question in the `discussions <https://github.com/ahuang11/ahlive/discussions>`_ page.
+Need support? Join the community and ask a question at the [discussions](https://github.com/ahuang11/ahlive/discussions) page.
 
 Don't be shy--it would make my day to see others use my package, seriously!
