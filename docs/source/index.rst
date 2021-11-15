@@ -1,4 +1,17 @@
-.. include:: ../../README.rst
+Read the docs:
+   http://ahlive.readthedocs.io/
+
+Install the package:
+   ``pip install ahlive``
+
+View the repository:
+   https://github.com/ahuang11/ahlive/
+
+Ask a question:
+   https://github.com/ahuang11/ahlive/discussions
+
+Report a bug or request a feature:
+   https://github.com/ahuang11/ahlive/issues
 
 .. toctree::
    :maxdepth: 1
