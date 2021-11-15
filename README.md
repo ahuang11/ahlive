@@ -1,13 +1,22 @@
 ahlive - animate your data to life!
 ====================================
 
-Install the package:
-    ``pip install ahlive``
+Install the package: ``pip install ahlive``
 
-Full Documentation:
-    http://ahlive.readthedocs.io/
+Full Documentation: http://ahlive.readthedocs.io/
 
 ahlive is an open-source Python package that makes animating data simple, clean, and enjoyable.
+
+It can be as easy as:
+
+```
+import ahlive as ah
+df = ah.open_dataset(
+    "owid_co2_concentrations_over_the_long_term_scripps",
+    names=["entity", "year", "co2"], index_col="year", verbose=True
+)
+ah.DataFrame(df, xs="year", ys="co2").render()
+```
 
 Here are some features that make ahlive stand out!
 
