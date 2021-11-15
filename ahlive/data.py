@@ -188,6 +188,7 @@ class Data(Easing, Animation, Configuration):
         precedence=PRECEDENCES["style"],
     )
     adjust_text = param.Boolean(
+        default=None,
         doc="Whether to use adjustText to adjust "
         "inline labels' location minimize overlap",
         precedence=PRECEDENCES["style"],
@@ -245,7 +246,7 @@ class Data(Easing, Animation, Configuration):
         )
 
     def _init_num_states(self):
-        cs = self._input_vars.get("cs")
+        cs = self._input_vars.get("cs", self._input_vars.get("us"))
         if cs is not None:
             cs = np.array(cs)
             shape = cs.shape[-2:]
@@ -591,7 +592,7 @@ class Data(Easing, Animation, Configuration):
 
         need_norm = (ds["y"].sum("item") > 1).any()
         if need_norm:
-            ds["y"] = ds["y"] / ds["y"].sum("item")
+            ds["y"] = (ds["y"] / ds["y"].sum("item")).fillna(0)
         return ds
 
     def _config_grid_axes(self, ds, chart):
@@ -752,7 +753,7 @@ class Data(Easing, Animation, Configuration):
             elif unset_limit:
                 has_other_limit = limits[f"{key[:-1]}{1 - num}s"] is not None
                 is_scatter = chart == "scatter"
-                is_line_y = chart in ITEMS["continual"] and axis == "y"
+                is_line_y = chart in ITEMS["continual_charts"] and axis == "y"
                 is_bar_x = chart.startswith("bar") and axis == "x"
                 is_bar_y = chart.startswith("bar") and axis == "y"
                 is_fixed = any([is_scatter, is_line_y, is_bar_y, has_other_limit])
@@ -1425,11 +1426,14 @@ class Data(Easing, Animation, Configuration):
 
     def _set_input_vars(self, **kwds):
         # TODO: add test
-        self._input_vars = {
-            key: np.array(kwds.pop(key))
-            for key in list(kwds)
-            if key not in self._parameters
-        }
+        self._input_vars = {}
+        for key in list(kwds):
+            if key in self._parameters:
+                continue
+            val = kwds.pop(key)
+            if not isinstance(val, tuple):
+                val = np.array(val)
+            self._input_vars[key] = val
 
         for key in list(self._input_vars.keys()):
             if key == "c":
@@ -1508,18 +1512,19 @@ class Data(Easing, Animation, Configuration):
             chart = self.chart
 
         try:
-            if input_vars.get("ys", np.array(None)).item() is None:
+            if np.array(input_vars.get("ys", None)).item() is None:
                 input_vars["ys"] = input_vars["xs"]
                 input_vars["xs"] = np.arange(num_states)
         except (ValueError, KeyError):
             # ValueError no xs for ref
             pass  # ref or grid
 
+        attrs = {"plot_kwds": {}, "grid_plot_kwds": {}, "ref_plot_kwds": {}}
         coords = {}
         data_vars = {}
         dims = DIMS[self._dim_type]
         for key, val in input_vars.items():
-            if len(key) > 1 and key.endswith("s"):
+            if len(key) > 1 and key.endswith("s"):  # exclude s / size
                 key = key[:-1]
             data_vars[key] = val
 
@@ -1532,9 +1537,12 @@ class Data(Easing, Animation, Configuration):
             except Exception:
                 pass
 
+        plot_key = f"{self._dim_type}_plot_kwds".replace("basic_", "")
         for var in list(data_vars.keys()):
             val = data_vars.pop(var)
-            if self._dim_type == "grid" and var in ["x", "y"]:
+            if isinstance(val, tuple) and var not in ["x", "y"]:
+                attrs[plot_key][var] = val
+            elif self._dim_type == "grid" and var in ["x", "y"]:
                 coords[var] = val
             else:
                 data_vars[var] = dims, self._adapt_input(val, num_items=num_items)
@@ -1564,7 +1572,7 @@ class Data(Easing, Animation, Configuration):
         )
 
         coords.update({dims[0]: srange(num_items), "state": srange(num_states)})
-        ds = xr.Dataset(coords=coords, data_vars=data_vars)
+        ds = xr.Dataset(coords=coords, data_vars=data_vars, attrs=attrs)
         ds = _drop_state(ds)
         self._ds = ds
 
@@ -2032,8 +2040,10 @@ class Array2D(Array):
 
     _dim_type = "grid"
 
-    def __init__(self, xs, ys, cs, **kwds):
-        super().__init__(xs, ys, cs=cs, **kwds)
+    def __init__(self, xs, ys, cs=None, **kwds):
+        if cs is not None:
+            kwds["cs"] = cs
+        super().__init__(xs, ys, **kwds)
         self.configurables["grid"] = CONFIGURABLES["grid"]
         self.data = {self.rowcol: self._ds}
 
@@ -2117,6 +2127,9 @@ class Array2D(Array):
 
     def _config_chart(self, ds, chart):
         ds = super()._config_chart(ds, chart)
+        if chart not in ITEMS["uv_charts"] and "grid_c" not in ds.data_vars:
+            raise ValueError("cs must be specified!")
+
         preset = ds.attrs["preset_kwds"].get("preset", "")
         if preset.startswith("scan"):
             ds = self._config_scan_chart(ds, preset)
@@ -2251,7 +2264,7 @@ class Dataset(DataStructure, Array2D):
 
     _dim_type = "grid"
 
-    def __init__(self, ds, xs, ys, cs, join="overlay", **kwds):
+    def __init__(self, ds, xs, ys, cs=None, join="overlay", **kwds):
         if isinstance(ds, xr.DataArray):
             ds = ds.to_dataset()
 

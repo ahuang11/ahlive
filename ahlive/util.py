@@ -81,11 +81,13 @@ def is_scalar(value):
 def to_scalar(value, get=-1):
     value = to_1d(value)
     for _ in np.arange(len(value)):
-        if pd.isnull(value[get]):
+        scalar = value[get]
+        if pd.isnull(scalar):
             get -= 1
         else:
-            return value[get]
-    return value[-1]
+            break
+
+    return scalar
 
 
 def is_datetime(value):

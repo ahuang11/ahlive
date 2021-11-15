@@ -41,6 +41,7 @@
    examples/gapminder.ipynb
    examples/rain_simulation.ipynb
    examples/hurricane_tracks.ipynb
+   examples/nuclear_weapons.ipynb
 
 .. toctree::
    :maxdepth: 1

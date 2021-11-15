@@ -19,7 +19,10 @@ def assert_types(ah_obj):
 def assert_values(ds, var_dict):
     """assert values are correctly serialized"""
     for var in var_dict:
-        actual = np.array(ds[var]).ravel()
+        try:
+            actual = np.array(ds[var]).ravel()
+        except KeyError:
+            actual = np.array(ds.attrs["plot_kwds"][var])
         expect = np.array(var_dict[var]).ravel()
 
         actual = actual[~pd.isnull(actual)]

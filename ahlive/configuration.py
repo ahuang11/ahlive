@@ -212,8 +212,15 @@ CHARTS = {
         "hexbin",
         "quiver",
         "streamplot",
+        "windbarb",
     ],
     "ref": ["rectangle", "axvspan", "axhspan", "axvline", "axhline", "scatter"],
+}
+CHARTS["mpl"] = {
+    "line": "plot",
+    "area": "fill_between",
+    "annotation": "annotate",
+    "windbarb": "barbs",
 }
 CHARTS["all"] = CHARTS["basic"] + CHARTS["grid"] + CHARTS["ref"]
 
@@ -270,22 +277,23 @@ ITEMS = {
         "grid_kwds",
         "margins_kwds",
     ],
-    "continual": ["line", "errorbar", "area"],  # need more than one data point
-    "bar": ["bar", "barh"],  # need more than one data point
+    "continual_charts": ["line", "errorbar", "area"],  # need more than one data point
+    "uv_charts": ["quiver", "streamplot", "windbarb"],
+    "bar_charts": ["bar", "barh"],  # need more than one data point
     "not_scalar": ["labels", "xerr", "yerr", "y2", "u", "v"],
 }
 
 PRESETS = {
     "trail": ["scatter", "annotation"],
-    "morph": ["scatter"] + ITEMS["continual"] + ITEMS["bar"],
-    "morph_trail": ["scatter"] + ITEMS["continual"],
-    "morph_stacked": ITEMS["bar"],
-    "rotate": ["scatter"] + ITEMS["continual"] + CHARTS["grid"],
-    "scan_x": ["scatter"] + ITEMS["continual"] + CHARTS["grid"],
-    "scan_y": ["scatter"] + ITEMS["continual"] + CHARTS["grid"],
-    "race": ITEMS["bar"],
-    "delta": ITEMS["bar"],
-    "stacked": ITEMS["bar"],
+    "morph": ["scatter"] + ITEMS["continual_charts"] + ITEMS["bar_charts"],
+    "morph_trail": ["scatter"] + ITEMS["continual_charts"],
+    "morph_stacked": ITEMS["bar_charts"],
+    "rotate": ["scatter"] + ITEMS["continual_charts"] + CHARTS["grid"],
+    "scan_x": ["scatter"] + ITEMS["continual_charts"] + CHARTS["grid"],
+    "scan_y": ["scatter"] + ITEMS["continual_charts"] + CHARTS["grid"],
+    "race": ITEMS["bar_charts"],
+    "delta": ITEMS["bar_charts"],
+    "stacked": ITEMS["bar_charts"],
 }
 
 # frontend facing options

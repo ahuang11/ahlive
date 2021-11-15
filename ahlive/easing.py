@@ -7,7 +7,7 @@ import xarray as xr
 from matplotlib.colors import LinearSegmentedColormap, rgb2hex
 
 from .configuration import DEFAULTS, EASES, INTERPS, PRECEDENCES, REVERTS
-from .util import is_str
+from .util import is_str, length
 
 
 class Easing(param.Parameterized):
@@ -52,13 +52,10 @@ class Easing(param.Parameterized):
     def interpolate(self, da, name=""):
         interp = self.interp
         if interp is None:
-            try:
-                if len(da) > 4:
-                    interp = "linear"
-                else:
-                    interp = "cubic"
-            except TypeError:
+            if length(da) > 4:
                 interp = "linear"
+            else:
+                interp = "cubic"
         ease = self.ease
 
         da_origin = da.copy()
@@ -166,7 +163,7 @@ class Easing(param.Parameterized):
         else:
             result_back = result[:, ::-1]
         if name == "duration" and self.revert == "rollback":
-            result_back = np.repeat(1 / 60, result_back.shape[-1])[np.newaxis, :]
+            result_back = np.repeat(1 / 45, result_back.shape[-1])[np.newaxis, :]
         result = np.hstack([result, result_back])
         return result
 
