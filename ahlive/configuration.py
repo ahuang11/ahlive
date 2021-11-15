@@ -425,6 +425,11 @@ DEFAULTS["plot_kwds"]["scatter"] = {"alpha": 0.9}
 DEFAULTS["plot_kwds"]["bar"] = {"alpha": 0.9}
 DEFAULTS["plot_kwds"]["barh"] = {"alpha": 0.9}
 
+DEFAULTS["grid_plot_kwds"] = {}
+DEFAULTS["grid_plot_kwds"]["streamline"] = {"zorder": 2}
+DEFAULTS["grid_plot_kwds"]["quiver"] = {"zorder": 2}
+DEFAULTS["grid_plot_kwds"]["barbs"] = {"zorder": 2}
+
 DEFAULTS["ref_plot_kwds"] = {}
 DEFAULTS["ref_plot_kwds"]["rectangle"] = {
     "facecolor": "#696969",

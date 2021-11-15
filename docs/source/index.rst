@@ -1,5 +1,7 @@
-Read the docs:
-   http://ahlive.readthedocs.io/
+ahlive - animate your data to life!
+====================================
+
+ahlive is an open-source Python package that makes animating data simple, clean, and enjoyable!
 
 Install the package:
    ``pip install ahlive``
@@ -55,6 +57,7 @@ Report a bug or request a feature:
    examples/rain_simulation.ipynb
    examples/hurricane_tracks.ipynb
    examples/nuclear_weapons.ipynb
+   examples/gridded_weather.ipynb
 
 .. toctree::
    :maxdepth: 1

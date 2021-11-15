@@ -78,7 +78,7 @@ def is_scalar(value):
     return np.size(value) == 1
 
 
-def to_scalar(value, get=-1):
+def to_scalar(value, get=-1, standard=False):
     value = to_1d(value)
     for _ in np.arange(len(value)):
         scalar = value[get]
@@ -86,6 +86,9 @@ def to_scalar(value, get=-1):
             get -= 1
         else:
             break
+
+    if standard and hasattr(scalar, "item"):
+        scalar = scalar.item()
 
     return scalar
 
@@ -114,7 +117,7 @@ def is_str(value):
     return is_string_dtype(value) or isinstance(value, str)
 
 
-def pop(ds, key, dflt=None, get=None, squeeze=False, to_numpy=True):
+def pop(ds, key, dflt=None, get=None, squeeze=False, to_numpy=True, standard=False):
     try:
         array = ds[key]
         if to_numpy:
@@ -127,7 +130,7 @@ def pop(ds, key, dflt=None, get=None, squeeze=False, to_numpy=True):
         return array
 
     if get is not None:
-        array = to_scalar(array, get=get)
+        array = to_scalar(array, get=get, standard=standard)
 
     if squeeze and hasattr(array, "squeeze"):
         array = array.squeeze()
