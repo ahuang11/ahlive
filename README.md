@@ -9,7 +9,7 @@ ahlive is an open-source Python package that makes animating data simple, clean,
 
 It can be as easy as:
 
-```
+```python
 import ahlive as ah
 df = ah.open_dataset(
     "owid_co2_concentrations_over_the_long_term_scripps",
