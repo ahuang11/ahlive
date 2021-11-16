@@ -223,13 +223,16 @@ class TutorialData(param.Parameterized):
             "USA_PRES",
             "USA_SSHS",
             "USA_RMW",
+            "USA_STATUS",
+            "USA_RECORD",
+            "LANDFALL",
         ]
         df = df[cols]
         df.columns = df.columns.str.lower()
         df = df.iloc[1:]
         df = df.set_index("iso_time")
         df.index = pd.to_datetime(df.index)
-        numeric_cols = ["lat", "lon", "usa_rmw", "usa_pres", "usa_sshs", "usa_rmw"]
+        numeric_cols = ["lat", "lon", "usa_wind", "usa_pres", "usa_sshs", "usa_rmw"]
         for col in numeric_cols:
             df[col] = pd.to_numeric(df[col], errors="coerce")
         return df

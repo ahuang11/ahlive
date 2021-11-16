@@ -3,9 +3,14 @@ from setuptools import setup
 with open("requirements.txt") as f:
     install_requires = f.read().strip().split("\n")
 
+with open("README.md", "r", encoding="utf-8") as f:
+    long_description = f.read()
+
 setup(
     name="ahlive",
     description="animate your data to life",
+    long_description=long_description,
+    long_description_content_type="text/markdown",
     url="https://github.com/ahuang11/ahlive",
     packages=["ahlive"],
     include_package_data=True,
@@ -34,6 +39,7 @@ setup(
         "Natural Language :: English",
         "Framework :: Matplotlib",
         "Topic :: Scientific/Engineering",
+        "Topic :: Scientific/Engineering :: Visualization",
         "Topic :: Software Development :: Libraries",
     ],
 )

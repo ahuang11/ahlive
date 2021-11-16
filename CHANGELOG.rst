@@ -161,6 +161,9 @@ bug fixes
 - Revise method for popping invalid keys for a given chart method (:pull:`129`).
   By `Andrew Huang <https://github.com/ahuang11>`_
 
+- Fix geographic remarks to show up (:pull:`135`).
+  By `Andrew Huang <https://github.com/ahuang11>`_
+
 internal changes
 ~~~~~~~~~~~~~~~~
 

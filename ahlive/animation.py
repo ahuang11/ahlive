@@ -435,6 +435,7 @@ class Animation(param.Parameterized):
         elif chart == "annotate":
             plot_kwds = load_defaults("text_inline_kwds", plot_kwds)
             plot_kwds = self._update_text(plot_kwds, "text")
+            plot_kwds = self._transform_annotations(ax, plot_kwds)
             if "xytext" not in plot_kwds.keys():
                 plot_kwds.pop("textcoords")
             plot = ax.annotate(xy=(xs, ys), **plot_kwds)
@@ -642,6 +643,15 @@ class Animation(param.Parameterized):
         xs = np.cos(np.deg2rad(ang)) * offset
         return xs, ys
 
+    @staticmethod
+    def _transform_annotations(ax, annotations_kwds):
+        # https://stackoverflow.com/questions/25416600/
+        # transform is mangled in matplotlib for annotate
+        transform = annotations_kwds.pop("transform", None)
+        if transform is not None:
+            annotations_kwds["xycoords"] = transform._as_mpl_transform(ax)
+        return annotations_kwds
+
     def _add_remarks(
         self, state_ds, ax, chart, xs, ys, remarks, color, mpl_texts=None, plot=None
     ):
@@ -687,6 +697,7 @@ class Animation(param.Parameterized):
             remark_inline_kwds = self._update_text(
                 remark_inline_kwds, "text", base=remark
             )
+            remark_inline_kwds = self._transform_annotations(ax, remark_inline_kwds)
             annotation = ax.annotate(**remark_inline_kwds)
             if mpl_texts is not None:
                 mpl_texts.append(annotation)
@@ -750,12 +761,7 @@ class Animation(param.Parameterized):
             path_effects=self._path_effects,
         )
         inline_kwds = load_defaults(inline_key, overlay_ds, **inline_kwds)
-
-        # https://stackoverflow.com/questions/25416600/
-        # transform is mangled in matplotlib for annotate
-        transform = inline_kwds.pop("transform", None)
-        if transform is not None:
-            inline_kwds["xycoords"] = transform._as_mpl_transform(ax)
+        inline_kwds = self._transform_annotations(ax, inline_kwds)
 
         inline_labels = to_1d(inline_labels)
         if chart == "pie":

@@ -270,6 +270,8 @@ ITEMS = {
         "text_inline_kwds",
         "ref_plot_kwds",
         "ref_inline_kwds",
+        "remark_inline_kwds",
+        "remark_plot_kwds",
         "grid_plot_kwds",
         "grid_inline_kwds",
         "preset_kwds",
