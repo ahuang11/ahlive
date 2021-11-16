@@ -27,7 +27,7 @@ Report a bug or request a feature:
    https://github.com/ahuang11/ahlive/issues
 
 Help me develop:
-   https://ahlive.readthedocs.io/en/main/contributing.html
+   https://ahlive.readthedocs.io/en/latest/contributing.html
 
 .. toctree::
    :maxdepth: 1
