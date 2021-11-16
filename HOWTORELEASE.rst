@@ -1,9 +1,7 @@
 Release Procedure
 -----------------
 
-#. Update CHANGELOG.rst to reflect release date::
-
-Every pull request should be documented under one of these categories.
+#. Update CHANGELOG.rst to reflect release date. Every pull request should be documented under one of these categories.
 
     - breaking changes
     - deprecations
