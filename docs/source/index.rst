@@ -3,7 +3,9 @@ ahlive - animate your data to life!
 
 ahlive is an open-source Python package that makes animating data simple, clean, and enjoyable!
 
-It can be as easy as::
+It can be as easy as:
+
+.. code-block:: python
 
    import ahlive as ah
    df = ah.open_dataset(
