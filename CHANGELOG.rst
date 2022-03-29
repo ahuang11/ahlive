@@ -9,7 +9,7 @@ v1.0.1
 documentation
 ~~~~~~~~~~~~~
 
-- Fix code snippet on index.rst (:pull:).
+- Fix code snippet on index.rst (:pull:`137`).
   By `Andrew Huang <https://github.com/ahuang11>`_
 
 v1.0.0
