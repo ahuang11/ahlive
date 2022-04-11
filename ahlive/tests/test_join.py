@@ -241,5 +241,5 @@ def test_stagger():
         ds_function.isel(item=2)["y"], [2, 2, 2, 3, 3, 4], equal_nan=True
     ).all()
 
-    (ah_array1 ** ah_array2 ** ah_array3).data[1, 1]
+    (ah_array1**ah_array2**ah_array3).data[1, 1]
     ah_array1.stagger(ah_array2).stagger(ah_array3).data[1, 1]
