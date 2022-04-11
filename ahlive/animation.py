@@ -156,7 +156,8 @@ class Animation(param.Parameterized):
         precedence=PRECEDENCES["misc"],
     )
 
-    _chart_keys = {}
+    _chart_keys = param.Dict(default={})
+
     _temp_file = f"{uuid.uuid4()}_{TEMP_FILE}"
     _path_effects = [withStroke(linewidth=1, alpha=0.5, foreground="whitesmoke")]
 
