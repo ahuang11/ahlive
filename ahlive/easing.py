@@ -11,7 +11,6 @@ from .util import is_str, length
 
 
 class Easing(param.Parameterized):
-
     interp = param.ClassSelector(
         default=None,
         class_=Iterable,

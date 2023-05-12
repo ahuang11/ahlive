@@ -588,7 +588,6 @@ ORIGINAL_DEFAULTS = DEFAULTS.copy()
 
 
 class CartopyCRS(param.ClassSelector):
-
     __slots__ = ["crs_dict"]
 
     def __init__(self, default=None, **params):
@@ -640,7 +639,6 @@ class CartopyFeature(param.ClassSelector):
 
 
 class CartopyTiles(param.ClassSelector):
-
     __slots__ = ["tiles_dict"]
 
     def __init__(self, default=None, **params):
@@ -663,7 +661,6 @@ class CartopyTiles(param.ClassSelector):
 
 
 class Configuration(param.Parameterized):
-
     attrs = None
 
     def __init__(self, **kwds):

@@ -14,7 +14,6 @@ from .configuration import DEFAULTS, OPTIONS
 
 
 class TutorialData(param.Parameterized):
-
     label = param.String(allow_None=True)
     raw = param.Boolean()
     verbose = param.Boolean()

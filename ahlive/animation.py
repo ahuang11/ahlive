@@ -57,7 +57,6 @@ from .util import (
 
 
 class Animation(param.Parameterized):
-
     save = param.ClassSelector(
         default=None,
         class_=(str, pathlib.Path),
@@ -1924,6 +1923,11 @@ class Animation(param.Parameterized):
                 )
             animate_kwds.pop("subrectangles", None)
             animate_kwds.pop("loop", None)
+
+        if "fps" in animate_kwds:
+            fps = animate_kwds.pop("fps")
+            duration = 1000 * 1 / fps
+            animate_kwds["duration"] = duration
         animate_kwds["format"] = ext.lstrip(".")
 
         is_file = isinstance(out_obj, str)

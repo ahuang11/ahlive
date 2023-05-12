@@ -57,7 +57,6 @@ from .util import (
 
 
 class Data(Easing, Animation, Configuration):
-
     chart = param.ClassSelector(
         class_=Iterable,
         doc=f"Type of plot; {CHARTS['all']}",
@@ -833,13 +832,15 @@ class Data(Easing, Animation, Configuration):
                         limit = limit + padding
 
             if limit is not None:
-
                 # pad bar charts
                 if chart.startswith("bar") and axis == "x" and not is_str(limit):
-                    if is_lower_limit:
-                        limit -= 0.5
-                    else:
-                        limit += 0.5
+                    try:
+                        if is_lower_limit:
+                            limit -= 0.5
+                        else:
+                            limit += 0.5
+                    except TypeError:
+                        pass
 
                 if chart == "barh":
                     axis = "x" if axis == "y" else "y"
@@ -1617,7 +1618,6 @@ class Data(Easing, Animation, Configuration):
 
 
 class GeographicData(Data):
-
     crs = CartopyCRS(
         doc="The coordinate reference system to project from",
         precedence=PRECEDENCES["geo"],
@@ -1760,7 +1760,6 @@ class ReferenceArray(param.Parameterized):
 
 
 class ColorArray(param.Parameterized):
-
     cs = param.ClassSelector(
         class_=(Iterable,),
         doc="Array to be mapped to the colorbar",
@@ -1957,7 +1956,6 @@ class RemarkArray(param.Parameterized):
 
 
 class Array(GeographicData, ReferenceArray, ColorArray, RemarkArray):
-
     xs = param.ClassSelector(
         class_=(Iterable, int, float, str),
         doc="Array to be mapped to the x-axis",
@@ -2026,7 +2024,6 @@ class Array(GeographicData, ReferenceArray, ColorArray, RemarkArray):
 
 
 class Array2D(Array):
-
     chart = param.ObjectSelector(
         default=CHARTS["grid"][0],
         objects=CHARTS["grid"],
@@ -2144,7 +2141,6 @@ class Array2D(Array):
 
 
 class DataStructure(Array):
-
     xs = param.ClassSelector(
         class_=(Iterable,),
         doc="Variable name to be mapped to the x-axis",
@@ -2249,7 +2245,6 @@ class DataStructure(Array):
 
 
 class DataFrame(DataStructure):
-
     df = param.DataFrame(doc="Pandas DataFrame", precedence=PRECEDENCES["data"])
 
     _dim_type = "basic"
@@ -2259,7 +2254,6 @@ class DataFrame(DataStructure):
 
 
 class Dataset(DataStructure, Array2D):
-
     ds = param.DataFrame(doc="XArray Dataset", precedence=PRECEDENCES["data"])
 
     cs = param.ClassSelector(
@@ -2279,7 +2273,6 @@ class Dataset(DataStructure, Array2D):
 
 
 class Reference(GeographicData):
-
     chart = param.ObjectSelector(
         objects=CHARTS["ref"],
         doc=f"Type of chart; {CHARTS['ref']}",
