@@ -3,8 +3,18 @@
 Changelog
 ==========
 
-v1.0.1
+v1.0.3
 ------
+
+bug fixes
+~~~~~~~~~
+
+- Set `tqdm` to None if not installed (:pull:`149`)
+- Import `Iterable` from `collections.abc` (:pull:`149`)
+  By `Andrew Huang <https://github.com/ahuang11>`_
+
+v1.0.1 and v1.0.2
+-----------------
 
 documentation
 ~~~~~~~~~~~~~
