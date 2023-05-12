@@ -3,6 +3,21 @@
 Changelog
 ==========
 
+v1.0.4
+------
+
+bug fixes
+~~~~~~~~~
+
+- Fix deprecated `fps`
+  By `Andrew Huang <https://github.com/ahuang11>`_
+
+documentation
+~~~~~~~~~~~~~
+
+- Fix errors in docs
+  By `Andrew Huang <https://github.com/ahuang11>`_
+
 v1.0.3
 ------
 

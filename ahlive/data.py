@@ -834,10 +834,13 @@ class Data(Easing, Animation, Configuration):
             if limit is not None:
                 # pad bar charts
                 if chart.startswith("bar") and axis == "x" and not is_str(limit):
-                    if is_lower_limit:
-                        limit -= 0.5
-                    else:
-                        limit += 0.5
+                    try:
+                        if is_lower_limit:
+                            limit -= 0.5
+                        else:
+                            limit += 0.5
+                    except TypeError:
+                        pass
 
                 if chart == "barh":
                     axis = "x" if axis == "y" else "y"
