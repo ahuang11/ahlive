@@ -33,7 +33,7 @@ release = ahlive.__version__
 # Add any Sphinx extension module names here, as strings. They can be
 # extensions coming with Sphinx (named 'sphinx.ext.*') or your custom
 # ones.
-extensions = ["nbsphinx", "sphinx.ext.extlinks"]
+extensions = ["nbsphinx"]
 
 extlinks = {
     "issue": ("https://github.com/ahuang11/ahlive/issues/%s", "GH#"),
